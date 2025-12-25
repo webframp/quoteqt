@@ -59,6 +59,15 @@ func (q *Queries) DeleteQuote(ctx context.Context, arg DeleteQuoteParams) error 
 	return err
 }
 
+const deleteQuoteByID = `-- name: DeleteQuoteByID :exec
+DELETE FROM quotes WHERE id = ?
+`
+
+func (q *Queries) DeleteQuoteByID(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteQuoteByID, id)
+	return err
+}
+
 const getRandomQuote = `-- name: GetRandomQuote :one
 SELECT id, user_id, text, author, created_at, civilization FROM quotes
 ORDER BY RANDOM()

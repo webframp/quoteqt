@@ -95,7 +95,7 @@ func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := dbgen.New(s.DB)
-	quotes, err := q.ListQuotesByUser(r.Context(), userID)
+	quotes, err := q.ListAllQuotes(r.Context())
 	if err != nil {
 		slog.Error("list quotes", "error", err)
 	}
@@ -365,10 +365,7 @@ func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := dbgen.New(s.DB)
-	err = q.DeleteQuote(r.Context(), dbgen.DeleteQuoteParams{
-		ID:     id,
-		UserID: userID,
-	})
+	err = q.DeleteQuoteByID(r.Context(), id)
 	if err != nil {
 		slog.Error("delete quote", "error", err)
 	}

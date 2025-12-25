@@ -21,6 +21,9 @@ LIMIT 1;
 -- name: DeleteQuote :exec
 DELETE FROM quotes WHERE id = ? AND user_id = ?;
 
+-- name: DeleteQuoteByID :exec
+DELETE FROM quotes WHERE id = ?;
+
 -- name: CountQuotes :one
 SELECT COUNT(*) as count FROM quotes;
 
