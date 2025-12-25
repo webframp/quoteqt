@@ -36,6 +36,9 @@ SELECT COUNT(*) as count FROM quotes;
 -- name: ListAllQuotes :many
 SELECT * FROM quotes ORDER BY created_at DESC;
 
+-- name: ListQuotesPaginated :many
+SELECT * FROM quotes ORDER BY created_at DESC LIMIT ? OFFSET ?;
+
 -- name: GetRandomMatchupQuote :one
 SELECT * FROM quotes
 WHERE civilization = ? AND opponent_civ = ?

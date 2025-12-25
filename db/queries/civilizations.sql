@@ -1,6 +1,15 @@
 -- name: ListCivs :many
 SELECT * FROM civilizations ORDER BY name;
 
+-- name: ListCivsWithQuoteCount :many
+SELECT 
+    c.*,
+    COUNT(q.id) as quote_count
+FROM civilizations c
+LEFT JOIN quotes q ON q.civilization = c.name
+GROUP BY c.id
+ORDER BY c.name;
+
 -- name: GetCivByID :one
 SELECT * FROM civilizations WHERE id = ?;
 

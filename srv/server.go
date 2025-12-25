@@ -23,6 +23,7 @@ type Server struct {
 	Hostname     string
 	TemplatesDir string
 	StaticDir    string
+	APILimiter   *RateLimiter
 }
 
 type pageData struct {
@@ -37,6 +38,12 @@ type pageData struct {
 	Success    string
 	QuoteCount int64
 	Civs       []CivWithCount
+	// Pagination
+	Page       int
+	PageSize   int
+	TotalPages int
+	HasPrev    bool
+	HasNext    bool
 }
 
 type QuoteView struct {
@@ -63,6 +70,8 @@ func New(dbPath, hostname string) (*Server, error) {
 		Hostname:     hostname,
 		TemplatesDir: filepath.Join(baseDir, "templates"),
 		StaticDir:    filepath.Join(baseDir, "static"),
+		// Rate limit: 30 requests per minute per IP, burst of 10
+		APILimiter:   NewRateLimiter(30, time.Minute, 10),
 	}
 	if err := srv.setUpDatabase(dbPath); err != nil {
 		return nil, err
@@ -207,14 +216,13 @@ func (s *Server) HandleCivs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := dbgen.New(s.DB)
-	civs, err := q.ListCivs(r.Context())
+	civs, err := q.ListCivsWithQuoteCount(r.Context())
 	if err != nil {
 		slog.Error("list civs", "error", err)
 	}
 
 	civsWithCount := make([]CivWithCount, len(civs))
 	for i, civ := range civs {
-		count, _ := q.CountQuotesByCiv(r.Context(), &civ.Name)
 		var shortname, variantOf, dlc string
 		if civ.Shortname != nil {
 			shortname = *civ.Shortname
@@ -231,7 +239,7 @@ func (s *Server) HandleCivs(w http.ResponseWriter, r *http.Request) {
 			Shortname:  shortname,
 			VariantOf:  variantOf,
 			Dlc:        dlc,
-			QuoteCount: count,
+			QuoteCount: civ.QuoteCount,
 		}
 	}
 
@@ -374,9 +382,30 @@ func (s *Server) HandleDeleteCiv(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := dbgen.New(s.DB)
+
+	// Check if civ has quotes before deleting
+	civ, err := q.GetCivByID(r.Context(), id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Redirect(w, r, "/civs?error=Civilization+not+found", http.StatusSeeOther)
+			return
+		}
+		slog.Error("get civ", "error", err)
+		http.Redirect(w, r, "/civs?error=Failed+to+delete+civilization", http.StatusSeeOther)
+		return
+	}
+
+	count, _ := q.CountQuotesByCiv(r.Context(), &civ.Name)
+	if count > 0 {
+		http.Redirect(w, r, fmt.Sprintf("/civs?error=Cannot+delete:+%d+quotes+reference+this+civilization", count), http.StatusSeeOther)
+		return
+	}
+
 	err = q.DeleteCiv(r.Context(), id)
 	if err != nil {
 		slog.Error("delete civ", "error", err)
+		http.Redirect(w, r, "/civs?error=Failed+to+delete+civilization", http.StatusSeeOther)
+		return
 	}
 
 	http.Redirect(w, r, "/civs?success=Civilization+deleted", http.StatusSeeOther)
@@ -471,18 +500,41 @@ type QuoteResponse struct {
 	CreatedAt    string  `json:"created_at"`
 }
 
+const defaultPageSize = 20
+
 func (s *Server) HandleQuotesPublic(w http.ResponseWriter, r *http.Request) {
 	q := dbgen.New(s.DB)
-	quotes, err := q.ListAllQuotes(r.Context())
+
+	// Parse pagination params
+	page := 1
+	if p := r.URL.Query().Get("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+
+	count, _ := q.CountQuotes(r.Context())
+	totalPages := int((count + defaultPageSize - 1) / defaultPageSize)
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	offset := (page - 1) * defaultPageSize
+	quotes, err := q.ListQuotesPaginated(r.Context(), dbgen.ListQuotesPaginatedParams{
+		Limit:  defaultPageSize,
+		Offset: int64(offset),
+	})
 	if err != nil {
-		slog.Error("list all quotes", "error", err)
+		slog.Error("list quotes paginated", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
 	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
-	count, _ := q.CountQuotes(r.Context())
 
 	data := pageData{
 		Hostname:   s.Hostname,
@@ -493,6 +545,11 @@ func (s *Server) HandleQuotesPublic(w http.ResponseWriter, r *http.Request) {
 		LogoutURL:  "/__exe.dev/logout",
 		Quotes:     quotesToViews(quotes),
 		QuoteCount: count,
+		Page:       page,
+		PageSize:   defaultPageSize,
+		TotalPages: totalPages,
+		HasPrev:    page > 1,
+		HasNext:    page < totalPages,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -651,9 +708,14 @@ func loginURLForRequest(r *http.Request) string {
 	return "/__exe.dev/login?" + v.Encode()
 }
 
+var templateFuncs = template.FuncMap{
+	"add":      func(a, b int) int { return a + b },
+	"subtract": func(a, b int) int { return a - b },
+}
+
 func (s *Server) renderTemplate(w http.ResponseWriter, name string, data any) error {
 	path := filepath.Join(s.TemplatesDir, name)
-	tmpl, err := template.ParseFiles(path)
+	tmpl, err := template.New(name).Funcs(templateFuncs).ParseFiles(path)
 	if err != nil {
 		return fmt.Errorf("parse template %q: %w", name, err)
 	}
@@ -683,14 +745,19 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("POST /quotes", s.HandleAddQuote)
 	mux.HandleFunc("POST /quotes/{id}/edit", s.HandleEditQuote)
 	mux.HandleFunc("POST /quotes/{id}/delete", s.HandleDeleteQuote)
-	mux.HandleFunc("GET /api/quote", s.HandleRandomQuote)
-	mux.HandleFunc("GET /api/quotes", s.HandleListAllQuotes)
-	mux.HandleFunc("GET /api/matchup", s.HandleMatchup)
 	mux.HandleFunc("GET /civs", s.HandleCivs)
 	mux.HandleFunc("POST /civs", s.HandleAddCiv)
 	mux.HandleFunc("POST /civs/{id}/edit", s.HandleEditCiv)
 	mux.HandleFunc("POST /civs/{id}/delete", s.HandleDeleteCiv)
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(s.StaticDir))))
+
+	// API routes with rate limiting
+	apiMux := http.NewServeMux()
+	apiMux.HandleFunc("GET /api/quote", s.HandleRandomQuote)
+	apiMux.HandleFunc("GET /api/quotes", s.HandleListAllQuotes)
+	apiMux.HandleFunc("GET /api/matchup", s.HandleMatchup)
+	mux.Handle("/api/", s.APILimiter.Middleware(apiMux))
+
 	slog.Info("starting server", "addr", addr)
 	return http.ListenAndServe(addr, mux)
 }

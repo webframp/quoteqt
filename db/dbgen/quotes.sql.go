@@ -309,6 +309,46 @@ func (q *Queries) ListQuotesByUser(ctx context.Context, userID string) ([]Quote,
 	return items, nil
 }
 
+const listQuotesPaginated = `-- name: ListQuotesPaginated :many
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ FROM quotes ORDER BY created_at DESC LIMIT ? OFFSET ?
+`
+
+type ListQuotesPaginatedParams struct {
+	Limit  int64 `json:"limit"`
+	Offset int64 `json:"offset"`
+}
+
+func (q *Queries) ListQuotesPaginated(ctx context.Context, arg ListQuotesPaginatedParams) ([]Quote, error) {
+	rows, err := q.db.QueryContext(ctx, listQuotesPaginated, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Quote{}
+	for rows.Next() {
+		var i Quote
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Text,
+			&i.Author,
+			&i.CreatedAt,
+			&i.Civilization,
+			&i.OpponentCiv,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateQuote = `-- name: UpdateQuote :exec
 UPDATE quotes SET text = ?, author = ?, civilization = ?, opponent_civ = ? WHERE id = ?
 `

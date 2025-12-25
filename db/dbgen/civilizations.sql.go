@@ -7,6 +7,7 @@ package dbgen
 
 import (
 	"context"
+	"time"
 )
 
 const countQuotesByCiv = `-- name: CountQuotesByCiv :one
@@ -124,6 +125,57 @@ func (q *Queries) ListCivs(ctx context.Context) ([]Civilization, error) {
 			&i.Dlc,
 			&i.CreatedAt,
 			&i.Shortname,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCivsWithQuoteCount = `-- name: ListCivsWithQuoteCount :many
+SELECT 
+    c.id, c.name, c.variant_of, c.dlc, c.created_at, c.shortname,
+    COUNT(q.id) as quote_count
+FROM civilizations c
+LEFT JOIN quotes q ON q.civilization = c.name
+GROUP BY c.id
+ORDER BY c.name
+`
+
+type ListCivsWithQuoteCountRow struct {
+	ID         int64     `json:"id"`
+	Name       string    `json:"name"`
+	VariantOf  *string   `json:"variant_of"`
+	Dlc        *string   `json:"dlc"`
+	CreatedAt  time.Time `json:"created_at"`
+	Shortname  *string   `json:"shortname"`
+	QuoteCount int64     `json:"quote_count"`
+}
+
+func (q *Queries) ListCivsWithQuoteCount(ctx context.Context) ([]ListCivsWithQuoteCountRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCivsWithQuoteCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCivsWithQuoteCountRow{}
+	for rows.Next() {
+		var i ListCivsWithQuoteCountRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.VariantOf,
+			&i.Dlc,
+			&i.CreatedAt,
+			&i.Shortname,
+			&i.QuoteCount,
 		); err != nil {
 			return nil, err
 		}

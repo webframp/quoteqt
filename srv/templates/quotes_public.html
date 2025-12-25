@@ -102,6 +102,34 @@
             font-size: 1.1rem;
             color: var(--success);
         }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+        .pagination a, .pagination span {
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            text-decoration: none;
+        }
+        .pagination a {
+            background: var(--accent);
+            color: white;
+        }
+        .pagination a:hover {
+            background: var(--accent-hover);
+        }
+        .pagination .disabled {
+            background: var(--border);
+            color: var(--text-secondary);
+            cursor: not-allowed;
+        }
+        .pagination .current {
+            color: var(--text-secondary);
+        }
         .btn {
             display: inline-block;
             background: var(--accent);
@@ -178,6 +206,23 @@
             <p class="empty">No quotes yet. Be the first to add one!</p>
         </div>
     {{end}}
+
+    {{if gt .TotalPages 1}}
+    <div class="pagination">
+        {{if .HasPrev}}
+            <a href="?page={{subtract .Page 1}}">← Previous</a>
+        {{else}}
+            <span class="disabled">← Previous</span>
+        {{end}}
+        <span class="current">Page {{.Page}} of {{.TotalPages}}</span>
+        {{if .HasNext}}
+            <a href="?page={{add .Page 1}}">Next →</a>
+        {{else}}
+            <span class="disabled">Next →</span>
+        {{end}}
+    </div>
+    {{end}}
+
 <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
     <span id="theme-icon">☀️</span>
 </button>
