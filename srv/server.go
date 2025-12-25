@@ -42,6 +42,7 @@ type pageData struct {
 type CivWithCount struct {
 	ID         int64
 	Name       string
+	Shortname  string
 	VariantOf  string
 	Dlc        string
 	QuoteCount int64
@@ -181,7 +182,10 @@ func (s *Server) HandleCivs(w http.ResponseWriter, r *http.Request) {
 	civsWithCount := make([]CivWithCount, len(civs))
 	for i, civ := range civs {
 		count, _ := q.CountQuotesByCiv(r.Context(), &civ.Name)
-		var variantOf, dlc string
+		var shortname, variantOf, dlc string
+		if civ.Shortname != nil {
+			shortname = *civ.Shortname
+		}
 		if civ.VariantOf != nil {
 			variantOf = *civ.VariantOf
 		}
@@ -191,6 +195,7 @@ func (s *Server) HandleCivs(w http.ResponseWriter, r *http.Request) {
 		civsWithCount[i] = CivWithCount{
 			ID:         civ.ID,
 			Name:       civ.Name,
+			Shortname:  shortname,
 			VariantOf:  variantOf,
 			Dlc:        dlc,
 			QuoteCount: count,
@@ -228,6 +233,7 @@ func (s *Server) HandleAddCiv(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := strings.TrimSpace(r.FormValue("name"))
+	shortname := strings.TrimSpace(r.FormValue("shortname"))
 	variantOf := strings.TrimSpace(r.FormValue("variant_of"))
 	dlc := strings.TrimSpace(r.FormValue("dlc"))
 
@@ -237,7 +243,10 @@ func (s *Server) HandleAddCiv(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := dbgen.New(s.DB)
-	var variantPtr, dlcPtr *string
+	var shortnamePtr, variantPtr, dlcPtr *string
+	if shortname != "" {
+		shortnamePtr = &shortname
+	}
 	if variantOf != "" {
 		variantPtr = &variantOf
 	}
@@ -247,6 +256,7 @@ func (s *Server) HandleAddCiv(w http.ResponseWriter, r *http.Request) {
 
 	err := q.CreateCiv(r.Context(), dbgen.CreateCivParams{
 		Name:      name,
+		Shortname: shortnamePtr,
 		VariantOf: variantPtr,
 		Dlc:       dlcPtr,
 	})
@@ -279,6 +289,7 @@ func (s *Server) HandleEditCiv(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := strings.TrimSpace(r.FormValue("name"))
+	shortname := strings.TrimSpace(r.FormValue("shortname"))
 	variantOf := strings.TrimSpace(r.FormValue("variant_of"))
 	dlc := strings.TrimSpace(r.FormValue("dlc"))
 
@@ -288,7 +299,10 @@ func (s *Server) HandleEditCiv(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := dbgen.New(s.DB)
-	var variantPtr, dlcPtr *string
+	var shortnamePtr, variantPtr, dlcPtr *string
+	if shortname != "" {
+		shortnamePtr = &shortname
+	}
 	if variantOf != "" {
 		variantPtr = &variantOf
 	}
@@ -299,6 +313,7 @@ func (s *Server) HandleEditCiv(w http.ResponseWriter, r *http.Request) {
 	err = q.UpdateCiv(r.Context(), dbgen.UpdateCivParams{
 		ID:        id,
 		Name:      name,
+		Shortname: shortnamePtr,
 		VariantOf: variantPtr,
 		Dlc:       dlcPtr,
 	})
@@ -396,6 +411,16 @@ func (s *Server) HandleListAllQuotes(w http.ResponseWriter, r *http.Request) {
 func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 	q := dbgen.New(s.DB)
 	civ := r.URL.Query().Get("civ")
+
+	// Resolve shortname to full civ name
+	if civ != "" {
+		if resolved, err := q.ResolveCivName(r.Context(), dbgen.ResolveCivNameParams{
+			Shortname: &civ,
+			LOWER:     civ,
+		}); err == nil {
+			civ = resolved
+		}
+	}
 
 	var quote dbgen.Quote
 	var err error

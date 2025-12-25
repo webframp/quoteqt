@@ -21,17 +21,23 @@ func (q *Queries) CountQuotesByCiv(ctx context.Context, civilization *string) (i
 }
 
 const createCiv = `-- name: CreateCiv :exec
-INSERT INTO civilizations (name, variant_of, dlc) VALUES (?, ?, ?)
+INSERT INTO civilizations (name, variant_of, dlc, shortname) VALUES (?, ?, ?, ?)
 `
 
 type CreateCivParams struct {
 	Name      string  `json:"name"`
 	VariantOf *string `json:"variant_of"`
 	Dlc       *string `json:"dlc"`
+	Shortname *string `json:"shortname"`
 }
 
 func (q *Queries) CreateCiv(ctx context.Context, arg CreateCivParams) error {
-	_, err := q.db.ExecContext(ctx, createCiv, arg.Name, arg.VariantOf, arg.Dlc)
+	_, err := q.db.ExecContext(ctx, createCiv,
+		arg.Name,
+		arg.VariantOf,
+		arg.Dlc,
+		arg.Shortname,
+	)
 	return err
 }
 
@@ -45,7 +51,7 @@ func (q *Queries) DeleteCiv(ctx context.Context, id int64) error {
 }
 
 const getCivByID = `-- name: GetCivByID :one
-SELECT id, name, variant_of, dlc, created_at FROM civilizations WHERE id = ?
+SELECT id, name, variant_of, dlc, created_at, shortname FROM civilizations WHERE id = ?
 `
 
 func (q *Queries) GetCivByID(ctx context.Context, id int64) (Civilization, error) {
@@ -57,12 +63,13 @@ func (q *Queries) GetCivByID(ctx context.Context, id int64) (Civilization, error
 		&i.VariantOf,
 		&i.Dlc,
 		&i.CreatedAt,
+		&i.Shortname,
 	)
 	return i, err
 }
 
 const getCivByName = `-- name: GetCivByName :one
-SELECT id, name, variant_of, dlc, created_at FROM civilizations WHERE name = ?
+SELECT id, name, variant_of, dlc, created_at, shortname FROM civilizations WHERE name = ?
 `
 
 func (q *Queries) GetCivByName(ctx context.Context, name string) (Civilization, error) {
@@ -74,12 +81,31 @@ func (q *Queries) GetCivByName(ctx context.Context, name string) (Civilization, 
 		&i.VariantOf,
 		&i.Dlc,
 		&i.CreatedAt,
+		&i.Shortname,
+	)
+	return i, err
+}
+
+const getCivByShortname = `-- name: GetCivByShortname :one
+SELECT id, name, variant_of, dlc, created_at, shortname FROM civilizations WHERE shortname = ?
+`
+
+func (q *Queries) GetCivByShortname(ctx context.Context, shortname *string) (Civilization, error) {
+	row := q.db.QueryRowContext(ctx, getCivByShortname, shortname)
+	var i Civilization
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.VariantOf,
+		&i.Dlc,
+		&i.CreatedAt,
+		&i.Shortname,
 	)
 	return i, err
 }
 
 const listCivs = `-- name: ListCivs :many
-SELECT id, name, variant_of, dlc, created_at FROM civilizations ORDER BY name
+SELECT id, name, variant_of, dlc, created_at, shortname FROM civilizations ORDER BY name
 `
 
 func (q *Queries) ListCivs(ctx context.Context) ([]Civilization, error) {
@@ -97,6 +123,7 @@ func (q *Queries) ListCivs(ctx context.Context) ([]Civilization, error) {
 			&i.VariantOf,
 			&i.Dlc,
 			&i.CreatedAt,
+			&i.Shortname,
 		); err != nil {
 			return nil, err
 		}
@@ -111,14 +138,31 @@ func (q *Queries) ListCivs(ctx context.Context) ([]Civilization, error) {
 	return items, nil
 }
 
+const resolveCivName = `-- name: ResolveCivName :one
+SELECT name FROM civilizations WHERE shortname = ? OR LOWER(name) = LOWER(?)
+`
+
+type ResolveCivNameParams struct {
+	Shortname *string `json:"shortname"`
+	LOWER     string  `json:"lower"`
+}
+
+func (q *Queries) ResolveCivName(ctx context.Context, arg ResolveCivNameParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, resolveCivName, arg.Shortname, arg.LOWER)
+	var name string
+	err := row.Scan(&name)
+	return name, err
+}
+
 const updateCiv = `-- name: UpdateCiv :exec
-UPDATE civilizations SET name = ?, variant_of = ?, dlc = ? WHERE id = ?
+UPDATE civilizations SET name = ?, variant_of = ?, dlc = ?, shortname = ? WHERE id = ?
 `
 
 type UpdateCivParams struct {
 	Name      string  `json:"name"`
 	VariantOf *string `json:"variant_of"`
 	Dlc       *string `json:"dlc"`
+	Shortname *string `json:"shortname"`
 	ID        int64   `json:"id"`
 }
 
@@ -127,6 +171,7 @@ func (q *Queries) UpdateCiv(ctx context.Context, arg UpdateCivParams) error {
 		arg.Name,
 		arg.VariantOf,
 		arg.Dlc,
+		arg.Shortname,
 		arg.ID,
 	)
 	return err

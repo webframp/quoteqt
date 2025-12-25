@@ -114,6 +114,7 @@
             <thead>
                 <tr>
                     <th>Name</th>
+                    <th>Shortname</th>
                     <th>Variant Of</th>
                     <th>DLC</th>
                     <th>Quotes</th>
@@ -125,6 +126,7 @@
                 <tr>
                     <form method="POST" action="/civs/{{.ID}}/edit">
                         <td><input type="text" name="name" value="{{.Name}}" required></td>
+                        <td><input type="text" name="shortname" value="{{.Shortname}}" placeholder="e.g. hre"></td>
                         <td><input type="text" name="variant_of" value="{{.VariantOf}}" placeholder="Base civ (if variant)"></td>
                         <td>
                             <select name="dlc">
@@ -154,6 +156,7 @@
             <form method="POST" action="/civs">
                 <div class="form-row">
                     <input type="text" name="name" placeholder="Civilization name" required>
+                    <input type="text" name="shortname" placeholder="Shortname (e.g. hre)">
                     <input type="text" name="variant_of" placeholder="Variant of (optional)">
                     <select name="dlc">
                         <option value="">Base Game</option>

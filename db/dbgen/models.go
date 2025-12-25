@@ -14,6 +14,7 @@ type Civilization struct {
 	VariantOf *string   `json:"variant_of"`
 	Dlc       *string   `json:"dlc"`
 	CreatedAt time.Time `json:"created_at"`
+	Shortname *string   `json:"shortname"`
 }
 
 type Migration struct {
