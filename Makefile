@@ -1,4 +1,4 @@
-.PHONY: build clean stop start restart test
+.PHONY: build clean test test-unit test-integration
 
 build:
 	go build -o srv ./cmd/srv
@@ -6,5 +6,13 @@ build:
 clean:
 	rm -f srv
 
-test:
-	go test ./...
+# Run unit tests only
+test-unit:
+	go test ./srv/...
+
+# Run integration tests (requires server running on localhost:8000)
+test-integration:
+	go test -tags=integration -v ./...
+
+# Run all tests
+test: test-unit test-integration

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"srv.exe.dev/db/dbgen"
 )
 
 func TestServerSetupAndHandlers(t *testing.T) {
@@ -18,8 +20,7 @@ func TestServerSetupAndHandlers(t *testing.T) {
 		t.Fatalf("failed to create server: %v", err)
 	}
 
-	// Test root endpoint without auth
-	t.Run("root endpoint unauthenticated", func(t *testing.T) {
+	t.Run("root endpoint", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		w := httptest.NewRecorder()
 
@@ -30,88 +31,89 @@ func TestServerSetupAndHandlers(t *testing.T) {
 		}
 
 		body := w.Body.String()
-		if !strings.Contains(body, "test-hostname") {
-			t.Errorf("expected page to show hostname, got body: %s", body)
-		}
-		if !strings.Contains(body, "Go Template Project") {
-			t.Errorf("expected page to contain headline, got body: %s", body)
-		}
-		if strings.Contains(body, "Signed in as") {
-			t.Errorf("expected page to not be logged in, got body: %s", body)
-		}
-		if !strings.Contains(body, "Not signed in") {
-			t.Errorf("expected page to show 'Not signed in', got body: %s", body)
+		if !strings.Contains(body, "AoE4") {
+			t.Errorf("expected page to contain AoE4, got body: %s", body[:200])
 		}
 	})
 
-	// Test root endpoint with auth headers
-	t.Run("root endpoint authenticated", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req.Header.Set("X-ExeDev-UserID", "user123")
-		req.Header.Set("X-ExeDev-Email", "test@example.com")
+	t.Run("browse endpoint", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/browse", nil)
 		w := httptest.NewRecorder()
 
-		server.HandleRoot(w, req)
+		server.HandleQuotesPublic(w, req)
 
 		if w.Code != http.StatusOK {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
+	})
 
-		body := w.Body.String()
-		if !strings.Contains(body, "Signed in as") {
-			t.Errorf("expected page to show logged in state, got body: %s", body)
-		}
-		if !strings.Contains(body, "test@example.com") {
-			t.Error("expected page to show user email")
+	t.Run("quotes endpoint requires auth", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/quotes", nil)
+		w := httptest.NewRecorder()
+
+		server.HandleQuotes(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected redirect 303, got %d", w.Code)
 		}
 	})
 
-	// Test view counter functionality
-	t.Run("view counter increments", func(t *testing.T) {
-		// Make first request
-		req1 := httptest.NewRequest(http.MethodGet, "/", nil)
-		req1.Header.Set("X-ExeDev-UserID", "counter-test")
-		req1.RemoteAddr = "192.168.1.100:12345"
-		w1 := httptest.NewRecorder()
-		server.HandleRoot(w1, req1)
+	t.Run("random quote endpoint", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/quote", nil)
+		w := httptest.NewRecorder()
 
-		// Should show "1 times" or similar
-		body1 := w1.Body.String()
-		if !strings.Contains(body1, "1</strong> times") {
-			t.Error("expected first visit to show 1 time")
+		server.HandleRandomQuote(w, req)
+
+		// Should return 200 or 404 (no quotes in test db)
+		if w.Code != http.StatusOK && w.Code != http.StatusNotFound {
+			t.Errorf("expected 200 or 404, got %d", w.Code)
 		}
 
-		// Make second request with same user
-		req2 := httptest.NewRequest(http.MethodGet, "/", nil)
-		req2.Header.Set("X-ExeDev-UserID", "counter-test")
-		req2.RemoteAddr = "192.168.1.100:12345"
-		w2 := httptest.NewRecorder()
-		server.HandleRoot(w2, req2)
+		ct := w.Header().Get("Content-Type")
+		if !strings.Contains(ct, "text/plain") {
+			t.Errorf("expected text/plain, got %s", ct)
+		}
+	})
 
-		// Should show "2 times" or similar
-		body2 := w2.Body.String()
-		if !strings.Contains(body2, "2</strong> times") {
-			t.Error("expected second visit to show 2 times")
+	t.Run("matchup endpoint requires both params", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/matchup?civ=hre", nil)
+		w := httptest.NewRecorder()
+
+		server.HandleMatchup(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
 		}
 	})
 }
 
-func TestUtilityFunctions(t *testing.T) {
-	t.Run("mainDomainFromHost function", func(t *testing.T) {
-		tests := []struct {
-			input    string
-			expected string
-		}{
-			{"example.exe.cloud:8080", "exe.cloud:8080"},
-			{"example.exe.dev", "exe.dev"},
-			{"example.exe.cloud", "exe.cloud"},
-		}
+func TestQuotesToViews(t *testing.T) {
+	author := "Test Author"
+	civ := "English"
+	opp := "French"
 
-		for _, test := range tests {
-			result := mainDomainFromHost(test.input)
-			if result != test.expected {
-				t.Errorf("mainDomainFromHost(%q) = %q, expected %q", test.input, result, test.expected)
-			}
-		}
-	})
+	input := []dbgen.Quote{
+		{ID: 1, Text: "Test quote", Author: &author, Civilization: &civ, OpponentCiv: &opp},
+		{ID: 2, Text: "No author", Author: nil, Civilization: nil, OpponentCiv: nil},
+	}
+
+	result := quotesToViews(input)
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 views, got %d", len(result))
+	}
+
+	if result[0].Author != "Test Author" {
+		t.Errorf("expected author 'Test Author', got '%s'", result[0].Author)
+	}
+	if result[0].Civilization != "English" {
+		t.Errorf("expected civ 'English', got '%s'", result[0].Civilization)
+	}
+	if result[0].OpponentCiv != "French" {
+		t.Errorf("expected opponent 'French', got '%s'", result[0].OpponentCiv)
+	}
+
+	if result[1].Author != "" {
+		t.Errorf("expected empty author, got '%s'", result[1].Author)
+	}
 }
