@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Quotes - Quote Database</title>
+    <title>Manage Quotes - AoE4 Quote Database</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -57,6 +57,7 @@
         }
         .quote-text { font-size: 1.1rem; font-style: italic; margin-bottom: 0.5rem; }
         .quote-author { color: #7f8c8d; }
+        .quote-civ { color: #9b59b6; font-size: 0.9rem; margin-left: 0.5rem; }
         .quote-actions { margin-top: 0.5rem; }
         .success { background: #d4edda; color: #155724; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
         .error { background: #f8d7da; color: #721c24; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
@@ -69,7 +70,7 @@
         <a href="{{.LogoutURL}}">Logout</a>
     </div>
 
-    <h1>📝 My Quotes</h1>
+    <h1>⚔️ Manage Quotes</h1>
     <p>Logged in as <strong>{{.UserEmail}}</strong></p>
 
     {{if .Success}}
@@ -90,6 +91,28 @@
                 <label for="author">Author (optional)</label>
                 <input type="text" name="author" id="author" placeholder="Who said this?">
             </div>
+            <div class="form-group">
+                <label for="civilization">Civilization (optional)</label>
+                <select name="civilization" id="civilization">
+                    <option value="">-- Any / General --</option>
+                    <option value="Abbasid Dynasty">Abbasid Dynasty</option>
+                    <option value="Ayyubids">Ayyubids</option>
+                    <option value="Byzantines">Byzantines</option>
+                    <option value="Chinese">Chinese</option>
+                    <option value="Delhi Sultanate">Delhi Sultanate</option>
+                    <option value="English">English</option>
+                    <option value="French">French</option>
+                    <option value="Holy Roman Empire">Holy Roman Empire</option>
+                    <option value="Japanese">Japanese</option>
+                    <option value="Jeanne d'Arc">Jeanne d'Arc</option>
+                    <option value="Malians">Malians</option>
+                    <option value="Mongols">Mongols</option>
+                    <option value="Order of the Dragon">Order of the Dragon</option>
+                    <option value="Ottomans">Ottomans</option>
+                    <option value="Rus">Rus</option>
+                    <option value="Zhu Xi's Legacy">Zhu Xi's Legacy</option>
+                </select>
+            </div>
             <button type="submit" class="btn">Add Quote</button>
         </form>
     </div>
@@ -101,7 +124,10 @@
                 <div class="quote-item">
                     <div class="quote-text">"{{.Text}}"</div>
                     {{if .Author}}
-                        <div class="quote-author">— {{.Author}}</div>
+                        <span class="quote-author">— {{.Author}}</span>
+                    {{end}}
+                    {{if .Civilization}}
+                        <span class="quote-civ">[{{.Civilization}}]</span>
                     {{end}}
                     <div class="quote-actions">
                         <form method="POST" action="/quotes/{{.ID}}/delete" style="display:inline;">

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quote Database</title>
+    <title>AoE4 Quote Database</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -48,8 +48,8 @@
     </style>
 </head>
 <body>
-    <h1>📝 Quote Database</h1>
-    <p class="subtitle">Collect and share your favorite quotes</p>
+    <h1>⚔️ AoE4 Quote Database</h1>
+    <p class="subtitle">Wisdom from the battlefield</p>
 
     <div class="card">
         <p class="stats">📊 {{.QuoteCount}} quotes in the database</p>
@@ -59,7 +59,7 @@
             <a href="/quotes" class="btn">Manage Your Quotes</a>
             <p class="auth-info"><a href="{{.LogoutURL}}">Logout</a></p>
         {{else}}
-            <p>Sign in to add and manage your own quotes.</p>
+            <p>Sign in to add and manage quotes.</p>
             <a href="{{.LoginURL}}" class="btn">Sign In</a>
         {{end}}
     </div>
@@ -68,6 +68,7 @@
         <h2>🔗 API</h2>
         <p>Get a random quote as plain text:</p>
         <p><code>GET /api/quote</code></p>
+        <p><code>GET /api/quote?civ=English</code> (filter by civilization)</p>
         <p>Try it: <a href="/api/quote">/api/quote</a></p>
     </div>
 </body>

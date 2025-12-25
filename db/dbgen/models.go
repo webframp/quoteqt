@@ -15,11 +15,12 @@ type Migration struct {
 }
 
 type Quote struct {
-	ID        int64     `json:"id"`
-	UserID    string    `json:"user_id"`
-	Text      string    `json:"text"`
-	Author    *string   `json:"author"`
-	CreatedAt time.Time `json:"created_at"`
+	ID           int64     `json:"id"`
+	UserID       string    `json:"user_id"`
+	Text         string    `json:"text"`
+	Author       *string   `json:"author"`
+	CreatedAt    time.Time `json:"created_at"`
+	Civilization *string   `json:"civilization"`
 }
 
 type Visitor struct {

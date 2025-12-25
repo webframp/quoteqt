@@ -22,15 +22,16 @@ func (q *Queries) CountQuotes(ctx context.Context) (int64, error) {
 }
 
 const createQuote = `-- name: CreateQuote :exec
-INSERT INTO quotes (user_id, text, author, created_at)
-VALUES (?, ?, ?, ?)
+INSERT INTO quotes (user_id, text, author, civilization, created_at)
+VALUES (?, ?, ?, ?, ?)
 `
 
 type CreateQuoteParams struct {
-	UserID    string    `json:"user_id"`
-	Text      string    `json:"text"`
-	Author    *string   `json:"author"`
-	CreatedAt time.Time `json:"created_at"`
+	UserID       string    `json:"user_id"`
+	Text         string    `json:"text"`
+	Author       *string   `json:"author"`
+	Civilization *string   `json:"civilization"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 func (q *Queries) CreateQuote(ctx context.Context, arg CreateQuoteParams) error {
@@ -38,6 +39,7 @@ func (q *Queries) CreateQuote(ctx context.Context, arg CreateQuoteParams) error 
 		arg.UserID,
 		arg.Text,
 		arg.Author,
+		arg.Civilization,
 		arg.CreatedAt,
 	)
 	return err
@@ -58,7 +60,7 @@ func (q *Queries) DeleteQuote(ctx context.Context, arg DeleteQuoteParams) error 
 }
 
 const getRandomQuote = `-- name: GetRandomQuote :one
-SELECT id, user_id, text, author, created_at FROM quotes
+SELECT id, user_id, text, author, created_at, civilization FROM quotes
 ORDER BY RANDOM()
 LIMIT 1
 `
@@ -72,12 +74,34 @@ func (q *Queries) GetRandomQuote(ctx context.Context) (Quote, error) {
 		&i.Text,
 		&i.Author,
 		&i.CreatedAt,
+		&i.Civilization,
+	)
+	return i, err
+}
+
+const getRandomQuoteByCiv = `-- name: GetRandomQuoteByCiv :one
+SELECT id, user_id, text, author, created_at, civilization FROM quotes
+WHERE civilization = ?
+ORDER BY RANDOM()
+LIMIT 1
+`
+
+func (q *Queries) GetRandomQuoteByCiv(ctx context.Context, civilization *string) (Quote, error) {
+	row := q.db.QueryRowContext(ctx, getRandomQuoteByCiv, civilization)
+	var i Quote
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Text,
+		&i.Author,
+		&i.CreatedAt,
+		&i.Civilization,
 	)
 	return i, err
 }
 
 const listAllQuotes = `-- name: ListAllQuotes :many
-SELECT id, user_id, text, author, created_at FROM quotes ORDER BY created_at DESC
+SELECT id, user_id, text, author, created_at, civilization FROM quotes ORDER BY created_at DESC
 `
 
 func (q *Queries) ListAllQuotes(ctx context.Context) ([]Quote, error) {
@@ -95,6 +119,7 @@ func (q *Queries) ListAllQuotes(ctx context.Context) ([]Quote, error) {
 			&i.Text,
 			&i.Author,
 			&i.CreatedAt,
+			&i.Civilization,
 		); err != nil {
 			return nil, err
 		}
@@ -109,8 +134,35 @@ func (q *Queries) ListAllQuotes(ctx context.Context) ([]Quote, error) {
 	return items, nil
 }
 
+const listCivilizations = `-- name: ListCivilizations :many
+SELECT DISTINCT civilization FROM quotes WHERE civilization IS NOT NULL ORDER BY civilization
+`
+
+func (q *Queries) ListCivilizations(ctx context.Context) ([]*string, error) {
+	rows, err := q.db.QueryContext(ctx, listCivilizations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*string{}
+	for rows.Next() {
+		var civilization *string
+		if err := rows.Scan(&civilization); err != nil {
+			return nil, err
+		}
+		items = append(items, civilization)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listQuotesByUser = `-- name: ListQuotesByUser :many
-SELECT id, user_id, text, author, created_at FROM quotes
+SELECT id, user_id, text, author, created_at, civilization FROM quotes
 WHERE user_id = ?
 ORDER BY created_at DESC
 `
@@ -130,6 +182,7 @@ func (q *Queries) ListQuotesByUser(ctx context.Context, userID string) ([]Quote,
 			&i.Text,
 			&i.Author,
 			&i.CreatedAt,
+			&i.Civilization,
 		); err != nil {
 			return nil, err
 		}

@@ -122,6 +122,7 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 
 	text := strings.TrimSpace(r.FormValue("text"))
 	author := strings.TrimSpace(r.FormValue("author"))
+	civ := strings.TrimSpace(r.FormValue("civilization"))
 
 	if text == "" {
 		http.Redirect(w, r, "/quotes?error=Quote+text+is+required", http.StatusSeeOther)
@@ -129,16 +130,20 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := dbgen.New(s.DB)
-	var authorPtr *string
+	var authorPtr, civPtr *string
 	if author != "" {
 		authorPtr = &author
 	}
+	if civ != "" {
+		civPtr = &civ
+	}
 
 	err := q.CreateQuote(r.Context(), dbgen.CreateQuoteParams{
-		UserID:    userID,
-		Text:      text,
-		Author:    authorPtr,
-		CreatedAt: time.Now(),
+		UserID:       userID,
+		Text:         text,
+		Author:       authorPtr,
+		Civilization: civPtr,
+		CreatedAt:    time.Now(),
 	})
 	if err != nil {
 		slog.Error("create quote", "error", err)
@@ -177,10 +182,11 @@ func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
 }
 
 type QuoteResponse struct {
-	ID        int64   `json:"id"`
-	Text      string  `json:"text"`
-	Author    *string `json:"author,omitempty"`
-	CreatedAt string  `json:"created_at"`
+	ID           int64   `json:"id"`
+	Text         string  `json:"text"`
+	Author       *string `json:"author,omitempty"`
+	Civilization *string `json:"civilization,omitempty"`
+	CreatedAt    string  `json:"created_at"`
 }
 
 func (s *Server) HandleListAllQuotes(w http.ResponseWriter, r *http.Request) {
@@ -195,10 +201,11 @@ func (s *Server) HandleListAllQuotes(w http.ResponseWriter, r *http.Request) {
 	response := make([]QuoteResponse, len(quotes))
 	for i, quote := range quotes {
 		response[i] = QuoteResponse{
-			ID:        quote.ID,
-			Text:      quote.Text,
-			Author:    quote.Author,
-			CreatedAt: quote.CreatedAt.Format(time.RFC3339),
+			ID:           quote.ID,
+			Text:         quote.Text,
+			Author:       quote.Author,
+			Civilization: quote.Civilization,
+			CreatedAt:    quote.CreatedAt.Format(time.RFC3339),
 		}
 	}
 
@@ -208,12 +215,25 @@ func (s *Server) HandleListAllQuotes(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 	q := dbgen.New(s.DB)
-	quote, err := q.GetRandomQuote(r.Context())
+	civ := r.URL.Query().Get("civ")
+
+	var quote dbgen.Quote
+	var err error
+	if civ != "" {
+		quote, err = q.GetRandomQuoteByCiv(r.Context(), &civ)
+	} else {
+		quote, err = q.GetRandomQuote(r.Context())
+	}
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprintln(w, "No quotes available.")
+			if civ != "" {
+				fmt.Fprintf(w, "No quotes available for %s.\n", civ)
+			} else {
+				fmt.Fprintln(w, "No quotes available.")
+			}
 			return
 		}
 		slog.Error("get random quote", "error", err)
@@ -222,11 +242,15 @@ func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	var parts []string
+	parts = append(parts, quote.Text)
 	if quote.Author != nil && *quote.Author != "" {
-		fmt.Fprintf(w, "%s\n— %s\n", quote.Text, *quote.Author)
-	} else {
-		fmt.Fprintln(w, quote.Text)
+		parts = append(parts, fmt.Sprintf("— %s", *quote.Author))
 	}
+	if quote.Civilization != nil && *quote.Civilization != "" {
+		parts = append(parts, fmt.Sprintf("[%s]", *quote.Civilization))
+	}
+	fmt.Fprintln(w, strings.Join(parts, " "))
 }
 
 func loginURLForRequest(r *http.Request) string {

@@ -1,6 +1,6 @@
 -- name: CreateQuote :exec
-INSERT INTO quotes (user_id, text, author, created_at)
-VALUES (?, ?, ?, ?);
+INSERT INTO quotes (user_id, text, author, civilization, created_at)
+VALUES (?, ?, ?, ?, ?);
 
 -- name: ListQuotesByUser :many
 SELECT * FROM quotes
@@ -12,6 +12,12 @@ SELECT * FROM quotes
 ORDER BY RANDOM()
 LIMIT 1;
 
+-- name: GetRandomQuoteByCiv :one
+SELECT * FROM quotes
+WHERE civilization = ?
+ORDER BY RANDOM()
+LIMIT 1;
+
 -- name: DeleteQuote :exec
 DELETE FROM quotes WHERE id = ? AND user_id = ?;
 
@@ -20,3 +26,6 @@ SELECT COUNT(*) as count FROM quotes;
 
 -- name: ListAllQuotes :many
 SELECT * FROM quotes ORDER BY created_at DESC;
+
+-- name: ListCivilizations :many
+SELECT DISTINCT civilization FROM quotes WHERE civilization IS NOT NULL ORDER BY civilization;
