@@ -797,7 +797,7 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("POST /civs", s.HandleAddCiv)
 	mux.HandleFunc("POST /civs/{id}/edit", s.HandleEditCiv)
 	mux.HandleFunc("POST /civs/{id}/delete", s.HandleDeleteCiv)
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(s.StaticDir))))
+	mux.Handle("/static/", http.StripPrefix("/static/", StaticFileServer(s.StaticDir)))
 
 	// API routes with rate limiting
 	apiMux := http.NewServeMux()
@@ -808,7 +808,7 @@ func (s *Server) Serve(addr string) error {
 
 	s.httpServer = &http.Server{
 		Addr:    addr,
-		Handler: LimitRequestBody(mux),
+		Handler: Gzip(LimitRequestBody(mux)),
 	}
 
 	slog.Info("starting server", "addr", addr)
