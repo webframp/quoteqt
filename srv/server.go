@@ -133,6 +133,7 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 	text := strings.TrimSpace(r.FormValue("text"))
 	author := strings.TrimSpace(r.FormValue("author"))
 	civ := strings.TrimSpace(r.FormValue("civilization"))
+	opponentCiv := strings.TrimSpace(r.FormValue("opponent_civ"))
 
 	if text == "" {
 		http.Redirect(w, r, "/quotes?error=Quote+text+is+required", http.StatusSeeOther)
@@ -140,20 +141,24 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := dbgen.New(s.DB)
-	var authorPtr, civPtr *string
+	var authorPtr, civPtr, opponentPtr *string
 	if author != "" {
 		authorPtr = &author
 	}
 	if civ != "" {
 		civPtr = &civ
 	}
+	if opponentCiv != "" {
+		opponentPtr = &opponentCiv
+	}
 
 	err := q.CreateQuote(r.Context(), dbgen.CreateQuoteParams{
-		UserID:       userID,
-		Text:         text,
-		Author:       authorPtr,
+		UserID:      userID,
+		Text:        text,
+		Author:      authorPtr,
 		Civilization: civPtr,
-		CreatedAt:    time.Now(),
+		OpponentCiv: opponentPtr,
+		CreatedAt:   time.Now(),
 	})
 	if err != nil {
 		slog.Error("create quote", "error", err)
@@ -435,6 +440,57 @@ func (s *Server) HandleListAllQuotes(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
+	q := dbgen.New(s.DB)
+	playCiv := r.URL.Query().Get("civ")
+	vsCiv := r.URL.Query().Get("vs")
+
+	if playCiv == "" || vsCiv == "" {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "Usage: /api/matchup?civ=X&vs=Y")
+		return
+	}
+
+	// Resolve shortnames
+	if resolved, err := q.ResolveCivName(r.Context(), dbgen.ResolveCivNameParams{
+		Shortname: &playCiv,
+		LOWER:     playCiv,
+	}); err == nil {
+		playCiv = resolved
+	}
+	if resolved, err := q.ResolveCivName(r.Context(), dbgen.ResolveCivNameParams{
+		Shortname: &vsCiv,
+		LOWER:     vsCiv,
+	}); err == nil {
+		vsCiv = resolved
+	}
+
+	quote, err := q.GetRandomMatchupQuote(r.Context(), dbgen.GetRandomMatchupQuoteParams{
+		Civilization: &playCiv,
+		OpponentCiv:  &vsCiv,
+	})
+	if err != nil {
+		if err == sql.ErrNoRows {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(w, "No tips for %s vs %s yet.\n", playCiv, vsCiv)
+			return
+		}
+		slog.Error("get matchup quote", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	var parts []string
+	parts = append(parts, quote.Text)
+	if quote.Author != nil && *quote.Author != "" {
+		parts = append(parts, fmt.Sprintf("— %s", *quote.Author))
+	}
+	fmt.Fprintln(w, strings.Join(parts, " "))
+}
+
 func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 	q := dbgen.New(s.DB)
 	civ := r.URL.Query().Get("civ")
@@ -525,6 +581,7 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("POST /quotes/{id}/delete", s.HandleDeleteQuote)
 	mux.HandleFunc("GET /api/quote", s.HandleRandomQuote)
 	mux.HandleFunc("GET /api/quotes", s.HandleListAllQuotes)
+	mux.HandleFunc("GET /api/matchup", s.HandleMatchup)
 	mux.HandleFunc("GET /civs", s.HandleCivs)
 	mux.HandleFunc("POST /civs", s.HandleAddCiv)
 	mux.HandleFunc("POST /civs/{id}/edit", s.HandleEditCiv)

@@ -117,7 +117,11 @@
                         <span class="quote-author">— {{.Author}}</span>
                     {{end}}
                     {{if .Civilization}}
-                        <span class="quote-civ">{{.Civilization}}</span>
+                        {{if .OpponentCiv}}
+                            <span class="quote-civ">{{.Civilization}} vs {{.OpponentCiv}}</span>
+                        {{else}}
+                            <span class="quote-civ">{{.Civilization}}</span>
+                        {{end}}
                     {{end}}
                 </div>
             </div>

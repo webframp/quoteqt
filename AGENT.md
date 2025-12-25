@@ -32,3 +32,10 @@ All other routes serve HTML pages for browser-based interaction.
 
 - All 22 AoE4 civilizations are tracked with shortnames for API filtering
 - Shortnames follow aoe4world.com conventions (e.g., `hre`, `delhi`, `zhuxi`)
+
+### Quotes vs Matchup Tips
+
+- Regular quotes: Have optional `civilization` field for civ-specific quotes
+- Matchup tips: Have both `civilization` (your civ) and `opponent_civ` fields
+- Both are stored in the same `quotes` table; matchup tips just have `opponent_civ` set
+- Accessed via separate endpoints: `/api/quote` vs `/api/matchup`

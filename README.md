@@ -6,6 +6,7 @@ A quote database application for Age of Empires IV streamers and their communiti
 
 - **Public API**: Get random quotes as plain text, perfect for chat bots and stream overlays
 - **Civ filtering**: Filter quotes by civilization using shortnames (e.g., `?civ=hre`)
+- **Matchup tips**: Get tips for specific civ vs civ matchups (e.g., `?civ=hre&vs=french`)
 - **Web interface**: Authenticated users can add, view, and delete quotes
 - **Civilization management**: Full list of all 22 AoE4 civilizations across all DLCs
 - **exe.dev authentication**: Login via exe.dev identity system
@@ -19,6 +20,7 @@ A quote database application for Age of Empires IV streamers and their communiti
 | `GET /browse` | Browse all quotes (HTML) |
 | `GET /api/quote` | Random quote as plain text |
 | `GET /api/quote?civ=hre` | Random quote filtered by civ shortname |
+| `GET /api/matchup?civ=hre&vs=french` | Random matchup tip for civ vs opponent |
 | `GET /api/quotes` | All quotes as JSON |
 
 ### Authenticated
