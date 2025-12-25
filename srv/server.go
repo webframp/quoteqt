@@ -32,11 +32,19 @@ type pageData struct {
 	UserID     string
 	LoginURL   string
 	LogoutURL  string
-	Quotes     []dbgen.Quote
+	Quotes     []QuoteView
 	Error      string
 	Success    string
 	QuoteCount int64
 	Civs       []CivWithCount
+}
+
+type QuoteView struct {
+	ID           int64
+	Text         string
+	Author       string
+	Civilization string
+	OpponentCiv  string
 }
 
 type CivWithCount struct {
@@ -85,6 +93,26 @@ func (s *Server) HandleRoot(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func quotesToViews(quotes []dbgen.Quote) []QuoteView {
+	views := make([]QuoteView, len(quotes))
+	for i, q := range quotes {
+		views[i] = QuoteView{
+			ID:   q.ID,
+			Text: q.Text,
+		}
+		if q.Author != nil {
+			views[i].Author = *q.Author
+		}
+		if q.Civilization != nil {
+			views[i].Civilization = *q.Civilization
+		}
+		if q.OpponentCiv != nil {
+			views[i].OpponentCiv = *q.OpponentCiv
+		}
+	}
+	return views
+}
+
 func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
@@ -107,7 +135,7 @@ func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 		UserID:    userID,
 		LoginURL:  loginURLForRequest(r),
 		LogoutURL: "/__exe.dev/logout",
-		Quotes:    quotes,
+		Quotes:    quotesToViews(quotes),
 		Success:   r.URL.Query().Get("success"),
 	}
 
@@ -463,7 +491,7 @@ func (s *Server) HandleQuotesPublic(w http.ResponseWriter, r *http.Request) {
 		UserID:     userID,
 		LoginURL:   loginURLForRequest(r),
 		LogoutURL:  "/__exe.dev/logout",
-		Quotes:     quotes,
+		Quotes:     quotesToViews(quotes),
 		QuoteCount: count,
 	}
 
