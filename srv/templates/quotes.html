@@ -114,5 +114,13 @@
             <p class="empty">You haven't added any quotes yet. Add one above!</p>
         {{end}}
     </div>
+<script>
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'Enter') {
+            const form = document.querySelector('form[action="/quotes"]');
+            if (form) form.submit();
+        }
+    });
+</script>
 </body>
 </html>
