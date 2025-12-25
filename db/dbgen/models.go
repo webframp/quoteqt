@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+type Civilization struct {
+	ID        int64     `json:"id"`
+	Name      string    `json:"name"`
+	VariantOf *string   `json:"variant_of"`
+	Dlc       *string   `json:"dlc"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type Migration struct {
 	MigrationNumber int64     `json:"migration_number"`
 	MigrationName   string    `json:"migration_name"`

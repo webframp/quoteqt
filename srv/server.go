@@ -36,6 +36,15 @@ type pageData struct {
 	Error      string
 	Success    string
 	QuoteCount int64
+	Civs       []CivWithCount
+}
+
+type CivWithCount struct {
+	ID         int64
+	Name       string
+	VariantOf  string
+	Dlc        string
+	QuoteCount int64
 }
 
 func New(dbPath, hostname string) (*Server, error) {
@@ -152,6 +161,56 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/quotes?success=Quote+added!", http.StatusSeeOther)
+}
+
+func (s *Server) HandleCivs(w http.ResponseWriter, r *http.Request) {
+	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+
+	if userID == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	civs, err := q.ListCivs(r.Context())
+	if err != nil {
+		slog.Error("list civs", "error", err)
+	}
+
+	civsWithCount := make([]CivWithCount, len(civs))
+	for i, civ := range civs {
+		count, _ := q.CountQuotesByCiv(r.Context(), &civ.Name)
+		var variantOf, dlc string
+		if civ.VariantOf != nil {
+			variantOf = *civ.VariantOf
+		}
+		if civ.Dlc != nil {
+			dlc = *civ.Dlc
+		}
+		civsWithCount[i] = CivWithCount{
+			ID:         civ.ID,
+			Name:       civ.Name,
+			VariantOf:  variantOf,
+			Dlc:        dlc,
+			QuoteCount: count,
+		}
+	}
+
+	data := pageData{
+		Hostname:  s.Hostname,
+		Now:       time.Now().Format(time.RFC3339),
+		UserEmail: userEmail,
+		UserID:    userID,
+		LoginURL:  loginURLForRequest(r),
+		LogoutURL: "/__exe.dev/logout",
+		Civs:      civsWithCount,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.renderTemplate(w, "civs.html", data); err != nil {
+		slog.Warn("render template", "url", r.URL.Path, "error", err)
+	}
 }
 
 func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
@@ -292,6 +351,7 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("POST /quotes/{id}/delete", s.HandleDeleteQuote)
 	mux.HandleFunc("GET /api/quote", s.HandleRandomQuote)
 	mux.HandleFunc("GET /api/quotes", s.HandleListAllQuotes)
+	mux.HandleFunc("GET /civs", s.HandleCivs)
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(s.StaticDir))))
 	slog.Info("starting server", "addr", addr)
 	return http.ListenAndServe(addr, mux)

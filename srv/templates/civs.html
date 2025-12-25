@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Civilizations - AoE4 Quote Database</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: #f5f5f5;
+            color: #333;
+        }
+        h1 { color: #2c3e50; margin-bottom: 0.5rem; }
+        .nav { margin-bottom: 2rem; }
+        .nav a { color: #3498db; text-decoration: none; margin-right: 1rem; }
+        .nav a:hover { text-decoration: underline; }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid #eee;
+        }
+        th { 
+            background: #f8f9fa; 
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        tr:hover { background: #f8f9fa; }
+        .variant { color: #7f8c8d; font-size: 0.9rem; }
+        .dlc { 
+            display: inline-block;
+            background: #e8f4f8;
+            color: #2980b9;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+        .dlc.base { background: #e8f8e8; color: #27ae60; }
+        .dlc.anniversary { background: #fff3e0; color: #e67e22; }
+        .dlc.sultans { background: #fce4ec; color: #c2185b; }
+        .dlc.dynasties { background: #f3e5f5; color: #7b1fa2; }
+        .quote-count {
+            background: #3498db;
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+        }
+        .quote-count.zero { background: #bdc3c7; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="/">← Home</a>
+        <a href="/quotes">Manage Quotes</a>
+        <a href="{{.LogoutURL}}">Logout</a>
+    </div>
+
+    <h1>⚔️ Civilizations</h1>
+    <p>All 20 civilizations in Age of Empires IV</p>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Civilization</th>
+                    <th>Variant Of</th>
+                    <th>DLC</th>
+                    <th>Quotes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Civs}}
+                <tr>
+                    <td><strong>{{.Name}}</strong></td>
+                    <td>
+                        {{if .VariantOf}}
+                            <span class="variant">{{.VariantOf}}</span>
+                        {{else}}
+                            —
+                        {{end}}
+                    </td>
+                    <td>
+                        {{if eq .Dlc "Anniversary Edition"}}
+                            <span class="dlc anniversary">{{.Dlc}}</span>
+                        {{else if eq .Dlc "The Sultans Ascend"}}
+                            <span class="dlc sultans">{{.Dlc}}</span>
+                        {{else if eq .Dlc "Dynasties of the East"}}
+                            <span class="dlc dynasties">{{.Dlc}}</span>
+                        {{else if .Dlc}}
+                            <span class="dlc">{{.Dlc}}</span>
+                        {{else}}
+                            <span class="dlc base">Base Game</span>
+                        {{end}}
+                    </td>
+                    <td>
+                        <span class="quote-count{{if eq .QuoteCount 0}} zero{{end}}">{{.QuoteCount}}</span>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
