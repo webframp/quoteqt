@@ -530,6 +530,9 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 	playCiv := r.URL.Query().Get("civ")
 	vsCiv := r.URL.Query().Get("vs")
 
+	// Log incoming request for debugging
+	slog.Info("matchup request", "rawQuery", r.URL.RawQuery, "fullURL", r.URL.String())
+
 	// Support Nightbot querystring format: /api/matchup?hre french
 	// The raw query will be "hre french" or "hre%20french"
 	if playCiv == "" && vsCiv == "" {
@@ -573,7 +576,7 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-			w.WriteHeader(http.StatusNotFound)
+			// Return 200 so bots like Nightbot don't treat it as an error
 			fmt.Fprintf(w, "No tips for %s vs %s yet.\n", playCiv, vsCiv)
 			return
 		}
@@ -616,7 +619,7 @@ func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-			w.WriteHeader(http.StatusNotFound)
+			// Return 200 so bots like Nightbot don't treat it as an error
 			if civ != "" {
 				fmt.Fprintf(w, "No quotes available for %s.\n", civ)
 			} else {
