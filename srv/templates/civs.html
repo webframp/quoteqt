@@ -5,28 +5,73 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Civilizations - AoE4 Quote Database</title>
     <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #1f2937;
+            --text-primary: #e5e7eb;
+            --text-secondary: #9ca3af;
+            --text-heading: #f3f4f6;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #10b981;
+            --success-hover: #059669;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --border: #374151;
+            --shadow: rgba(0,0,0,0.3);
+            --success-bg: #064e3b;
+            --success-text: #6ee7b7;
+            --error-bg: #7f1d1d;
+            --error-text: #fca5a5;
+            --table-hover: #374151;
+            --table-header: #111827;
+        }
+        [data-theme="light"] {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #e5e7eb;
+            --bg-card: white;
+            --text-primary: #333;
+            --text-secondary: #7f8c8d;
+            --text-heading: #2c3e50;
+            --accent: #3498db;
+            --accent-hover: #2980b9;
+            --success: #27ae60;
+            --success-hover: #1e8449;
+            --danger: #e74c3c;
+            --danger-hover: #c0392b;
+            --border: #ddd;
+            --shadow: rgba(0,0,0,0.1);
+            --success-bg: #d4edda;
+            --success-text: #155724;
+            --error-bg: #f8d7da;
+            --error-text: #721c24;
+            --table-hover: #f8f9fa;
+            --table-header: #f8f9fa;
+        }
         * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             max-width: 1000px;
             margin: 0 auto;
             padding: 2rem;
-            background: #f5f5f5;
-            color: #333;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
         }
-        h1, h2 { color: #2c3e50; margin-bottom: 0.5rem; }
+        h1, h2, h3 { color: var(--text-heading); margin-bottom: 0.5rem; }
         .nav { margin-bottom: 2rem; }
-        .nav a { color: #3498db; text-decoration: none; margin-right: 1rem; }
+        .nav a { color: var(--accent); text-decoration: none; margin-right: 1rem; }
         .nav a:hover { text-decoration: underline; }
         .card {
-            background: white;
+            background: var(--bg-card);
             border-radius: 8px;
             padding: 1.5rem;
             margin-bottom: 1.5rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px var(--shadow);
         }
-        .success { background: #d4edda; color: #155724; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
-        .error { background: #f8d7da; color: #721c24; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        .success { background: var(--success-bg); color: var(--success-text); padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        .error { background: var(--error-bg); color: var(--error-text); padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -34,24 +79,26 @@
         th, td {
             text-align: left;
             padding: 0.5rem;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--border);
             vertical-align: middle;
         }
         th { 
-            background: #f8f9fa; 
+            background: var(--table-header); 
             font-weight: 600;
-            color: #2c3e50;
+            color: var(--text-heading);
         }
-        tr:hover { background: #f8f9fa; }
+        tr:hover { background: var(--table-hover); }
         input[type="text"], select {
             padding: 0.4rem;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border);
             border-radius: 3px;
             font-size: 0.9rem;
             width: 100%;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
         }
         .btn {
-            background: #3498db;
+            background: var(--accent);
             color: white;
             padding: 0.4rem 0.8rem;
             border: none;
@@ -59,38 +106,59 @@
             font-size: 0.85rem;
             cursor: pointer;
         }
-        .btn:hover { background: #2980b9; }
-        .btn-danger { background: #e74c3c; }
-        .btn-danger:hover { background: #c0392b; }
-        .btn-success { background: #27ae60; }
-        .btn-success:hover { background: #1e8449; }
+        .btn:hover { background: var(--accent-hover); }
+        .btn-danger { background: var(--danger); }
+        .btn-danger:hover { background: var(--danger-hover); }
+        .btn-success { background: var(--success); }
+        .btn-success:hover { background: var(--success-hover); }
         .actions { white-space: nowrap; }
         .actions form { display: inline; }
         .dlc { 
             display: inline-block;
-            background: #e8f4f8;
-            color: #2980b9;
             padding: 0.2rem 0.5rem;
             border-radius: 3px;
             font-size: 0.8rem;
         }
-        .dlc.base { background: #e8f8e8; color: #27ae60; }
-        .dlc.anniversary { background: #fff3e0; color: #e67e22; }
-        .dlc.sultans { background: #fce4ec; color: #c2185b; }
-        .dlc.dynasties { background: #f3e5f5; color: #7b1fa2; }
-        .dlc.knights { background: #e3f2fd; color: #1565c0; }
+        .dlc.base { background: #064e3b; color: #6ee7b7; }
+        .dlc.anniversary { background: #78350f; color: #fcd34d; }
+        .dlc.sultans { background: #831843; color: #f9a8d4; }
+        .dlc.dynasties { background: #581c87; color: #d8b4fe; }
+        .dlc.knights { background: #1e3a8a; color: #93c5fd; }
+        [data-theme="light"] .dlc.base { background: #e8f8e8; color: #27ae60; }
+        [data-theme="light"] .dlc.anniversary { background: #fff3e0; color: #e67e22; }
+        [data-theme="light"] .dlc.sultans { background: #fce4ec; color: #c2185b; }
+        [data-theme="light"] .dlc.dynasties { background: #f3e5f5; color: #7b1fa2; }
+        [data-theme="light"] .dlc.knights { background: #e3f2fd; color: #1565c0; }
         .quote-count {
-            background: #3498db;
+            background: var(--accent);
             color: white;
             padding: 0.2rem 0.6rem;
             border-radius: 12px;
             font-size: 0.85rem;
         }
-        .quote-count.zero { background: #bdc3c7; }
+        .quote-count.zero { background: var(--text-secondary); }
         .form-row { display: flex; gap: 0.5rem; align-items: center; }
         .form-row input, .form-row select { flex: 1; }
-        .add-form { margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #eee; }
-        .variant { color: #7f8c8d; font-size: 0.9rem; }
+        .add-form { margin-top: 1rem; padding-top: 1rem; border-top: 2px solid var(--border); }
+        .variant { color: var(--text-secondary); font-size: 0.9rem; }
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px var(--shadow);
+            transition: transform 0.2s;
+        }
+        .theme-toggle:hover { transform: scale(1.1); }
     </style>
 </head>
 <body>
@@ -172,5 +240,26 @@
             </form>
         </div>
     </div>
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+    <span id="theme-icon">☀️</span>
+</button>
+<script>
+    function toggleTheme() {
+        const html = document.documentElement;
+        const current = html.getAttribute('data-theme');
+        const next = current === 'light' ? 'dark' : 'light';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        updateIcon(next);
+    }
+    function updateIcon(theme) {
+        document.getElementById('theme-icon').textContent = theme === 'light' ? '🌙' : '☀️';
+    }
+    (function() {
+        const saved = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', saved);
+        updateIcon(saved);
+    })();
+</script>
 </body>
 </html>

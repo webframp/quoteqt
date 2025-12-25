@@ -5,39 +5,82 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Quotes - AoE4 Quote Database</title>
     <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #1f2937;
+            --text-primary: #e5e7eb;
+            --text-secondary: #9ca3af;
+            --text-heading: #f3f4f6;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --border: #374151;
+            --civ-color: #a78bfa;
+            --shadow: rgba(0,0,0,0.3);
+            --success-bg: #064e3b;
+            --success-text: #6ee7b7;
+            --error-bg: #7f1d1d;
+            --error-text: #fca5a5;
+        }
+        [data-theme="light"] {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #e5e7eb;
+            --bg-card: white;
+            --text-primary: #333;
+            --text-secondary: #7f8c8d;
+            --text-heading: #2c3e50;
+            --accent: #3498db;
+            --accent-hover: #2980b9;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --danger-hover: #c0392b;
+            --border: #ddd;
+            --civ-color: #9b59b6;
+            --shadow: rgba(0,0,0,0.1);
+            --success-bg: #d4edda;
+            --success-text: #155724;
+            --error-bg: #f8d7da;
+            --error-text: #721c24;
+        }
         * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             max-width: 800px;
             margin: 0 auto;
             padding: 2rem;
-            background: #f5f5f5;
-            color: #333;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
         }
-        h1 { color: #2c3e50; margin-bottom: 0.5rem; }
+        h1, h2, h3 { color: var(--text-heading); margin-bottom: 0.5rem; }
         .nav { margin-bottom: 2rem; }
-        .nav a { color: #3498db; text-decoration: none; margin-right: 1rem; }
+        .nav a { color: var(--accent); text-decoration: none; margin-right: 1rem; }
         .nav a:hover { text-decoration: underline; }
         .card {
-            background: white;
+            background: var(--bg-card);
             border-radius: 8px;
             padding: 1.5rem;
             margin-bottom: 1.5rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px var(--shadow);
         }
         .form-group { margin-bottom: 1rem; }
-        label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
-        textarea, input[type="text"] {
+        label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-primary); }
+        textarea, input[type="text"], select {
             width: 100%;
             padding: 0.75rem;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border);
             border-radius: 4px;
             font-size: 1rem;
             font-family: inherit;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
         }
         textarea { min-height: 100px; resize: vertical; }
         .btn {
-            background: #3498db;
+            background: var(--accent);
             color: white;
             padding: 0.75rem 1.5rem;
             border: none;
@@ -45,26 +88,44 @@
             font-size: 1rem;
             cursor: pointer;
         }
-        .btn:hover { background: #2980b9; }
-        .btn-danger { background: #e74c3c; }
-        .btn-danger:hover { background: #c0392b; }
+        .btn:hover { background: var(--accent-hover); }
+        .btn-danger { background: var(--danger); }
+        .btn-danger:hover { background: var(--danger-hover); }
         .btn-small { padding: 0.4rem 0.8rem; font-size: 0.9rem; }
         .quote-item {
-            border-left: 4px solid #3498db;
+            border-left: 4px solid var(--accent);
             padding-left: 1rem;
             margin-bottom: 1rem;
             position: relative;
         }
-        .quote-text { font-size: 1.1rem; font-style: italic; margin-bottom: 0.5rem; }
-        .quote-author { color: #7f8c8d; }
-        .quote-civ { color: #9b59b6; font-size: 0.9rem; margin-left: 0.5rem; }
+        .quote-text { font-size: 1.1rem; font-style: italic; margin-bottom: 0.5rem; color: var(--text-primary); }
+        .quote-author { color: var(--text-secondary); }
+        .quote-civ { color: var(--civ-color); font-size: 0.9rem; margin-left: 0.5rem; }
         .quote-actions { margin-top: 0.5rem; }
-        .quote-edit textarea { width: 100%; min-height: 60px; margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; }
+        .quote-edit textarea { width: 100%; min-height: 60px; margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; font-family: inherit; background: var(--bg-secondary); color: var(--text-primary); }
         .edit-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
-        .edit-row input, .edit-row select { flex: 1; min-width: 150px; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px; }
-        .success { background: #d4edda; color: #155724; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
-        .error { background: #f8d7da; color: #721c24; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
-        .empty { color: #7f8c8d; font-style: italic; }
+        .edit-row input, .edit-row select { flex: 1; min-width: 150px; padding: 0.4rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-secondary); color: var(--text-primary); }
+        .success { background: var(--success-bg); color: var(--success-text); padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        .error { background: var(--error-bg); color: var(--error-text); padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        .empty { color: var(--text-secondary); font-style: italic; }
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px var(--shadow);
+            transition: transform 0.2s;
+        }
+        .theme-toggle:hover { transform: scale(1.1); }
     </style>
 </head>
 <body>
@@ -265,6 +326,25 @@
             edit.style.display = 'none';
         }
     }
+    function toggleTheme() {
+        const html = document.documentElement;
+        const current = html.getAttribute('data-theme');
+        const next = current === 'light' ? 'dark' : 'light';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        updateIcon(next);
+    }
+    function updateIcon(theme) {
+        document.getElementById('theme-icon').textContent = theme === 'light' ? '🌙' : '☀️';
+    }
+    (function() {
+        const saved = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', saved);
+        updateIcon(saved);
+    })();
 </script>
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+    <span id="theme-icon">☀️</span>
+</button>
 </body>
 </html>

@@ -5,46 +5,94 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AoE4 Quote Database</title>
     <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #1f2937;
+            --text-primary: #e5e7eb;
+            --text-secondary: #9ca3af;
+            --text-heading: #f3f4f6;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #10b981;
+            --border: #374151;
+            --code-bg: #374151;
+            --shadow: rgba(0,0,0,0.3);
+        }
+        [data-theme="light"] {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #e5e7eb;
+            --bg-card: white;
+            --text-primary: #333;
+            --text-secondary: #7f8c8d;
+            --text-heading: #2c3e50;
+            --accent: #3498db;
+            --accent-hover: #2980b9;
+            --success: #27ae60;
+            --border: #ddd;
+            --code-bg: #ecf0f1;
+            --shadow: rgba(0,0,0,0.1);
+        }
         * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             max-width: 800px;
             margin: 0 auto;
             padding: 2rem;
-            background: #f5f5f5;
-            color: #333;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
         }
-        h1 { color: #2c3e50; margin-bottom: 0.5rem; }
-        .subtitle { color: #7f8c8d; margin-bottom: 2rem; }
+        h1 { color: var(--text-heading); margin-bottom: 0.5rem; }
+        .subtitle { color: var(--text-secondary); margin-bottom: 2rem; }
         .card {
-            background: white;
+            background: var(--bg-card);
             border-radius: 8px;
             padding: 2rem;
             margin-bottom: 1.5rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px var(--shadow);
         }
-        .stats { font-size: 1.2rem; color: #27ae60; }
-        a { color: #3498db; text-decoration: none; }
+        .stats { font-size: 1.2rem; color: var(--success); }
+        a { color: var(--accent); text-decoration: none; }
         a:hover { text-decoration: underline; }
         .btn {
             display: inline-block;
-            background: #3498db;
+            background: var(--accent);
             color: white;
             padding: 0.75rem 1.5rem;
             border-radius: 4px;
             font-size: 1rem;
             margin-top: 1rem;
         }
-        .btn:hover { background: #2980b9; text-decoration: none; }
-        .auth-info { margin-top: 1rem; color: #7f8c8d; }
+        .btn:hover { background: var(--accent-hover); text-decoration: none; }
+        .auth-info { margin-top: 1rem; color: var(--text-secondary); }
         code {
-            background: #ecf0f1;
+            background: var(--code-bg);
             padding: 0.2rem 0.5rem;
             border-radius: 3px;
             font-family: 'Monaco', 'Consolas', monospace;
+            color: var(--text-primary);
         }
         .api-section { margin-top: 2rem; }
-        .api-section h2 { color: #2c3e50; font-size: 1.3rem; }
+        .api-section h2 { color: var(--text-heading); font-size: 1.3rem; }
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px var(--shadow);
+            transition: transform 0.2s;
+        }
+        .theme-toggle:hover { transform: scale(1.1); }
     </style>
 </head>
 <body>
@@ -72,5 +120,26 @@
         <p><code>GET /api/quote?civ=Holy Roman Empire</code> (or full name)</p>
         <p>Try it: <a href="/api/quote">/api/quote</a></p>
     </div>
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <span id="theme-icon">☀️</span>
+    </button>
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const next = current === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateIcon(next);
+        }
+        function updateIcon(theme) {
+            document.getElementById('theme-icon').textContent = theme === 'light' ? '🌙' : '☀️';
+        }
+        (function() {
+            const saved = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+            updateIcon(saved);
+        })();
+    </script>
 </body>
 </html>
