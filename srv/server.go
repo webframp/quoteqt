@@ -205,12 +205,133 @@ func (s *Server) HandleCivs(w http.ResponseWriter, r *http.Request) {
 		LoginURL:  loginURLForRequest(r),
 		LogoutURL: "/__exe.dev/logout",
 		Civs:      civsWithCount,
+		Success:   r.URL.Query().Get("success"),
+		Error:     r.URL.Query().Get("error"),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.renderTemplate(w, "civs.html", data); err != nil {
 		slog.Warn("render template", "url", r.URL.Path, "error", err)
 	}
+}
+
+func (s *Server) HandleAddCiv(w http.ResponseWriter, r *http.Request) {
+	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	if userID == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	variantOf := strings.TrimSpace(r.FormValue("variant_of"))
+	dlc := strings.TrimSpace(r.FormValue("dlc"))
+
+	if name == "" {
+		http.Redirect(w, r, "/civs?error=Name+is+required", http.StatusSeeOther)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	var variantPtr, dlcPtr *string
+	if variantOf != "" {
+		variantPtr = &variantOf
+	}
+	if dlc != "" {
+		dlcPtr = &dlc
+	}
+
+	err := q.CreateCiv(r.Context(), dbgen.CreateCivParams{
+		Name:      name,
+		VariantOf: variantPtr,
+		Dlc:       dlcPtr,
+	})
+	if err != nil {
+		slog.Error("create civ", "error", err)
+		http.Redirect(w, r, "/civs?error=Failed+to+add+civilization", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/civs?success=Civilization+added!", http.StatusSeeOther)
+}
+
+func (s *Server) HandleEditCiv(w http.ResponseWriter, r *http.Request) {
+	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	if userID == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	variantOf := strings.TrimSpace(r.FormValue("variant_of"))
+	dlc := strings.TrimSpace(r.FormValue("dlc"))
+
+	if name == "" {
+		http.Redirect(w, r, "/civs?error=Name+is+required", http.StatusSeeOther)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	var variantPtr, dlcPtr *string
+	if variantOf != "" {
+		variantPtr = &variantOf
+	}
+	if dlc != "" {
+		dlcPtr = &dlc
+	}
+
+	err = q.UpdateCiv(r.Context(), dbgen.UpdateCivParams{
+		ID:        id,
+		Name:      name,
+		VariantOf: variantPtr,
+		Dlc:       dlcPtr,
+	})
+	if err != nil {
+		slog.Error("update civ", "error", err)
+		http.Redirect(w, r, "/civs?error=Failed+to+update+civilization", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/civs?success=Civilization+updated!", http.StatusSeeOther)
+}
+
+func (s *Server) HandleDeleteCiv(w http.ResponseWriter, r *http.Request) {
+	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	err = q.DeleteCiv(r.Context(), id)
+	if err != nil {
+		slog.Error("delete civ", "error", err)
+	}
+
+	http.Redirect(w, r, "/civs?success=Civilization+deleted", http.StatusSeeOther)
 }
 
 func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
@@ -352,6 +473,9 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("GET /api/quote", s.HandleRandomQuote)
 	mux.HandleFunc("GET /api/quotes", s.HandleListAllQuotes)
 	mux.HandleFunc("GET /civs", s.HandleCivs)
+	mux.HandleFunc("POST /civs", s.HandleAddCiv)
+	mux.HandleFunc("POST /civs/{id}/edit", s.HandleEditCiv)
+	mux.HandleFunc("POST /civs/{id}/delete", s.HandleDeleteCiv)
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(s.StaticDir))))
 	slog.Info("starting server", "addr", addr)
 	return http.ListenAndServe(addr, mux)

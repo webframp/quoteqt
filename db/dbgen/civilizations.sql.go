@@ -20,6 +20,47 @@ func (q *Queries) CountQuotesByCiv(ctx context.Context, civilization *string) (i
 	return count, err
 }
 
+const createCiv = `-- name: CreateCiv :exec
+INSERT INTO civilizations (name, variant_of, dlc) VALUES (?, ?, ?)
+`
+
+type CreateCivParams struct {
+	Name      string  `json:"name"`
+	VariantOf *string `json:"variant_of"`
+	Dlc       *string `json:"dlc"`
+}
+
+func (q *Queries) CreateCiv(ctx context.Context, arg CreateCivParams) error {
+	_, err := q.db.ExecContext(ctx, createCiv, arg.Name, arg.VariantOf, arg.Dlc)
+	return err
+}
+
+const deleteCiv = `-- name: DeleteCiv :exec
+DELETE FROM civilizations WHERE id = ?
+`
+
+func (q *Queries) DeleteCiv(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteCiv, id)
+	return err
+}
+
+const getCivByID = `-- name: GetCivByID :one
+SELECT id, name, variant_of, dlc, created_at FROM civilizations WHERE id = ?
+`
+
+func (q *Queries) GetCivByID(ctx context.Context, id int64) (Civilization, error) {
+	row := q.db.QueryRowContext(ctx, getCivByID, id)
+	var i Civilization
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.VariantOf,
+		&i.Dlc,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getCivByName = `-- name: GetCivByName :one
 SELECT id, name, variant_of, dlc, created_at FROM civilizations WHERE name = ?
 `
@@ -68,4 +109,25 @@ func (q *Queries) ListCivs(ctx context.Context) ([]Civilization, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateCiv = `-- name: UpdateCiv :exec
+UPDATE civilizations SET name = ?, variant_of = ?, dlc = ? WHERE id = ?
+`
+
+type UpdateCivParams struct {
+	Name      string  `json:"name"`
+	VariantOf *string `json:"variant_of"`
+	Dlc       *string `json:"dlc"`
+	ID        int64   `json:"id"`
+}
+
+func (q *Queries) UpdateCiv(ctx context.Context, arg UpdateCivParams) error {
+	_, err := q.db.ExecContext(ctx, updateCiv,
+		arg.Name,
+		arg.VariantOf,
+		arg.Dlc,
+		arg.ID,
+	)
+	return err
 }
