@@ -1,6 +1,7 @@
 package srv
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -24,6 +25,8 @@ type Server struct {
 	TemplatesDir string
 	StaticDir    string
 	APILimiter   *RateLimiter
+	templates    map[string]*template.Template
+	httpServer   *http.Server
 }
 
 type pageData struct {
@@ -71,9 +74,12 @@ func New(dbPath, hostname string) (*Server, error) {
 		TemplatesDir: filepath.Join(baseDir, "templates"),
 		StaticDir:    filepath.Join(baseDir, "static"),
 		// Rate limit: 30 requests per minute per IP, burst of 10
-		APILimiter:   NewRateLimiter(30, time.Minute, 10),
+		APILimiter: NewRateLimiter(30, time.Minute, 10),
 	}
 	if err := srv.setUpDatabase(dbPath); err != nil {
+		return nil, err
+	}
+	if err := srv.loadTemplates(); err != nil {
 		return nil, err
 	}
 	return srv, nil
@@ -741,11 +747,25 @@ var templateFuncs = template.FuncMap{
 	"subtract": func(a, b int) int { return a - b },
 }
 
+func (s *Server) loadTemplates() error {
+	s.templates = make(map[string]*template.Template)
+	templateFiles := []string{"index.html", "quotes.html", "quotes_public.html", "civs.html"}
+	for _, name := range templateFiles {
+		path := filepath.Join(s.TemplatesDir, name)
+		tmpl, err := template.New(name).Funcs(templateFuncs).ParseFiles(path)
+		if err != nil {
+			return fmt.Errorf("parse template %q: %w", name, err)
+		}
+		s.templates[name] = tmpl
+	}
+	slog.Info("templates loaded", "count", len(s.templates))
+	return nil
+}
+
 func (s *Server) renderTemplate(w http.ResponseWriter, name string, data any) error {
-	path := filepath.Join(s.TemplatesDir, name)
-	tmpl, err := template.New(name).Funcs(templateFuncs).ParseFiles(path)
-	if err != nil {
-		return fmt.Errorf("parse template %q: %w", name, err)
+	tmpl, ok := s.templates[name]
+	if !ok {
+		return fmt.Errorf("template %q not found", name)
 	}
 	if err := tmpl.Execute(w, data); err != nil {
 		return fmt.Errorf("execute template %q: %w", name, err)
@@ -786,6 +806,19 @@ func (s *Server) Serve(addr string) error {
 	apiMux.HandleFunc("GET /api/matchup", s.HandleMatchup)
 	mux.Handle("/api/", s.APILimiter.Middleware(apiMux))
 
+	s.httpServer = &http.Server{
+		Addr:    addr,
+		Handler: LimitRequestBody(mux),
+	}
+
 	slog.Info("starting server", "addr", addr)
-	return http.ListenAndServe(addr, LimitRequestBody(mux))
+	return s.httpServer.ListenAndServe()
+}
+
+// Shutdown gracefully shuts down the server
+func (s *Server) Shutdown(ctx context.Context) error {
+	if s.httpServer == nil {
+		return nil
+	}
+	return s.httpServer.Shutdown(ctx)
 }

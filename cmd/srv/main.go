@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"srv.exe.dev/srv"
 )
@@ -13,6 +18,7 @@ var flagListenAddr = flag.String("listen", ":8000", "address to listen on")
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 
@@ -26,5 +32,34 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("create server: %w", err)
 	}
-	return server.Serve(*flagListenAddr)
+
+	// Channel to receive shutdown signals
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	// Channel to receive server errors
+	serverErr := make(chan error, 1)
+
+	go func() {
+		serverErr <- server.Serve(*flagListenAddr)
+	}()
+
+	// Wait for shutdown signal or server error
+	select {
+	case err := <-serverErr:
+		return err
+	case sig := <-stop:
+		slog.Info("shutdown signal received", "signal", sig)
+	}
+
+	// Graceful shutdown with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		return fmt.Errorf("shutdown: %w", err)
+	}
+
+	slog.Info("server stopped gracefully")
+	return nil
 }
