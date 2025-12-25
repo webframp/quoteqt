@@ -85,6 +85,17 @@ func New(dbPath, hostname string) (*Server, error) {
 	return srv, nil
 }
 
+func (s *Server) HandleHealth(w http.ResponseWriter, r *http.Request) {
+	// Check database connection
+	if err := s.DB.PingContext(r.Context()); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		fmt.Fprintln(w, "unhealthy: database unreachable")
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w, "ok")
+}
+
 func (s *Server) HandleRoot(w http.ResponseWriter, r *http.Request) {
 	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
@@ -788,6 +799,7 @@ func (s *Server) setUpDatabase(dbPath string) error {
 func (s *Server) Serve(addr string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.HandleRoot)
+	mux.HandleFunc("GET /health", s.HandleHealth)
 	mux.HandleFunc("GET /browse", s.HandleQuotesPublic)
 	mux.HandleFunc("GET /quotes", s.HandleQuotes)
 	mux.HandleFunc("POST /quotes", s.HandleAddQuote)
