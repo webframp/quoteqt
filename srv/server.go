@@ -530,10 +530,25 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 	playCiv := r.URL.Query().Get("civ")
 	vsCiv := r.URL.Query().Get("vs")
 
+	// Support Nightbot querystring format: /api/matchup?hre french
+	// The raw query will be "hre french" or "hre%20french"
+	if playCiv == "" && vsCiv == "" {
+		rawQuery := r.URL.RawQuery
+		if rawQuery != "" {
+			// URL decode and split by space
+			decoded, _ := url.QueryUnescape(rawQuery)
+			parts := strings.Fields(decoded)
+			if len(parts) >= 2 {
+				playCiv = parts[0]
+				vsCiv = parts[1]
+			}
+		}
+	}
+
 	if playCiv == "" || vsCiv == "" {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "Usage: /api/matchup?civ=X&vs=Y")
+		fmt.Fprintln(w, "Usage: /api/matchup?civ=X&vs=Y or /api/matchup?X Y")
 		return
 	}
 

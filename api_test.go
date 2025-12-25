@@ -120,6 +120,7 @@ func TestAPIMatchupMissingParams(t *testing.T) {
 		{"missing both", "/api/matchup"},
 		{"missing vs", "/api/matchup?civ=hre"},
 		{"missing civ", "/api/matchup?vs=french"},
+		{"single word querystring", "/api/matchup?hre"},
 	}
 
 	for _, tt := range tests {
@@ -132,6 +133,37 @@ func TestAPIMatchupMissingParams(t *testing.T) {
 
 			if resp.StatusCode != http.StatusBadRequest {
 				t.Errorf("expected 400, got %d", resp.StatusCode)
+			}
+		})
+	}
+}
+
+// TestAPIMatchupNightbotFormat tests GET /api/matchup with Nightbot querystring format
+func TestAPIMatchupNightbotFormat(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"space separated", "/api/matchup?hre%20french"},
+		{"plus separated", "/api/matchup?hre+french"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := http.Get(baseURL + tt.url)
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
+
+			// Should return 200 or 404, not 400
+			if resp.StatusCode == http.StatusBadRequest {
+				t.Errorf("expected 200 or 404, got 400 - querystring format not parsed")
+			}
+
+			ct := resp.Header.Get("Content-Type")
+			if !strings.Contains(ct, "text/plain") {
+				t.Errorf("expected text/plain, got %s", ct)
 			}
 		})
 	}
