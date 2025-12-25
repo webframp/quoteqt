@@ -381,6 +381,36 @@ type QuoteResponse struct {
 	CreatedAt    string  `json:"created_at"`
 }
 
+func (s *Server) HandleQuotesPublic(w http.ResponseWriter, r *http.Request) {
+	q := dbgen.New(s.DB)
+	quotes, err := q.ListAllQuotes(r.Context())
+	if err != nil {
+		slog.Error("list all quotes", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	count, _ := q.CountQuotes(r.Context())
+
+	data := pageData{
+		Hostname:   s.Hostname,
+		Now:        time.Now().Format(time.RFC3339),
+		UserEmail:  userEmail,
+		UserID:     userID,
+		LoginURL:   loginURLForRequest(r),
+		LogoutURL:  "/__exe.dev/logout",
+		Quotes:     quotes,
+		QuoteCount: count,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.renderTemplate(w, "quotes_public.html", data); err != nil {
+		slog.Warn("render template", "url", r.URL.Path, "error", err)
+	}
+}
+
 func (s *Server) HandleListAllQuotes(w http.ResponseWriter, r *http.Request) {
 	q := dbgen.New(s.DB)
 	quotes, err := q.ListAllQuotes(r.Context())
@@ -489,6 +519,7 @@ func (s *Server) setUpDatabase(dbPath string) error {
 func (s *Server) Serve(addr string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.HandleRoot)
+	mux.HandleFunc("GET /browse", s.HandleQuotesPublic)
 	mux.HandleFunc("GET /quotes", s.HandleQuotes)
 	mux.HandleFunc("POST /quotes", s.HandleAddQuote)
 	mux.HandleFunc("POST /quotes/{id}/delete", s.HandleDeleteQuote)

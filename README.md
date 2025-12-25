@@ -16,6 +16,7 @@ A quote database application for Age of Empires IV streamers and their communiti
 
 | Endpoint | Description |
 |----------|-------------|
+| `GET /browse` | Browse all quotes (HTML) |
 | `GET /api/quote` | Random quote as plain text |
 | `GET /api/quote?civ=hre` | Random quote filtered by civ shortname |
 | `GET /api/quotes` | All quotes as JSON |
