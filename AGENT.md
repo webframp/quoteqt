@@ -28,6 +28,17 @@ All other routes serve HTML pages for browser-based interaction.
 - Migrations in `db/migrations/` run automatically on startup
 - After modifying `db/queries/*.sql`, regenerate with `cd db && go generate`
 
+### Testing
+
+- Run `make test-unit` for unit tests, `make test-integration` for API tests
+- **Always clean up test data**: When manually testing with curl, delete any quotes added:
+  ```bash
+  # After adding a test quote, delete it:
+  sqlite3 db.sqlite3 "DELETE FROM quotes WHERE text = 'your test quote';"
+  ```
+- Integration tests should not leave persistent data in the database
+- Use descriptive test quote text to make cleanup easier if needed
+
 ### Civilizations
 
 - All 22 AoE4 civilizations are tracked with shortnames for API filtering

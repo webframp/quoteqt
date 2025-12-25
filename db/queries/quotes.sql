@@ -49,3 +49,6 @@ ORDER BY created_at DESC;
 
 -- name: ListCivilizations :many
 SELECT DISTINCT civilization FROM quotes WHERE civilization IS NOT NULL ORDER BY civilization;
+
+-- name: DeleteQuoteByText :exec
+DELETE FROM quotes WHERE text = ?;

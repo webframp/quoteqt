@@ -70,6 +70,15 @@ func (q *Queries) DeleteQuoteByID(ctx context.Context, id int64) error {
 	return err
 }
 
+const deleteQuoteByText = `-- name: DeleteQuoteByText :exec
+DELETE FROM quotes WHERE text = ?
+`
+
+func (q *Queries) DeleteQuoteByText(ctx context.Context, text string) error {
+	_, err := q.db.ExecContext(ctx, deleteQuoteByText, text)
+	return err
+}
+
 const getQuoteByID = `-- name: GetQuoteByID :one
 SELECT id, user_id, text, author, created_at, civilization, opponent_civ FROM quotes WHERE id = ?
 `
