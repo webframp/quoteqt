@@ -172,8 +172,13 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 	civ := strings.TrimSpace(r.FormValue("civilization"))
 	opponentCiv := strings.TrimSpace(r.FormValue("opponent_civ"))
 
-	if text == "" {
-		http.Redirect(w, r, "/quotes?error=Quote+text+is+required", http.StatusSeeOther)
+	// Validate inputs
+	if err := ValidateQuoteText(text); err != nil {
+		http.Redirect(w, r, "/quotes?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+	if err := ValidateAuthor(author); err != nil {
+		http.Redirect(w, r, "/quotes?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return
 	}
 
@@ -278,8 +283,17 @@ func (s *Server) HandleAddCiv(w http.ResponseWriter, r *http.Request) {
 	variantOf := strings.TrimSpace(r.FormValue("variant_of"))
 	dlc := strings.TrimSpace(r.FormValue("dlc"))
 
-	if name == "" {
-		http.Redirect(w, r, "/civs?error=Name+is+required", http.StatusSeeOther)
+	// Validate inputs
+	if err := ValidateCivName(name); err != nil {
+		http.Redirect(w, r, "/civs?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+	if err := ValidateShortname(shortname); err != nil {
+		http.Redirect(w, r, "/civs?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+	if err := ValidateDLC(dlc); err != nil {
+		http.Redirect(w, r, "/civs?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return
 	}
 
@@ -334,8 +348,17 @@ func (s *Server) HandleEditCiv(w http.ResponseWriter, r *http.Request) {
 	variantOf := strings.TrimSpace(r.FormValue("variant_of"))
 	dlc := strings.TrimSpace(r.FormValue("dlc"))
 
-	if name == "" {
-		http.Redirect(w, r, "/civs?error=Name+is+required", http.StatusSeeOther)
+	// Validate inputs
+	if err := ValidateCivName(name); err != nil {
+		http.Redirect(w, r, "/civs?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+	if err := ValidateShortname(shortname); err != nil {
+		http.Redirect(w, r, "/civs?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+	if err := ValidateDLC(dlc); err != nil {
+		http.Redirect(w, r, "/civs?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return
 	}
 
@@ -435,8 +458,13 @@ func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 	civ := strings.TrimSpace(r.FormValue("civilization"))
 	opponentCiv := strings.TrimSpace(r.FormValue("opponent_civ"))
 
-	if text == "" {
-		http.Redirect(w, r, "/quotes?error=Quote+text+is+required", http.StatusSeeOther)
+	// Validate inputs
+	if err := ValidateQuoteText(text); err != nil {
+		http.Redirect(w, r, "/quotes?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+	if err := ValidateAuthor(author); err != nil {
+		http.Redirect(w, r, "/quotes?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return
 	}
 
@@ -759,5 +787,5 @@ func (s *Server) Serve(addr string) error {
 	mux.Handle("/api/", s.APILimiter.Middleware(apiMux))
 
 	slog.Info("starting server", "addr", addr)
-	return http.ListenAndServe(addr, mux)
+	return http.ListenAndServe(addr, LimitRequestBody(mux))
 }
