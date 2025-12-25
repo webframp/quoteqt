@@ -354,6 +354,63 @@ func (s *Server) HandleDeleteCiv(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/civs?success=Civilization+deleted", http.StatusSeeOther)
 }
 
+func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
+	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	if userID == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	text := strings.TrimSpace(r.FormValue("text"))
+	author := strings.TrimSpace(r.FormValue("author"))
+	civ := strings.TrimSpace(r.FormValue("civilization"))
+	opponentCiv := strings.TrimSpace(r.FormValue("opponent_civ"))
+
+	if text == "" {
+		http.Redirect(w, r, "/quotes?error=Quote+text+is+required", http.StatusSeeOther)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	var authorPtr, civPtr, opponentPtr *string
+	if author != "" {
+		authorPtr = &author
+	}
+	if civ != "" {
+		civPtr = &civ
+	}
+	if opponentCiv != "" {
+		opponentPtr = &opponentCiv
+	}
+
+	err = q.UpdateQuote(r.Context(), dbgen.UpdateQuoteParams{
+		ID:           id,
+		Text:         text,
+		Author:       authorPtr,
+		Civilization: civPtr,
+		OpponentCiv:  opponentPtr,
+	})
+	if err != nil {
+		slog.Error("update quote", "error", err)
+		http.Redirect(w, r, "/quotes?error=Failed+to+update+quote", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/quotes?success=Quote+updated!", http.StatusSeeOther)
+}
+
 func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
 	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
 
@@ -578,6 +635,7 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("GET /browse", s.HandleQuotesPublic)
 	mux.HandleFunc("GET /quotes", s.HandleQuotes)
 	mux.HandleFunc("POST /quotes", s.HandleAddQuote)
+	mux.HandleFunc("POST /quotes/{id}/edit", s.HandleEditQuote)
 	mux.HandleFunc("POST /quotes/{id}/delete", s.HandleDeleteQuote)
 	mux.HandleFunc("GET /api/quote", s.HandleRandomQuote)
 	mux.HandleFunc("GET /api/quotes", s.HandleListAllQuotes)

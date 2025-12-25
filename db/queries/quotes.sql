@@ -24,6 +24,12 @@ DELETE FROM quotes WHERE id = ? AND user_id = ?;
 -- name: DeleteQuoteByID :exec
 DELETE FROM quotes WHERE id = ?;
 
+-- name: GetQuoteByID :one
+SELECT * FROM quotes WHERE id = ?;
+
+-- name: UpdateQuote :exec
+UPDATE quotes SET text = ?, author = ?, civilization = ?, opponent_civ = ? WHERE id = ?;
+
 -- name: CountQuotes :one
 SELECT COUNT(*) as count FROM quotes;
 

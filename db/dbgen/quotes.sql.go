@@ -70,6 +70,25 @@ func (q *Queries) DeleteQuoteByID(ctx context.Context, id int64) error {
 	return err
 }
 
+const getQuoteByID = `-- name: GetQuoteByID :one
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ FROM quotes WHERE id = ?
+`
+
+func (q *Queries) GetQuoteByID(ctx context.Context, id int64) (Quote, error) {
+	row := q.db.QueryRowContext(ctx, getQuoteByID, id)
+	var i Quote
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Text,
+		&i.Author,
+		&i.CreatedAt,
+		&i.Civilization,
+		&i.OpponentCiv,
+	)
+	return i, err
+}
+
 const getRandomMatchupQuote = `-- name: GetRandomMatchupQuote :one
 SELECT id, user_id, text, author, created_at, civilization, opponent_civ FROM quotes
 WHERE civilization = ? AND opponent_civ = ?
@@ -279,4 +298,27 @@ func (q *Queries) ListQuotesByUser(ctx context.Context, userID string) ([]Quote,
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateQuote = `-- name: UpdateQuote :exec
+UPDATE quotes SET text = ?, author = ?, civilization = ?, opponent_civ = ? WHERE id = ?
+`
+
+type UpdateQuoteParams struct {
+	Text         string  `json:"text"`
+	Author       *string `json:"author"`
+	Civilization *string `json:"civilization"`
+	OpponentCiv  *string `json:"opponent_civ"`
+	ID           int64   `json:"id"`
+}
+
+func (q *Queries) UpdateQuote(ctx context.Context, arg UpdateQuoteParams) error {
+	_, err := q.db.ExecContext(ctx, updateQuote,
+		arg.Text,
+		arg.Author,
+		arg.Civilization,
+		arg.OpponentCiv,
+		arg.ID,
+	)
+	return err
 }

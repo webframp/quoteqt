@@ -59,6 +59,9 @@
         .quote-author { color: #7f8c8d; }
         .quote-civ { color: #9b59b6; font-size: 0.9rem; margin-left: 0.5rem; }
         .quote-actions { margin-top: 0.5rem; }
+        .quote-edit textarea { width: 100%; min-height: 60px; margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; }
+        .edit-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+        .edit-row input, .edit-row select { flex: 1; min-width: 150px; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px; }
         .success { background: #d4edda; color: #155724; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
         .error { background: #f8d7da; color: #721c24; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
         .empty { color: #7f8c8d; font-style: italic; }
@@ -157,22 +160,89 @@
         {{if .Quotes}}
             {{range .Quotes}}
                 <div class="quote-item">
-                    <div class="quote-text">"{{.Text}}"</div>
-                    {{if .Author}}
-                        <span class="quote-author">— {{.Author}}</span>
-                    {{end}}
-                    {{if .Civilization}}
-                        {{if .OpponentCiv}}
-                            <span class="quote-civ">[{{.Civilization}} vs {{.OpponentCiv}}]</span>
-                        {{else}}
-                            <span class="quote-civ">[{{.Civilization}}]</span>
+                    <div class="quote-display" id="display-{{.ID}}">
+                        <div class="quote-text">"{{.Text}}"</div>
+                        {{if .Author}}
+                            <span class="quote-author">— {{.Author}}</span>
                         {{end}}
-                    {{end}}
-                    <div class="quote-actions">
-                        <form method="POST" action="/quotes/{{.ID}}/delete" style="display:inline;">
-                            <button type="submit" class="btn btn-danger btn-small" onclick="return confirm('Delete this quote?')">Delete</button>
-                        </form>
+                        {{if .Civilization}}
+                            {{if .OpponentCiv}}
+                                <span class="quote-civ">[{{.Civilization}} vs {{.OpponentCiv}}]</span>
+                            {{else}}
+                                <span class="quote-civ">[{{.Civilization}}]</span>
+                            {{end}}
+                        {{end}}
+                        <div class="quote-actions">
+                            <button type="button" class="btn btn-small" onclick="toggleEdit({{.ID}})">Edit</button>
+                            <form method="POST" action="/quotes/{{.ID}}/delete" style="display:inline;">
+                                <button type="submit" class="btn btn-danger btn-small" onclick="return confirm('Delete this quote?')">Delete</button>
+                            </form>
+                        </div>
                     </div>
+                    <form class="quote-edit" id="edit-{{.ID}}" method="POST" action="/quotes/{{.ID}}/edit" style="display:none;">
+                        <div class="form-group">
+                            <textarea name="text" required>{{.Text}}</textarea>
+                        </div>
+                        <div class="edit-row">
+                            <input type="text" name="author" value="{{if .Author}}{{.Author}}{{end}}" placeholder="Author">
+                            <select name="civilization">
+                                <option value="">-- No civ --</option>
+                                {{$civ := .Civilization}}
+                                <option value="Abbasid Dynasty" {{if eq $civ "Abbasid Dynasty"}}selected{{end}}>Abbasid Dynasty</option>
+                                <option value="Ayyubids" {{if eq $civ "Ayyubids"}}selected{{end}}>Ayyubids</option>
+                                <option value="Byzantines" {{if eq $civ "Byzantines"}}selected{{end}}>Byzantines</option>
+                                <option value="Chinese" {{if eq $civ "Chinese"}}selected{{end}}>Chinese</option>
+                                <option value="Delhi Sultanate" {{if eq $civ "Delhi Sultanate"}}selected{{end}}>Delhi Sultanate</option>
+                                <option value="English" {{if eq $civ "English"}}selected{{end}}>English</option>
+                                <option value="French" {{if eq $civ "French"}}selected{{end}}>French</option>
+                                <option value="Golden Horde" {{if eq $civ "Golden Horde"}}selected{{end}}>Golden Horde</option>
+                                <option value="Holy Roman Empire" {{if eq $civ "Holy Roman Empire"}}selected{{end}}>Holy Roman Empire</option>
+                                <option value="House of Lancaster" {{if eq $civ "House of Lancaster"}}selected{{end}}>House of Lancaster</option>
+                                <option value="Japanese" {{if eq $civ "Japanese"}}selected{{end}}>Japanese</option>
+                                <option value="Jeanne d'Arc" {{if eq $civ "Jeanne d'Arc"}}selected{{end}}>Jeanne d'Arc</option>
+                                <option value="Knights Templar" {{if eq $civ "Knights Templar"}}selected{{end}}>Knights Templar</option>
+                                <option value="Macedonian Dynasty" {{if eq $civ "Macedonian Dynasty"}}selected{{end}}>Macedonian Dynasty</option>
+                                <option value="Malians" {{if eq $civ "Malians"}}selected{{end}}>Malians</option>
+                                <option value="Mongols" {{if eq $civ "Mongols"}}selected{{end}}>Mongols</option>
+                                <option value="Order of the Dragon" {{if eq $civ "Order of the Dragon"}}selected{{end}}>Order of the Dragon</option>
+                                <option value="Ottomans" {{if eq $civ "Ottomans"}}selected{{end}}>Ottomans</option>
+                                <option value="Rus" {{if eq $civ "Rus"}}selected{{end}}>Rus</option>
+                                <option value="Sengoku Daimyo" {{if eq $civ "Sengoku Daimyo"}}selected{{end}}>Sengoku Daimyo</option>
+                                <option value="Tughlaq Dynasty" {{if eq $civ "Tughlaq Dynasty"}}selected{{end}}>Tughlaq Dynasty</option>
+                                <option value="Zhu Xi's Legacy" {{if eq $civ "Zhu Xi's Legacy"}}selected{{end}}>Zhu Xi's Legacy</option>
+                            </select>
+                            <select name="opponent_civ">
+                                <option value="">-- No opponent --</option>
+                                {{$opp := .OpponentCiv}}
+                                <option value="Abbasid Dynasty" {{if eq $opp "Abbasid Dynasty"}}selected{{end}}>Abbasid Dynasty</option>
+                                <option value="Ayyubids" {{if eq $opp "Ayyubids"}}selected{{end}}>Ayyubids</option>
+                                <option value="Byzantines" {{if eq $opp "Byzantines"}}selected{{end}}>Byzantines</option>
+                                <option value="Chinese" {{if eq $opp "Chinese"}}selected{{end}}>Chinese</option>
+                                <option value="Delhi Sultanate" {{if eq $opp "Delhi Sultanate"}}selected{{end}}>Delhi Sultanate</option>
+                                <option value="English" {{if eq $opp "English"}}selected{{end}}>English</option>
+                                <option value="French" {{if eq $opp "French"}}selected{{end}}>French</option>
+                                <option value="Golden Horde" {{if eq $opp "Golden Horde"}}selected{{end}}>Golden Horde</option>
+                                <option value="Holy Roman Empire" {{if eq $opp "Holy Roman Empire"}}selected{{end}}>Holy Roman Empire</option>
+                                <option value="House of Lancaster" {{if eq $opp "House of Lancaster"}}selected{{end}}>House of Lancaster</option>
+                                <option value="Japanese" {{if eq $opp "Japanese"}}selected{{end}}>Japanese</option>
+                                <option value="Jeanne d'Arc" {{if eq $opp "Jeanne d'Arc"}}selected{{end}}>Jeanne d'Arc</option>
+                                <option value="Knights Templar" {{if eq $opp "Knights Templar"}}selected{{end}}>Knights Templar</option>
+                                <option value="Macedonian Dynasty" {{if eq $opp "Macedonian Dynasty"}}selected{{end}}>Macedonian Dynasty</option>
+                                <option value="Malians" {{if eq $opp "Malians"}}selected{{end}}>Malians</option>
+                                <option value="Mongols" {{if eq $opp "Mongols"}}selected{{end}}>Mongols</option>
+                                <option value="Order of the Dragon" {{if eq $opp "Order of the Dragon"}}selected{{end}}>Order of the Dragon</option>
+                                <option value="Ottomans" {{if eq $opp "Ottomans"}}selected{{end}}>Ottomans</option>
+                                <option value="Rus" {{if eq $opp "Rus"}}selected{{end}}>Rus</option>
+                                <option value="Sengoku Daimyo" {{if eq $opp "Sengoku Daimyo"}}selected{{end}}>Sengoku Daimyo</option>
+                                <option value="Tughlaq Dynasty" {{if eq $opp "Tughlaq Dynasty"}}selected{{end}}>Tughlaq Dynasty</option>
+                                <option value="Zhu Xi's Legacy" {{if eq $opp "Zhu Xi's Legacy"}}selected{{end}}>Zhu Xi's Legacy</option>
+                            </select>
+                        </div>
+                        <div class="quote-actions">
+                            <button type="submit" class="btn btn-small">Save</button>
+                            <button type="button" class="btn btn-small" onclick="toggleEdit({{.ID}})">Cancel</button>
+                        </div>
+                    </form>
                 </div>
             {{end}}
         {{else}}
@@ -186,6 +256,17 @@
             if (form) form.submit();
         }
     });
+    function toggleEdit(id) {
+        const display = document.getElementById('display-' + id);
+        const edit = document.getElementById('edit-' + id);
+        if (edit.style.display === 'none') {
+            display.style.display = 'none';
+            edit.style.display = 'block';
+        } else {
+            display.style.display = 'block';
+            edit.style.display = 'none';
+        }
+    }
 </script>
 </body>
 </html>
