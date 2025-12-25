@@ -3,9 +3,11 @@ package srv
 import (
 	"compress/gzip"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 // gzipResponseWriter wraps http.ResponseWriter to provide gzip compression
@@ -68,5 +70,64 @@ func StaticFileServer(dir string) http.Handler {
 			w.Header().Set("Cache-Control", "public, max-age=3600")
 		}
 		fs.ServeHTTP(w, r)
+	})
+}
+
+// responseRecorder wraps http.ResponseWriter to capture status code
+type responseRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *responseRecorder) WriteHeader(code int) {
+	r.status = code
+	r.ResponseWriter.WriteHeader(code)
+}
+
+func (r *responseRecorder) Write(b []byte) (int, error) {
+	if r.status == 0 {
+		r.status = http.StatusOK
+	}
+	return r.ResponseWriter.Write(b)
+}
+
+// RequestLogger logs slow requests (>500ms) and errors
+// Skips /health and /static/* paths to reduce noise
+func RequestLogger(next http.Handler) http.Handler {
+	const slowThreshold = 500 * time.Millisecond
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+
+		// Skip noisy endpoints
+		if path == "/health" || strings.HasPrefix(path, "/static/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		start := time.Now()
+		rec := &responseRecorder{ResponseWriter: w}
+
+		next.ServeHTTP(rec, r)
+
+		duration := time.Since(start)
+		status := rec.status
+
+		// Log errors (4xx, 5xx) or slow requests
+		if status >= 400 || duration > slowThreshold {
+			level := slog.LevelInfo
+			if status >= 500 {
+				level = slog.LevelError
+			} else if status >= 400 {
+				level = slog.LevelWarn
+			}
+
+			slog.Log(r.Context(), level, "request",
+				"method", r.Method,
+				"path", path,
+				"status", status,
+				"duration", duration.Round(time.Millisecond),
+			)
+		}
 	})
 }

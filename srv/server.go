@@ -820,7 +820,7 @@ func (s *Server) Serve(addr string) error {
 
 	s.httpServer = &http.Server{
 		Addr:    addr,
-		Handler: Gzip(LimitRequestBody(mux)),
+		Handler: RequestLogger(Gzip(LimitRequestBody(mux))),
 	}
 
 	slog.Info("starting server", "addr", addr)
