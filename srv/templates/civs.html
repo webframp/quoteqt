@@ -78,6 +78,7 @@
         .dlc.anniversary { background: #fff3e0; color: #e67e22; }
         .dlc.sultans { background: #fce4ec; color: #c2185b; }
         .dlc.dynasties { background: #f3e5f5; color: #7b1fa2; }
+        .dlc.knights { background: #e3f2fd; color: #1565c0; }
         .quote-count {
             background: #3498db;
             color: white;
@@ -100,7 +101,7 @@
     </div>
 
     <h1>⚔️ Civilizations</h1>
-    <p>Manage Age of Empires IV civilizations</p>
+    <p>All 22 civilizations in Age of Empires IV</p>
 
     {{if .Success}}
         <div class="success">{{.Success}}</div>
@@ -134,6 +135,7 @@
                                 <option value="Anniversary Edition" {{if eq .Dlc "Anniversary Edition"}}selected{{end}}>Anniversary Edition</option>
                                 <option value="The Sultans Ascend" {{if eq .Dlc "The Sultans Ascend"}}selected{{end}}>The Sultans Ascend</option>
                                 <option value="Dynasties of the East" {{if eq .Dlc "Dynasties of the East"}}selected{{end}}>Dynasties of the East</option>
+                                <option value="Knights of Cross and Rose" {{if eq .Dlc "Knights of Cross and Rose"}}selected{{end}}>Knights of Cross and Rose</option>
                             </select>
                         </td>
                         <td>
@@ -163,6 +165,7 @@
                         <option value="Anniversary Edition">Anniversary Edition</option>
                         <option value="The Sultans Ascend">The Sultans Ascend</option>
                         <option value="Dynasties of the East">Dynasties of the East</option>
+                        <option value="Knights of Cross and Rose">Knights of Cross and Rose</option>
                     </select>
                     <button type="submit" class="btn btn-success">Add</button>
                 </div>
