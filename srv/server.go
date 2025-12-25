@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"srv.exe.dev/db"
 	"srv.exe.dev/db/dbgen"
 )
@@ -820,7 +821,7 @@ func (s *Server) Serve(addr string) error {
 
 	s.httpServer = &http.Server{
 		Addr:    addr,
-		Handler: RequestLogger(Gzip(LimitRequestBody(mux))),
+		Handler: otelhttp.NewHandler(RequestLogger(Gzip(LimitRequestBody(mux))), "quotes"),
 	}
 
 	slog.Info("starting server", "addr", addr)

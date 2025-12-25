@@ -143,3 +143,32 @@ To use a custom domain, see [exe.dev custom domains documentation](https://exe.d
 
 1. Add a CNAME record pointing to your exe.dev VM
 2. Configure the domain: `ssh exe.dev share domain <vmname> <domain>`
+
+## Observability with Honeycomb
+
+This application supports OpenTelemetry tracing via [Honeycomb](https://honeycomb.io).
+
+### Setup
+
+1. Create a free Honeycomb account at https://ui.honeycomb.io
+2. Get your API key from Account Settings
+3. Create a `.env` file:
+
+```bash
+cp .env.example .env
+# Edit .env and add your HONEYCOMB_API_KEY
+```
+
+4. Restart the service:
+
+```bash
+sudo systemctl restart quotes
+```
+
+### What's Traced
+
+- All HTTP requests (method, path, status, duration)
+- Request/response sizes
+- Error details
+
+Traces are sent to Honeycomb's OTLP endpoint automatically when `HONEYCOMB_API_KEY` is set.

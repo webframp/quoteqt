@@ -14,5 +14,9 @@ Environment=USER=exedev
 StandardOutput=journal
 StandardError=journal
 
+# Honeycomb observability (optional)
+# Set HONEYCOMB_API_KEY to enable tracing
+EnvironmentFile=-/home/exedev/quotes/.env
+
 [Install]
 WantedBy=multi-user.target

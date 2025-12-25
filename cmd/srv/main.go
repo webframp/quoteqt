@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/honeycombio/otel-config-go/otelconfig"
 	"srv.exe.dev/srv"
 )
 
@@ -28,6 +29,21 @@ func run() error {
 	if err != nil {
 		hostname = "unknown"
 	}
+
+	// Initialize OpenTelemetry with Honeycomb
+	// Requires HONEYCOMB_API_KEY environment variable
+	// Optional: OTEL_SERVICE_NAME (defaults to "quotes")
+	shutdownOtel, err := otelconfig.ConfigureOpenTelemetry(
+		otelconfig.WithServiceName("quotes"),
+	)
+	if err != nil {
+		slog.Warn("failed to configure OpenTelemetry", "error", err)
+		// Continue without tracing - don't fail startup
+	} else {
+		defer shutdownOtel()
+		slog.Info("OpenTelemetry configured")
+	}
+
 	server, err := srv.New("db.sqlite3", hostname)
 	if err != nil {
 		return fmt.Errorf("create server: %w", err)

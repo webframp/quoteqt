@@ -5,3 +5,6 @@ db.sqlite3-wal
 
 # Built binary
 srv/srv
+
+# Environment file with secrets
+.env
