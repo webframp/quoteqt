@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quote Database</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: #f5f5f5;
+            color: #333;
+        }
+        h1 { color: #2c3e50; margin-bottom: 0.5rem; }
+        .subtitle { color: #7f8c8d; margin-bottom: 2rem; }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stats { font-size: 1.2rem; color: #27ae60; }
+        a { color: #3498db; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .btn {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            font-size: 1rem;
+            margin-top: 1rem;
+        }
+        .btn:hover { background: #2980b9; text-decoration: none; }
+        .auth-info { margin-top: 1rem; color: #7f8c8d; }
+        code {
+            background: #ecf0f1;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Consolas', monospace;
+        }
+        .api-section { margin-top: 2rem; }
+        .api-section h2 { color: #2c3e50; font-size: 1.3rem; }
+    </style>
+</head>
+<body>
+    <h1>📝 Quote Database</h1>
+    <p class="subtitle">Collect and share your favorite quotes</p>
+
+    <div class="card">
+        <p class="stats">📊 {{.QuoteCount}} quotes in the database</p>
+        
+        {{if .UserEmail}}
+            <p>Welcome, <strong>{{.UserEmail}}</strong>!</p>
+            <a href="/quotes" class="btn">Manage Your Quotes</a>
+            <p class="auth-info"><a href="{{.LogoutURL}}">Logout</a></p>
+        {{else}}
+            <p>Sign in to add and manage your own quotes.</p>
+            <a href="{{.LoginURL}}" class="btn">Sign In</a>
+        {{end}}
+    </div>
+
+    <div class="card api-section">
+        <h2>🔗 API</h2>
+        <p>Get a random quote as plain text:</p>
+        <p><code>GET /api/quote</code></p>
+        <p>Try it: <a href="/api/quote">/api/quote</a></p>
+    </div>
+</body>
+</html>

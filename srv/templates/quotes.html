@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Quotes - Quote Database</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: #f5f5f5;
+            color: #333;
+        }
+        h1 { color: #2c3e50; margin-bottom: 0.5rem; }
+        .nav { margin-bottom: 2rem; }
+        .nav a { color: #3498db; text-decoration: none; margin-right: 1rem; }
+        .nav a:hover { text-decoration: underline; }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+        textarea { min-height: 100px; resize: vertical; }
+        .btn {
+            background: #3498db;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .btn:hover { background: #2980b9; }
+        .btn-danger { background: #e74c3c; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-small { padding: 0.4rem 0.8rem; font-size: 0.9rem; }
+        .quote-item {
+            border-left: 4px solid #3498db;
+            padding-left: 1rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+        .quote-text { font-size: 1.1rem; font-style: italic; margin-bottom: 0.5rem; }
+        .quote-author { color: #7f8c8d; }
+        .quote-actions { margin-top: 0.5rem; }
+        .success { background: #d4edda; color: #155724; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        .error { background: #f8d7da; color: #721c24; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        .empty { color: #7f8c8d; font-style: italic; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="/">← Home</a>
+        <a href="{{.LogoutURL}}">Logout</a>
+    </div>
+
+    <h1>📝 My Quotes</h1>
+    <p>Logged in as <strong>{{.UserEmail}}</strong></p>
+
+    {{if .Success}}
+        <div class="success">{{.Success}}</div>
+    {{end}}
+    {{if .Error}}
+        <div class="error">{{.Error}}</div>
+    {{end}}
+
+    <div class="card">
+        <h2>Add a Quote</h2>
+        <form method="POST" action="/quotes">
+            <div class="form-group">
+                <label for="text">Quote Text *</label>
+                <textarea name="text" id="text" placeholder="Enter the quote..." required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="author">Author (optional)</label>
+                <input type="text" name="author" id="author" placeholder="Who said this?">
+            </div>
+            <button type="submit" class="btn">Add Quote</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Your Quotes ({{len .Quotes}})</h2>
+        {{if .Quotes}}
+            {{range .Quotes}}
+                <div class="quote-item">
+                    <div class="quote-text">"{{.Text}}"</div>
+                    {{if .Author}}
+                        <div class="quote-author">— {{.Author}}</div>
+                    {{end}}
+                    <div class="quote-actions">
+                        <form method="POST" action="/quotes/{{.ID}}/delete" style="display:inline;">
+                            <button type="submit" class="btn btn-danger btn-small" onclick="return confirm('Delete this quote?')">Delete</button>
+                        </form>
+                    </div>
+                </div>
+            {{end}}
+        {{else}}
+            <p class="empty">You haven't added any quotes yet. Add one above!</p>
+        {{end}}
+    </div>
+</body>
+</html>
