@@ -17,3 +17,6 @@ DELETE FROM quotes WHERE id = ? AND user_id = ?;
 
 -- name: CountQuotes :one
 SELECT COUNT(*) as count FROM quotes;
+
+-- name: ListAllQuotes :many
+SELECT * FROM quotes ORDER BY created_at DESC;

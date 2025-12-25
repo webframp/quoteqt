@@ -76,6 +76,39 @@ func (q *Queries) GetRandomQuote(ctx context.Context) (Quote, error) {
 	return i, err
 }
 
+const listAllQuotes = `-- name: ListAllQuotes :many
+SELECT id, user_id, text, author, created_at FROM quotes ORDER BY created_at DESC
+`
+
+func (q *Queries) ListAllQuotes(ctx context.Context) ([]Quote, error) {
+	rows, err := q.db.QueryContext(ctx, listAllQuotes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Quote{}
+	for rows.Next() {
+		var i Quote
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Text,
+			&i.Author,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listQuotesByUser = `-- name: ListQuotesByUser :many
 SELECT id, user_id, text, author, created_at FROM quotes
 WHERE user_id = ?

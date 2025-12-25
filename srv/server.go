@@ -2,6 +2,7 @@ package srv
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -175,6 +176,36 @@ func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/quotes?success=Quote+deleted", http.StatusSeeOther)
 }
 
+type QuoteResponse struct {
+	ID        int64   `json:"id"`
+	Text      string  `json:"text"`
+	Author    *string `json:"author,omitempty"`
+	CreatedAt string  `json:"created_at"`
+}
+
+func (s *Server) HandleListAllQuotes(w http.ResponseWriter, r *http.Request) {
+	q := dbgen.New(s.DB)
+	quotes, err := q.ListAllQuotes(r.Context())
+	if err != nil {
+		slog.Error("list all quotes", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	response := make([]QuoteResponse, len(quotes))
+	for i, quote := range quotes {
+		response[i] = QuoteResponse{
+			ID:        quote.ID,
+			Text:      quote.Text,
+			Author:    quote.Author,
+			CreatedAt: quote.CreatedAt.Format(time.RFC3339),
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 	q := dbgen.New(s.DB)
 	quote, err := q.GetRandomQuote(r.Context())
@@ -236,6 +267,7 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("POST /quotes", s.HandleAddQuote)
 	mux.HandleFunc("POST /quotes/{id}/delete", s.HandleDeleteQuote)
 	mux.HandleFunc("GET /api/quote", s.HandleRandomQuote)
+	mux.HandleFunc("GET /api/quotes", s.HandleListAllQuotes)
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(s.StaticDir))))
 	slog.Info("starting server", "addr", addr)
 	return http.ListenAndServe(addr, mux)
