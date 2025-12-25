@@ -605,6 +605,8 @@ func (s *Server) HandleQuotesPublic(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleListAllQuotes(w http.ResponseWriter, r *http.Request) {
+	AddNightbotAttributes(r)
+
 	q := dbgen.New(s.DB)
 	quotes, err := q.ListAllQuotes(r.Context())
 	if err != nil {
@@ -629,6 +631,8 @@ func (s *Server) HandleListAllQuotes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
+	AddNightbotAttributes(r)
+
 	q := dbgen.New(s.DB)
 	playCiv := r.URL.Query().Get("civ")
 	vsCiv := r.URL.Query().Get("vs")
@@ -698,6 +702,8 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
+	AddNightbotAttributes(r)
+
 	q := dbgen.New(s.DB)
 	civ := r.URL.Query().Get("civ")
 
