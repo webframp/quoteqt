@@ -172,3 +172,31 @@ sudo systemctl restart quotes
 - Error details
 
 Traces are sent to Honeycomb's OTLP endpoint automatically when `HONEYCOMB_API_KEY` is set.
+
+## Multi-Streamer Support
+
+Quotes can be global (available to all channels) or channel-specific.
+
+### How It Works
+
+1. **Global quotes** (default): Created without a channel, returned to all API requests
+2. **Channel-specific quotes**: Created with a channel name, only returned when that channel's Nightbot makes requests
+
+When Nightbot calls the API, it sends a `Nightbot-Channel` header with the channel name. The API returns:
+- All global quotes (channel = null)
+- Plus channel-specific quotes matching that channel
+
+### Creating Channel-Specific Quotes
+
+In the web UI, set the "Channel" field when adding a quote. Leave it empty for global quotes.
+
+### Example Nightbot Commands
+
+Both commands work the same - Nightbot automatically sends the channel header:
+
+```
+!commands add !quote $(urlfetch https://your-domain.com/api/quote)
+!commands add !tip $(urlfetch https://your-domain.com/api/matchup?$(querystring))
+```
+
+Channel-specific quotes will automatically appear for that streamer's channel.

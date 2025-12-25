@@ -31,6 +31,7 @@ type Quote struct {
 	CreatedAt    time.Time `json:"created_at"`
 	Civilization *string   `json:"civilization"`
 	OpponentCiv  *string   `json:"opponent_civ"`
+	Channel      *string   `json:"channel"`
 }
 
 type Visitor struct {

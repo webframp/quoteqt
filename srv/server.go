@@ -56,6 +56,7 @@ type QuoteView struct {
 	Author       string
 	Civilization string
 	OpponentCiv  string
+	Channel      string
 }
 
 type CivWithCount struct {
@@ -136,6 +137,9 @@ func quotesToViews(quotes []dbgen.Quote) []QuoteView {
 		if q.OpponentCiv != nil {
 			views[i].OpponentCiv = *q.OpponentCiv
 		}
+		if q.Channel != nil {
+			views[i].Channel = *q.Channel
+		}
 	}
 	return views
 }
@@ -189,6 +193,7 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 	author := strings.TrimSpace(r.FormValue("author"))
 	civ := strings.TrimSpace(r.FormValue("civilization"))
 	opponentCiv := strings.TrimSpace(r.FormValue("opponent_civ"))
+	channel := strings.TrimSpace(r.FormValue("channel"))
 
 	// Validate inputs
 	if err := ValidateQuoteText(text); err != nil {
@@ -201,7 +206,7 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := dbgen.New(s.DB)
-	var authorPtr, civPtr, opponentPtr *string
+	var authorPtr, civPtr, opponentPtr, channelPtr *string
 	if author != "" {
 		authorPtr = &author
 	}
@@ -211,14 +216,18 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 	if opponentCiv != "" {
 		opponentPtr = &opponentCiv
 	}
+	if channel != "" {
+		channelPtr = &channel
+	}
 
 	err := q.CreateQuote(r.Context(), dbgen.CreateQuoteParams{
-		UserID:      userID,
-		Text:        text,
-		Author:      authorPtr,
+		UserID:       userID,
+		Text:         text,
+		Author:       authorPtr,
 		Civilization: civPtr,
-		OpponentCiv: opponentPtr,
-		CreatedAt:   time.Now(),
+		OpponentCiv:  opponentPtr,
+		Channel:      channelPtr,
+		CreatedAt:    time.Now(),
 	})
 	if err != nil {
 		slog.Error("create quote", "error", err)
@@ -475,6 +484,7 @@ func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 	author := strings.TrimSpace(r.FormValue("author"))
 	civ := strings.TrimSpace(r.FormValue("civilization"))
 	opponentCiv := strings.TrimSpace(r.FormValue("opponent_civ"))
+	channel := strings.TrimSpace(r.FormValue("channel"))
 
 	// Validate inputs
 	if err := ValidateQuoteText(text); err != nil {
@@ -487,7 +497,7 @@ func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := dbgen.New(s.DB)
-	var authorPtr, civPtr, opponentPtr *string
+	var authorPtr, civPtr, opponentPtr, channelPtr *string
 	if author != "" {
 		authorPtr = &author
 	}
@@ -497,6 +507,9 @@ func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 	if opponentCiv != "" {
 		opponentPtr = &opponentCiv
 	}
+	if channel != "" {
+		channelPtr = &channel
+	}
 
 	err = q.UpdateQuote(r.Context(), dbgen.UpdateQuoteParams{
 		ID:           id,
@@ -504,6 +517,7 @@ func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 		Author:       authorPtr,
 		Civilization: civPtr,
 		OpponentCiv:  opponentPtr,
+		Channel:      channelPtr,
 	})
 	if err != nil {
 		slog.Error("update quote", "error", err)
@@ -637,6 +651,12 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 	playCiv := r.URL.Query().Get("civ")
 	vsCiv := r.URL.Query().Get("vs")
 
+	// Get channel from Nightbot header for multi-streamer support
+	var channel string
+	if nb := ParseNightbotChannel(r.Header.Get("Nightbot-Channel")); nb != nil {
+		channel = nb.Name
+	}
+
 	// Log incoming request for debugging
 	slog.Info("matchup request", "rawQuery", r.URL.RawQuery, "fullURL", r.URL.String())
 
@@ -676,10 +696,20 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 		vsCiv = resolved
 	}
 
-	quote, err := q.GetRandomMatchupQuote(r.Context(), dbgen.GetRandomMatchupQuoteParams{
-		Civilization: &playCiv,
-		OpponentCiv:  &vsCiv,
-	})
+	var quote dbgen.Quote
+	var err error
+	if channel != "" {
+		quote, err = q.GetRandomMatchupQuote(r.Context(), dbgen.GetRandomMatchupQuoteParams{
+			Civilization: &playCiv,
+			OpponentCiv:  &vsCiv,
+			Channel:      &channel,
+		})
+	} else {
+		quote, err = q.GetRandomMatchupQuoteGlobal(r.Context(), dbgen.GetRandomMatchupQuoteGlobalParams{
+			Civilization: &playCiv,
+			OpponentCiv:  &vsCiv,
+		})
+	}
 	if err != nil {
 		if err == sql.ErrNoRows {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -707,6 +737,12 @@ func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 	q := dbgen.New(s.DB)
 	civ := r.URL.Query().Get("civ")
 
+	// Get channel from Nightbot header for multi-streamer support
+	var channel string
+	if nb := ParseNightbotChannel(r.Header.Get("Nightbot-Channel")); nb != nil {
+		channel = nb.Name
+	}
+
 	// Resolve shortname to full civ name
 	if civ != "" {
 		if resolved, err := q.ResolveCivName(r.Context(), dbgen.ResolveCivNameParams{
@@ -720,9 +756,20 @@ func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 	var quote dbgen.Quote
 	var err error
 	if civ != "" {
-		quote, err = q.GetRandomQuoteByCiv(r.Context(), &civ)
+		if channel != "" {
+			quote, err = q.GetRandomQuoteByCiv(r.Context(), dbgen.GetRandomQuoteByCivParams{
+				Civilization: &civ,
+				Channel:      &channel,
+			})
+		} else {
+			quote, err = q.GetRandomQuoteByCivGlobal(r.Context(), &civ)
+		}
 	} else {
-		quote, err = q.GetRandomQuote(r.Context())
+		if channel != "" {
+			quote, err = q.GetRandomQuote(r.Context(), &channel)
+		} else {
+			quote, err = q.GetRandomQuoteGlobal(r.Context())
+		}
 	}
 
 	if err != nil {

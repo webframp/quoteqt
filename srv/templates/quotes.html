@@ -101,6 +101,7 @@
         .quote-text { font-size: 1.1rem; font-style: italic; margin-bottom: 0.5rem; color: var(--text-primary); }
         .quote-author { color: var(--text-secondary); }
         .quote-civ { color: var(--civ-color); font-size: 0.9rem; margin-left: 0.5rem; }
+        .quote-channel { color: #9b59b6; font-size: 0.85rem; margin-left: 0.5rem; background: rgba(155, 89, 182, 0.1); padding: 0.1rem 0.4rem; border-radius: 3px; }
         .quote-actions { margin-top: 0.5rem; }
         .quote-edit textarea { width: 100%; min-height: 60px; margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; font-family: inherit; background: var(--bg-secondary); color: var(--text-primary); }
         .edit-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
@@ -212,6 +213,11 @@
                     <option value="Zhu Xi's Legacy">Zhu Xi's Legacy</option>
                 </select>
             </div>
+            <div class="form-group">
+                <label for="channel">Channel (optional)</label>
+                <input type="text" name="channel" id="channel" placeholder="Leave empty for global quote">
+                <small>If set, quote will only appear for this channel's Nightbot commands</small>
+            </div>
             <button type="submit" class="btn">Add Quote</button>
         </form>
     </div>
@@ -232,6 +238,9 @@
                             {{else}}
                                 <span class="quote-civ">[{{.Civilization}}]</span>
                             {{end}}
+                        {{end}}
+                        {{if .Channel}}
+                            <span class="quote-channel">[#{{.Channel}}]</span>
                         {{end}}
                         <div class="quote-actions">
                             <button type="button" class="btn btn-small" onclick="toggleEdit({{.ID}})">Edit</button>
@@ -296,6 +305,7 @@
                                 <option value="Tughlaq Dynasty" {{if eq .OpponentCiv "Tughlaq Dynasty"}}selected{{end}}>Tughlaq Dynasty</option>
                                 <option value="Zhu Xi's Legacy" {{if eq .OpponentCiv "Zhu Xi's Legacy"}}selected{{end}}>Zhu Xi's Legacy</option>
                             </select>
+                            <input type="text" name="channel" value="{{.Channel}}" placeholder="Channel (empty = global)">
                         </div>
                         <div class="quote-actions">
                             <button type="submit" class="btn btn-small">Save</button>
