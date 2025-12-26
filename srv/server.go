@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"srv.exe.dev/db"
 	"srv.exe.dev/db/dbgen"
 )
@@ -736,6 +738,7 @@ func (s *Server) HandleListAllQuotes(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 	AddNightbotAttributes(r)
+	ctx := r.Context()
 
 	q := dbgen.New(s.DB)
 	playCiv := r.URL.Query().Get("civ")
@@ -766,6 +769,12 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if playCiv == "" || vsCiv == "" {
+		rootSpan := trace.SpanFromContext(ctx)
+		rootSpan.AddEvent("invalid_request", trace.WithAttributes(
+			attribute.String("reason", "missing_civ_params"),
+			attribute.String("civ", playCiv),
+			attribute.String("vs", vsCiv),
+		))
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintln(w, "Usage: /api/matchup?civ=X&vs=Y or /api/matchup?X Y")
@@ -773,44 +782,81 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Resolve shortnames
-	if resolved, err := q.ResolveCivName(r.Context(), dbgen.ResolveCivNameParams{
+	dbCtx, span := StartDBSpan(ctx, "ResolveCivName", attribute.String("civ.input", playCiv))
+	if resolved, err := q.ResolveCivName(dbCtx, dbgen.ResolveCivNameParams{
 		Shortname: &playCiv,
 		LOWER:     playCiv,
 	}); err == nil {
 		playCiv = resolved
+		span.SetAttributes(attribute.String("civ.resolved", playCiv))
 	}
-	if resolved, err := q.ResolveCivName(r.Context(), dbgen.ResolveCivNameParams{
+	span.End()
+
+	dbCtx, span = StartDBSpan(ctx, "ResolveCivName", attribute.String("civ.input", vsCiv))
+	if resolved, err := q.ResolveCivName(dbCtx, dbgen.ResolveCivNameParams{
 		Shortname: &vsCiv,
 		LOWER:     vsCiv,
 	}); err == nil {
 		vsCiv = resolved
+		span.SetAttributes(attribute.String("civ.resolved", vsCiv))
 	}
+	span.End()
 
 	var quote dbgen.Quote
 	var err error
 	if channel != "" {
-		quote, err = q.GetRandomMatchupQuote(r.Context(), dbgen.GetRandomMatchupQuoteParams{
+		dbCtx, span := StartDBSpan(ctx, "GetRandomMatchupQuote",
+			attribute.String("civ", playCiv),
+			attribute.String("vs", vsCiv),
+			attribute.String("channel", channel))
+		quote, err = q.GetRandomMatchupQuote(dbCtx, dbgen.GetRandomMatchupQuoteParams{
 			Civilization: &playCiv,
 			OpponentCiv:  &vsCiv,
 			Channel:      &channel,
 		})
+		if err != nil && err != sql.ErrNoRows {
+			RecordError(span, err)
+		}
+		span.End()
 	} else {
-		quote, err = q.GetRandomMatchupQuoteGlobal(r.Context(), dbgen.GetRandomMatchupQuoteGlobalParams{
+		dbCtx, span := StartDBSpan(ctx, "GetRandomMatchupQuoteGlobal",
+			attribute.String("civ", playCiv),
+			attribute.String("vs", vsCiv))
+		quote, err = q.GetRandomMatchupQuoteGlobal(dbCtx, dbgen.GetRandomMatchupQuoteGlobalParams{
 			Civilization: &playCiv,
 			OpponentCiv:  &vsCiv,
 		})
+		if err != nil && err != sql.ErrNoRows {
+			RecordError(span, err)
+		}
+		span.End()
 	}
 	if err != nil {
 		if err == sql.ErrNoRows {
+			span := trace.SpanFromContext(ctx)
+			span.AddEvent("no_results", trace.WithAttributes(
+				attribute.String("query_type", "matchup"),
+				attribute.String("civ", playCiv),
+				attribute.String("vs", vsCiv),
+			))
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			// Return 200 so bots like Nightbot don't treat it as an error
 			fmt.Fprintf(w, "No tips for %s vs %s yet.\n", playCiv, vsCiv)
 			return
 		}
+		// Record error on parent span too
+		RecordError(trace.SpanFromContext(ctx), err)
 		slog.Error("get matchup quote", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+
+	// Record successful quote retrieval
+	rootSpan := trace.SpanFromContext(ctx)
+	rootSpan.AddEvent("quote_served", trace.WithAttributes(
+		attribute.Int64("quote.id", quote.ID),
+		attribute.String("query_type", "matchup"),
+	))
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	var parts []string
@@ -823,6 +869,7 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 	AddNightbotAttributes(r)
+	ctx := r.Context()
 
 	q := dbgen.New(s.DB)
 	civ := r.URL.Query().Get("civ")
@@ -835,35 +882,67 @@ func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 
 	// Resolve shortname to full civ name
 	if civ != "" {
-		if resolved, err := q.ResolveCivName(r.Context(), dbgen.ResolveCivNameParams{
+		dbCtx, span := StartDBSpan(ctx, "ResolveCivName", attribute.String("civ.input", civ))
+		if resolved, err := q.ResolveCivName(dbCtx, dbgen.ResolveCivNameParams{
 			Shortname: &civ,
 			LOWER:     civ,
 		}); err == nil {
 			civ = resolved
+			span.SetAttributes(attribute.String("civ.resolved", civ))
 		}
+		span.End()
 	}
 
 	var quote dbgen.Quote
 	var err error
 	if civ != "" {
 		if channel != "" {
-			quote, err = q.GetRandomQuoteByCiv(r.Context(), dbgen.GetRandomQuoteByCivParams{
+			dbCtx, span := StartDBSpan(ctx, "GetRandomQuoteByCiv",
+				attribute.String("civ", civ),
+				attribute.String("channel", channel))
+			quote, err = q.GetRandomQuoteByCiv(dbCtx, dbgen.GetRandomQuoteByCivParams{
 				Civilization: &civ,
 				Channel:      &channel,
 			})
+			if err != nil && err != sql.ErrNoRows {
+				RecordError(span, err)
+			}
+			span.End()
 		} else {
-			quote, err = q.GetRandomQuoteByCivGlobal(r.Context(), &civ)
+			dbCtx, span := StartDBSpan(ctx, "GetRandomQuoteByCivGlobal",
+				attribute.String("civ", civ))
+			quote, err = q.GetRandomQuoteByCivGlobal(dbCtx, &civ)
+			if err != nil && err != sql.ErrNoRows {
+				RecordError(span, err)
+			}
+			span.End()
 		}
 	} else {
 		if channel != "" {
-			quote, err = q.GetRandomQuote(r.Context(), &channel)
+			dbCtx, span := StartDBSpan(ctx, "GetRandomQuote",
+				attribute.String("channel", channel))
+			quote, err = q.GetRandomQuote(dbCtx, &channel)
+			if err != nil && err != sql.ErrNoRows {
+				RecordError(span, err)
+			}
+			span.End()
 		} else {
-			quote, err = q.GetRandomQuoteGlobal(r.Context())
+			dbCtx, span := StartDBSpan(ctx, "GetRandomQuoteGlobal")
+			quote, err = q.GetRandomQuoteGlobal(dbCtx)
+			if err != nil && err != sql.ErrNoRows {
+				RecordError(span, err)
+			}
+			span.End()
 		}
 	}
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			span := trace.SpanFromContext(ctx)
+			span.AddEvent("no_results", trace.WithAttributes(
+				attribute.String("query_type", "quote"),
+				attribute.String("civ", civ),
+			))
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			// Return 200 so bots like Nightbot don't treat it as an error
 			if civ != "" {
@@ -873,10 +952,19 @@ func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+		// Record error on parent span too
+		RecordError(trace.SpanFromContext(ctx), err)
 		slog.Error("get random quote", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+
+	// Record successful quote retrieval
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("quote_served", trace.WithAttributes(
+		attribute.Int64("quote.id", quote.ID),
+		attribute.String("query_type", "quote"),
+	))
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	var parts []string

@@ -200,3 +200,44 @@ Both commands work the same - Nightbot automatically sends the channel header:
 ```
 
 Channel-specific quotes will automatically appear for that streamer's channel.
+
+## Observability
+
+The application is instrumented with OpenTelemetry and sends traces to Honeycomb.
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `HONEYCOMB_API_KEY` | API key for Honeycomb (enables tracing) |
+| `OTEL_SERVICE_NAME` | Service name in traces (default: `quoteqt`) |
+
+### Traced Operations
+
+- HTTP request/response (via `otelhttp`)
+- Database queries (child spans with `db.operation`)
+- Rate limiting events
+- Quote/matchup results
+
+### Custom Span Attributes
+
+For Nightbot requests, the following attributes are added:
+
+- `nightbot.channel.name` - Streamer's channel
+- `nightbot.channel.provider` - Platform (twitch/youtube)
+- `nightbot.user.name` - Viewer who triggered command
+- `nightbot.user.user_level` - Viewer's role (owner/moderator/regular)
+
+See [docs/honeycomb-queries.md](docs/honeycomb-queries.md) for example queries.
+
+## Load Testing
+
+Load tests use [k6](https://k6.io/). Install with `apt install k6` or see [k6 docs](https://k6.io/docs/getting-started/installation/).
+
+| Command | Description |
+|---------|-------------|
+| `make k6-quick` | Quick 10-second burst test |
+| `make k6-nightbot` | Simulate 5 Nightbot channels |
+| `make k6-scenarios` | Multi-phase test (normal → burst → nightbot) |
+| `make load-quick` | Quick test with `hey` (100 requests) |
+| `make load-heavy` | Heavy test with `hey` (5000 requests) |

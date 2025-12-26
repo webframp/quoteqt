@@ -32,17 +32,26 @@ func run() error {
 
 	// Initialize OpenTelemetry with Honeycomb
 	// Requires HONEYCOMB_API_KEY environment variable
-	// Optional: OTEL_SERVICE_NAME (defaults to "quotes")
-	shutdownOtel, err := otelconfig.ConfigureOpenTelemetry(
-		otelconfig.WithServiceName("quoteqt"),
-		otelconfig.WithMetricsEnabled(false),
-	)
+	honeycombKey := os.Getenv("HONEYCOMB_API_KEY")
+	var shutdownOtel func()
+	if honeycombKey != "" {
+		shutdownOtel, err = otelconfig.ConfigureOpenTelemetry(
+			otelconfig.WithServiceName("quoteqt"),
+			otelconfig.WithMetricsEnabled(false),
+			otelconfig.WithExporterEndpoint("api.honeycomb.io:443"),
+			otelconfig.WithHeaders(map[string]string{
+				"x-honeycomb-team": honeycombKey,
+			}),
+		)
+	} else {
+		slog.Info("HONEYCOMB_API_KEY not set, tracing disabled")
+	}
 	if err != nil {
 		slog.Warn("failed to configure OpenTelemetry", "error", err)
 		// Continue without tracing - don't fail startup
-	} else {
+	} else if shutdownOtel != nil {
 		defer shutdownOtel()
-		slog.Info("OpenTelemetry configured")
+		slog.Info("OpenTelemetry configured", "endpoint", "api.honeycomb.io:443")
 	}
 
 	server, err := srv.New("db.sqlite3", hostname)

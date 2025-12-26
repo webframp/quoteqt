@@ -46,3 +46,22 @@ load-full:
 	~/go/bin/hey -n 200 -c 10 -H "Nightbot-Channel: name=teststreamer&provider=twitch&providerId=12345" "http://localhost:8000/api/matchup?civ=hre&vs=french"
 	@echo "\n--- /health ---"
 	~/go/bin/hey -n 100 -c 10 http://localhost:8000/health
+
+# k6 load testing
+# Install: https://k6.io/docs/getting-started/installation/
+
+# Quick k6 test - 10 VUs for 10s
+k6-quick:
+	k6 run k6/quick.js
+
+# Realistic Nightbot simulation
+k6-realistic:
+	k6 run k6/realistic.js
+
+# Full scenario test (normal, burst, nightbot)
+k6-scenarios:
+	k6 run k6/scenarios.js
+
+# k6 multi-channel Nightbot simulation
+k6-nightbot:
+	k6 run k6/nightbot-channels.js

@@ -4,6 +4,9 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // RateLimiter implements a simple token bucket rate limiter per IP.
@@ -76,16 +79,38 @@ func (rl *RateLimiter) Allow(ip string) bool {
 	return false
 }
 
+// getRateLimitKey returns the key to use for rate limiting.
+// For Nightbot requests, use channel name; otherwise use IP.
+func getRateLimitKey(r *http.Request) (key string, keyType string) {
+	// Check for Nightbot-Channel header first
+	if channelHeader := r.Header.Get("Nightbot-Channel"); channelHeader != "" {
+		if channel := ParseNightbotChannel(channelHeader); channel != nil && channel.Name != "" {
+			return "channel:" + channel.Name, "channel"
+		}
+	}
+
+	// Fall back to IP-based rate limiting
+	ip := r.Header.Get("X-Forwarded-For")
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
+	return "ip:" + ip, "ip"
+}
+
 // Middleware wraps an http.Handler with rate limiting.
+// Uses per-channel rate limiting for Nightbot requests, per-IP otherwise.
 func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Use X-Forwarded-For if behind proxy, otherwise RemoteAddr
-		ip := r.Header.Get("X-Forwarded-For")
-		if ip == "" {
-			ip = r.RemoteAddr
-		}
+		key, keyType := getRateLimitKey(r)
 
-		if !rl.Allow(ip) {
+		if !rl.Allow(key) {
+			// Record rate limit event on span
+			span := trace.SpanFromContext(r.Context())
+			span.AddEvent("rate_limited", trace.WithAttributes(
+				attribute.String("rate_limit.key", key),
+				attribute.String("rate_limit.key_type", keyType),
+				attribute.String("endpoint", r.URL.Path),
+			))
 			http.Error(w, "Rate limit exceeded. Try again later.", http.StatusTooManyRequests)
 			return
 		}
