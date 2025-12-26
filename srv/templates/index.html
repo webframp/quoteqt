@@ -100,7 +100,7 @@
     <p class="subtitle">Wisdom from the battlefield</p>
 
     <div class="card">
-        <p class="stats">📊 <a href="/browse">{{.QuoteCount}} quotes</a> in the database</p>
+        <p class="stats">📊 <a href="/browse">{{.QuoteCount}} quotes</a> in the database{{if .LastUpdated}} · Updated {{.LastUpdated}}{{end}}</p>
         
         {{if .UserEmail}}
             <p>Welcome, <strong>{{.UserEmail}}</strong>!</p>

@@ -151,6 +151,17 @@ func (q *Queries) DeleteQuoteByText(ctx context.Context, text string) error {
 	return err
 }
 
+const getLastUpdated = `-- name: GetLastUpdated :one
+SELECT created_at FROM quotes ORDER BY created_at DESC LIMIT 1
+`
+
+func (q *Queries) GetLastUpdated(ctx context.Context) (time.Time, error) {
+	row := q.db.QueryRowContext(ctx, getLastUpdated)
+	var created_at time.Time
+	err := row.Scan(&created_at)
+	return created_at, err
+}
+
 const getQuoteByID = `-- name: GetQuoteByID :one
 SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel FROM quotes WHERE id = ?
 `

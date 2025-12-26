@@ -91,3 +91,6 @@ UPDATE quotes SET civilization = ? WHERE id IN (sqlc.slice('ids'));
 
 -- name: BulkDeleteQuotes :exec
 DELETE FROM quotes WHERE id IN (sqlc.slice('ids'));
+
+-- name: GetLastUpdated :one
+SELECT created_at FROM quotes ORDER BY created_at DESC LIMIT 1;

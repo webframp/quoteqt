@@ -31,17 +31,18 @@ type Server struct {
 }
 
 type pageData struct {
-	Hostname   string
-	Now        string
-	UserEmail  string
-	UserID     string
-	LoginURL   string
-	LogoutURL  string
-	Quotes     []QuoteView
-	Error      string
-	Success    string
-	QuoteCount int64
-	Civs       []CivWithCount
+	Hostname    string
+	Now         string
+	UserEmail   string
+	UserID      string
+	LoginURL    string
+	LogoutURL   string
+	Quotes      []QuoteView
+	Error       string
+	Success     string
+	QuoteCount  int64
+	LastUpdated string
+	Civs        []CivWithCount
 	// Pagination
 	Page       int
 	PageSize   int
@@ -105,14 +106,20 @@ func (s *Server) HandleRoot(w http.ResponseWriter, r *http.Request) {
 	q := dbgen.New(s.DB)
 	count, _ := q.CountQuotes(r.Context())
 
+	var lastUpdated string
+	if ts, err := q.GetLastUpdated(r.Context()); err == nil {
+		lastUpdated = formatTimeAgo(ts)
+	}
+
 	data := pageData{
-		Hostname:   s.Hostname,
-		Now:        time.Now().Format(time.RFC3339),
-		UserEmail:  userEmail,
-		UserID:     userID,
-		LoginURL:   loginURLForRequest(r),
-		LogoutURL:  "/__exe.dev/logout",
-		QuoteCount: count,
+		Hostname:    s.Hostname,
+		Now:         time.Now().Format(time.RFC3339),
+		UserEmail:   userEmail,
+		UserID:      userID,
+		LoginURL:    loginURLForRequest(r),
+		LogoutURL:   "/__exe.dev/logout",
+		QuoteCount:  count,
+		LastUpdated: lastUpdated,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -873,6 +880,34 @@ func loginURLForRequest(r *http.Request) string {
 	v := url.Values{}
 	v.Set("redirect", path)
 	return "/__exe.dev/login?" + v.Encode()
+}
+
+func formatTimeAgo(t time.Time) string {
+	duration := time.Since(t)
+	switch {
+	case duration < time.Minute:
+		return "just now"
+	case duration < time.Hour:
+		mins := int(duration.Minutes())
+		if mins == 1 {
+			return "1 minute ago"
+		}
+		return fmt.Sprintf("%d minutes ago", mins)
+	case duration < 24*time.Hour:
+		hours := int(duration.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	case duration < 7*24*time.Hour:
+		days := int(duration.Hours() / 24)
+		if days == 1 {
+			return "yesterday"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	default:
+		return t.Format("Jan 2, 2006")
+	}
 }
 
 var templateFuncs = template.FuncMap{
