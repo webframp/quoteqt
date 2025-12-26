@@ -34,7 +34,8 @@ func run() error {
 	// Requires HONEYCOMB_API_KEY environment variable
 	// Optional: OTEL_SERVICE_NAME (defaults to "quotes")
 	shutdownOtel, err := otelconfig.ConfigureOpenTelemetry(
-		otelconfig.WithServiceName("quotes"),
+		otelconfig.WithServiceName("quoteqt"),
+		otelconfig.WithMetricsEnabled(false),
 	)
 	if err != nil {
 		slog.Warn("failed to configure OpenTelemetry", "error", err)
