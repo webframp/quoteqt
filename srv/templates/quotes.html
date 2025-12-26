@@ -103,6 +103,35 @@
         .quote-civ { color: var(--civ-color); font-size: 0.9rem; margin-left: 0.5rem; }
         .quote-channel { color: #9b59b6; font-size: 0.85rem; margin-left: 0.5rem; background: rgba(155, 89, 182, 0.1); padding: 0.1rem 0.4rem; border-radius: 3px; }
         /* Bulk edit styles */
+        .filter-bar {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .filter-bar input[type="text"] {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+        .filter-bar select {
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+        .quote-item.hidden { display: none; }
+        .no-results {
+            color: var(--text-secondary);
+            font-style: italic;
+            padding: 1rem;
+            text-align: center;
+        }
         .bulk-bar {
             display: none;
             background: var(--bg-secondary);
@@ -256,8 +285,21 @@
     </div>
 
     <div class="card">
-        <h2>Your Quotes ({{len .Quotes}})</h2>
+        <h2>Your Quotes (<span id="visibleCount">{{len .Quotes}}</span>{{if .Quotes}} of {{len .Quotes}}{{end}})</h2>
         {{if .Quotes}}
+            <div class="filter-bar">
+                <input type="text" id="searchInput" placeholder="Search quotes..." onkeyup="filterQuotes()">
+                <select id="filterChannel" onchange="filterQuotes()">
+                    <option value="">All channels</option>
+                    <option value="__global__">Global only</option>
+                    {{range .Quotes}}{{if .Channel}}<option value="{{.Channel}}">{{.Channel}}</option>{{end}}{{end}}
+                </select>
+                <select id="filterCiv" onchange="filterQuotes()">
+                    <option value="">All civs</option>
+                    {{range .Quotes}}{{if .Civilization}}<option value="{{.Civilization}}">{{.Civilization}}</option>{{end}}{{end}}
+                </select>
+                <button type="button" class="btn btn-small" onclick="clearFilters()">Clear</button>
+            </div>
             <div class="bulk-bar" id="bulkBar">
                 <span class="selected-count"><span id="selectedCount">0</span> selected</span>
                 <select id="bulkAction">
@@ -448,6 +490,83 @@
         });
         updateBulkBar();
     }
+
+    // Filter/search functionality
+    function filterQuotes() {
+        const search = document.getElementById('searchInput').value.toLowerCase();
+        const channelFilter = document.getElementById('filterChannel').value;
+        const civFilter = document.getElementById('filterCiv').value;
+        
+        let visibleCount = 0;
+        document.querySelectorAll('.quote-item').forEach(item => {
+            const text = item.querySelector('.quote-text')?.textContent.toLowerCase() || '';
+            const author = item.querySelector('.quote-author')?.textContent.toLowerCase() || '';
+            const channel = item.querySelector('.quote-channel')?.textContent.replace(/[\[\]#]/g, '') || '';
+            const civ = item.querySelector('.quote-civ')?.textContent.replace(/[\[\]]/g, '').split(' vs ')[0] || '';
+            
+            let show = true;
+            
+            // Text search
+            if (search && !text.includes(search) && !author.includes(search)) {
+                show = false;
+            }
+            
+            // Channel filter
+            if (channelFilter === '__global__' && channel !== '') {
+                show = false;
+            } else if (channelFilter && channelFilter !== '__global__' && channel !== channelFilter) {
+                show = false;
+            }
+            
+            // Civ filter
+            if (civFilter && civ !== civFilter) {
+                show = false;
+            }
+            
+            item.classList.toggle('hidden', !show);
+            if (show) visibleCount++;
+        });
+        
+        document.getElementById('visibleCount').textContent = visibleCount;
+        
+        // Show/hide no results message
+        let noResults = document.getElementById('noResults');
+        if (visibleCount === 0) {
+            if (!noResults) {
+                noResults = document.createElement('div');
+                noResults.id = 'noResults';
+                noResults.className = 'no-results';
+                noResults.textContent = 'No quotes match your filters';
+                document.querySelector('.select-all-row').after(noResults);
+            }
+            noResults.style.display = 'block';
+        } else if (noResults) {
+            noResults.style.display = 'none';
+        }
+    }
+    
+    function clearFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('filterChannel').value = '';
+        document.getElementById('filterCiv').value = '';
+        filterQuotes();
+    }
+    
+    // Deduplicate filter dropdowns on page load
+    (function() {
+        ['filterChannel', 'filterCiv'].forEach(id => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            const seen = new Set();
+            Array.from(select.options).forEach(opt => {
+                if (opt.value && seen.has(opt.value)) {
+                    opt.remove();
+                } else {
+                    seen.add(opt.value);
+                }
+            });
+        });
+    })();
 
     // Show/hide value input based on action
     document.getElementById('bulkAction')?.addEventListener('change', function() {
