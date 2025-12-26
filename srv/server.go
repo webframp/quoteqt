@@ -58,6 +58,8 @@ type QuoteView struct {
 	Civilization string
 	OpponentCiv  string
 	Channel      string
+	CreatedBy    string
+	CreatedAt    string
 }
 
 type CivWithCount struct {
@@ -131,9 +133,15 @@ func (s *Server) HandleRoot(w http.ResponseWriter, r *http.Request) {
 func quotesToViews(quotes []dbgen.Quote) []QuoteView {
 	views := make([]QuoteView, len(quotes))
 	for i, q := range quotes {
+		createdBy := q.UserID
+		if q.CreatedByEmail != nil && *q.CreatedByEmail != "" {
+			createdBy = *q.CreatedByEmail
+		}
 		views[i] = QuoteView{
-			ID:   q.ID,
-			Text: q.Text,
+			ID:        q.ID,
+			Text:      q.Text,
+			CreatedBy: createdBy,
+			CreatedAt: formatTimeAgo(q.CreatedAt),
 		}
 		if q.Author != nil {
 			views[i].Author = *q.Author
@@ -185,6 +193,7 @@ func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
 
 	if userID == "" {
 		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
@@ -227,14 +236,20 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 		channelPtr = &channel
 	}
 
+	var emailPtr *string
+	if userEmail != "" {
+		emailPtr = &userEmail
+	}
+
 	err := q.CreateQuote(r.Context(), dbgen.CreateQuoteParams{
-		UserID:       userID,
-		Text:         text,
-		Author:       authorPtr,
-		Civilization: civPtr,
-		OpponentCiv:  opponentPtr,
-		Channel:      channelPtr,
-		CreatedAt:    time.Now(),
+		UserID:         userID,
+		CreatedByEmail: emailPtr,
+		Text:           text,
+		Author:         authorPtr,
+		Civilization:   civPtr,
+		OpponentCiv:    opponentPtr,
+		Channel:        channelPtr,
+		CreatedAt:      time.Now(),
 	})
 	if err != nil {
 		slog.Error("create quote", "error", err)

@@ -24,14 +24,15 @@ type Migration struct {
 }
 
 type Quote struct {
-	ID           int64     `json:"id"`
-	UserID       string    `json:"user_id"`
-	Text         string    `json:"text"`
-	Author       *string   `json:"author"`
-	CreatedAt    time.Time `json:"created_at"`
-	Civilization *string   `json:"civilization"`
-	OpponentCiv  *string   `json:"opponent_civ"`
-	Channel      *string   `json:"channel"`
+	ID             int64     `json:"id"`
+	UserID         string    `json:"user_id"`
+	Text           string    `json:"text"`
+	Author         *string   `json:"author"`
+	CreatedAt      time.Time `json:"created_at"`
+	Civilization   *string   `json:"civilization"`
+	OpponentCiv    *string   `json:"opponent_civ"`
+	Channel        *string   `json:"channel"`
+	CreatedByEmail *string   `json:"created_by_email"`
 }
 
 type Visitor struct {

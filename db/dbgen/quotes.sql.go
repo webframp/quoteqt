@@ -92,23 +92,25 @@ func (q *Queries) CountQuotes(ctx context.Context) (int64, error) {
 }
 
 const createQuote = `-- name: CreateQuote :exec
-INSERT INTO quotes (user_id, text, author, civilization, opponent_civ, channel, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO quotes (user_id, created_by_email, text, author, civilization, opponent_civ, channel, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateQuoteParams struct {
-	UserID       string    `json:"user_id"`
-	Text         string    `json:"text"`
-	Author       *string   `json:"author"`
-	Civilization *string   `json:"civilization"`
-	OpponentCiv  *string   `json:"opponent_civ"`
-	Channel      *string   `json:"channel"`
-	CreatedAt    time.Time `json:"created_at"`
+	UserID         string    `json:"user_id"`
+	CreatedByEmail *string   `json:"created_by_email"`
+	Text           string    `json:"text"`
+	Author         *string   `json:"author"`
+	Civilization   *string   `json:"civilization"`
+	OpponentCiv    *string   `json:"opponent_civ"`
+	Channel        *string   `json:"channel"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 func (q *Queries) CreateQuote(ctx context.Context, arg CreateQuoteParams) error {
 	_, err := q.db.ExecContext(ctx, createQuote,
 		arg.UserID,
+		arg.CreatedByEmail,
 		arg.Text,
 		arg.Author,
 		arg.Civilization,
@@ -163,7 +165,7 @@ func (q *Queries) GetLastUpdated(ctx context.Context) (time.Time, error) {
 }
 
 const getQuoteByID = `-- name: GetQuoteByID :one
-SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel FROM quotes WHERE id = ?
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes WHERE id = ?
 `
 
 func (q *Queries) GetQuoteByID(ctx context.Context, id int64) (Quote, error) {
@@ -178,12 +180,13 @@ func (q *Queries) GetQuoteByID(ctx context.Context, id int64) (Quote, error) {
 		&i.Civilization,
 		&i.OpponentCiv,
 		&i.Channel,
+		&i.CreatedByEmail,
 	)
 	return i, err
 }
 
 const getRandomMatchupQuote = `-- name: GetRandomMatchupQuote :one
-SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel FROM quotes
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
 WHERE civilization = ? AND opponent_civ = ? AND (channel IS NULL OR channel = ?)
 ORDER BY RANDOM()
 LIMIT 1
@@ -207,12 +210,13 @@ func (q *Queries) GetRandomMatchupQuote(ctx context.Context, arg GetRandomMatchu
 		&i.Civilization,
 		&i.OpponentCiv,
 		&i.Channel,
+		&i.CreatedByEmail,
 	)
 	return i, err
 }
 
 const getRandomMatchupQuoteGlobal = `-- name: GetRandomMatchupQuoteGlobal :one
-SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel FROM quotes
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
 WHERE civilization = ? AND opponent_civ = ? AND channel IS NULL
 ORDER BY RANDOM()
 LIMIT 1
@@ -235,12 +239,13 @@ func (q *Queries) GetRandomMatchupQuoteGlobal(ctx context.Context, arg GetRandom
 		&i.Civilization,
 		&i.OpponentCiv,
 		&i.Channel,
+		&i.CreatedByEmail,
 	)
 	return i, err
 }
 
 const getRandomQuote = `-- name: GetRandomQuote :one
-SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel FROM quotes
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
 WHERE channel IS NULL OR channel = ?
 ORDER BY RANDOM()
 LIMIT 1
@@ -258,12 +263,13 @@ func (q *Queries) GetRandomQuote(ctx context.Context, channel *string) (Quote, e
 		&i.Civilization,
 		&i.OpponentCiv,
 		&i.Channel,
+		&i.CreatedByEmail,
 	)
 	return i, err
 }
 
 const getRandomQuoteByCiv = `-- name: GetRandomQuoteByCiv :one
-SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel FROM quotes
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
 WHERE civilization = ? AND (channel IS NULL OR channel = ?)
 ORDER BY RANDOM()
 LIMIT 1
@@ -286,12 +292,13 @@ func (q *Queries) GetRandomQuoteByCiv(ctx context.Context, arg GetRandomQuoteByC
 		&i.Civilization,
 		&i.OpponentCiv,
 		&i.Channel,
+		&i.CreatedByEmail,
 	)
 	return i, err
 }
 
 const getRandomQuoteByCivGlobal = `-- name: GetRandomQuoteByCivGlobal :one
-SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel FROM quotes
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
 WHERE civilization = ? AND channel IS NULL
 ORDER BY RANDOM()
 LIMIT 1
@@ -309,12 +316,13 @@ func (q *Queries) GetRandomQuoteByCivGlobal(ctx context.Context, civilization *s
 		&i.Civilization,
 		&i.OpponentCiv,
 		&i.Channel,
+		&i.CreatedByEmail,
 	)
 	return i, err
 }
 
 const getRandomQuoteGlobal = `-- name: GetRandomQuoteGlobal :one
-SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel FROM quotes
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
 WHERE channel IS NULL
 ORDER BY RANDOM()
 LIMIT 1
@@ -332,12 +340,13 @@ func (q *Queries) GetRandomQuoteGlobal(ctx context.Context) (Quote, error) {
 		&i.Civilization,
 		&i.OpponentCiv,
 		&i.Channel,
+		&i.CreatedByEmail,
 	)
 	return i, err
 }
 
 const listAllQuotes = `-- name: ListAllQuotes :many
-SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel FROM quotes ORDER BY created_at DESC
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes ORDER BY created_at DESC
 `
 
 func (q *Queries) ListAllQuotes(ctx context.Context) ([]Quote, error) {
@@ -358,6 +367,7 @@ func (q *Queries) ListAllQuotes(ctx context.Context) ([]Quote, error) {
 			&i.Civilization,
 			&i.OpponentCiv,
 			&i.Channel,
+			&i.CreatedByEmail,
 		); err != nil {
 			return nil, err
 		}
@@ -427,7 +437,7 @@ func (q *Queries) ListCivilizations(ctx context.Context) ([]*string, error) {
 }
 
 const listMatchupQuotes = `-- name: ListMatchupQuotes :many
-SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel FROM quotes
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
 WHERE civilization = ? AND opponent_civ = ?
 ORDER BY created_at DESC
 `
@@ -455,6 +465,7 @@ func (q *Queries) ListMatchupQuotes(ctx context.Context, arg ListMatchupQuotesPa
 			&i.Civilization,
 			&i.OpponentCiv,
 			&i.Channel,
+			&i.CreatedByEmail,
 		); err != nil {
 			return nil, err
 		}
@@ -470,7 +481,7 @@ func (q *Queries) ListMatchupQuotes(ctx context.Context, arg ListMatchupQuotesPa
 }
 
 const listQuotesByChannel = `-- name: ListQuotesByChannel :many
-SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel FROM quotes
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
 WHERE channel = ? OR channel IS NULL
 ORDER BY created_at DESC
 `
@@ -493,6 +504,7 @@ func (q *Queries) ListQuotesByChannel(ctx context.Context, channel *string) ([]Q
 			&i.Civilization,
 			&i.OpponentCiv,
 			&i.Channel,
+			&i.CreatedByEmail,
 		); err != nil {
 			return nil, err
 		}
@@ -508,7 +520,7 @@ func (q *Queries) ListQuotesByChannel(ctx context.Context, channel *string) ([]Q
 }
 
 const listQuotesByUser = `-- name: ListQuotesByUser :many
-SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel FROM quotes
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
 WHERE user_id = ?
 ORDER BY created_at DESC
 `
@@ -531,6 +543,7 @@ func (q *Queries) ListQuotesByUser(ctx context.Context, userID string) ([]Quote,
 			&i.Civilization,
 			&i.OpponentCiv,
 			&i.Channel,
+			&i.CreatedByEmail,
 		); err != nil {
 			return nil, err
 		}
@@ -546,7 +559,7 @@ func (q *Queries) ListQuotesByUser(ctx context.Context, userID string) ([]Quote,
 }
 
 const listQuotesPaginated = `-- name: ListQuotesPaginated :many
-SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel FROM quotes ORDER BY created_at DESC LIMIT ? OFFSET ?
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes ORDER BY created_at DESC LIMIT ? OFFSET ?
 `
 
 type ListQuotesPaginatedParams struct {
@@ -572,6 +585,7 @@ func (q *Queries) ListQuotesPaginated(ctx context.Context, arg ListQuotesPaginat
 			&i.Civilization,
 			&i.OpponentCiv,
 			&i.Channel,
+			&i.CreatedByEmail,
 		); err != nil {
 			return nil, err
 		}
