@@ -552,6 +552,74 @@ func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/quotes?success=Quote+deleted", http.StatusSeeOther)
 }
 
+type BulkRequest struct {
+	IDs    []int64 `json:"ids"`
+	Action string  `json:"action"`
+	Value  string  `json:"value"`
+}
+
+func (s *Server) HandleBulkQuotes(w http.ResponseWriter, r *http.Request) {
+	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req BulkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.IDs) == 0 {
+		http.Error(w, "No quotes selected", http.StatusBadRequest)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	var err error
+
+	switch req.Action {
+	case "channel":
+		var channelPtr *string
+		if req.Value != "" {
+			channelPtr = &req.Value
+		}
+		err = q.BulkUpdateChannel(r.Context(), dbgen.BulkUpdateChannelParams{
+			Channel: channelPtr,
+			Ids:     req.IDs,
+		})
+	case "civilization":
+		var civPtr *string
+		if req.Value != "" {
+			civPtr = &req.Value
+		}
+		err = q.BulkUpdateCivilization(r.Context(), dbgen.BulkUpdateCivilizationParams{
+			Civilization: civPtr,
+			Ids:          req.IDs,
+		})
+	case "clear-channel":
+		err = q.BulkUpdateChannel(r.Context(), dbgen.BulkUpdateChannelParams{
+			Channel: nil,
+			Ids:     req.IDs,
+		})
+	case "delete":
+		err = q.BulkDeleteQuotes(r.Context(), req.IDs)
+	default:
+		http.Error(w, "Unknown action", http.StatusBadRequest)
+		return
+	}
+
+	if err != nil {
+		slog.Error("bulk action failed", "action", req.Action, "error", err)
+		http.Error(w, "Failed to apply action", http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("bulk action completed", "action", req.Action, "count", len(req.IDs), "user", userID)
+	w.WriteHeader(http.StatusOK)
+}
+
 type QuoteResponse struct {
 	ID           int64   `json:"id"`
 	Text         string  `json:"text"`
@@ -857,6 +925,7 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("GET /browse", s.HandleQuotesPublic)
 	mux.HandleFunc("GET /quotes", s.HandleQuotes)
 	mux.HandleFunc("POST /quotes", s.HandleAddQuote)
+	mux.HandleFunc("POST /quotes/bulk", s.HandleBulkQuotes)
 	mux.HandleFunc("POST /quotes/{id}/edit", s.HandleEditQuote)
 	mux.HandleFunc("POST /quotes/{id}/delete", s.HandleDeleteQuote)
 	mux.HandleFunc("GET /civs", s.HandleCivs)

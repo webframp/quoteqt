@@ -82,3 +82,12 @@ ORDER BY created_at DESC;
 
 -- name: ListChannels :many
 SELECT DISTINCT channel FROM quotes WHERE channel IS NOT NULL ORDER BY channel;
+
+-- name: BulkUpdateChannel :exec
+UPDATE quotes SET channel = ? WHERE id IN (sqlc.slice('ids'));
+
+-- name: BulkUpdateCivilization :exec
+UPDATE quotes SET civilization = ? WHERE id IN (sqlc.slice('ids'));
+
+-- name: BulkDeleteQuotes :exec
+DELETE FROM quotes WHERE id IN (sqlc.slice('ids'));

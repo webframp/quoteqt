@@ -7,8 +7,78 @@ package dbgen
 
 import (
 	"context"
+	"strings"
 	"time"
 )
+
+const bulkDeleteQuotes = `-- name: BulkDeleteQuotes :exec
+DELETE FROM quotes WHERE id IN (/*SLICE:ids*/?)
+`
+
+func (q *Queries) BulkDeleteQuotes(ctx context.Context, ids []int64) error {
+	query := bulkDeleteQuotes
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
+
+const bulkUpdateChannel = `-- name: BulkUpdateChannel :exec
+UPDATE quotes SET channel = ? WHERE id IN (/*SLICE:ids*/?)
+`
+
+type BulkUpdateChannelParams struct {
+	Channel *string `json:"channel"`
+	Ids     []int64 `json:"ids"`
+}
+
+func (q *Queries) BulkUpdateChannel(ctx context.Context, arg BulkUpdateChannelParams) error {
+	query := bulkUpdateChannel
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Channel)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
+
+const bulkUpdateCivilization = `-- name: BulkUpdateCivilization :exec
+UPDATE quotes SET civilization = ? WHERE id IN (/*SLICE:ids*/?)
+`
+
+type BulkUpdateCivilizationParams struct {
+	Civilization *string `json:"civilization"`
+	Ids          []int64 `json:"ids"`
+}
+
+func (q *Queries) BulkUpdateCivilization(ctx context.Context, arg BulkUpdateCivilizationParams) error {
+	query := bulkUpdateCivilization
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Civilization)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
 
 const countQuotes = `-- name: CountQuotes :one
 SELECT COUNT(*) as count FROM quotes

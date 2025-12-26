@@ -102,6 +102,39 @@
         .quote-author { color: var(--text-secondary); }
         .quote-civ { color: var(--civ-color); font-size: 0.9rem; margin-left: 0.5rem; }
         .quote-channel { color: #9b59b6; font-size: 0.85rem; margin-left: 0.5rem; background: rgba(155, 89, 182, 0.1); padding: 0.1rem 0.4rem; border-radius: 3px; }
+        /* Bulk edit styles */
+        .bulk-bar {
+            display: none;
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .bulk-bar.visible { display: flex; }
+        .bulk-bar .selected-count { font-weight: 500; min-width: 100px; }
+        .bulk-bar select, .bulk-bar input[type="text"] {
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+        .bulk-bar .bulk-value { width: 200px; }
+        .quote-checkbox {
+            position: absolute;
+            left: -2rem;
+            top: 0.5rem;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .quote-item { margin-left: 2rem; }
+        .quote-item.selected { background: rgba(59, 130, 246, 0.1); margin-left: calc(2rem - 4px); padding-left: calc(1rem + 4px); border-left-color: var(--success); }
+        .select-all-row { margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+        .select-all-row label { margin: 0; font-weight: normal; cursor: pointer; }
         .quote-actions { margin-top: 0.5rem; }
         .quote-edit textarea { width: 100%; min-height: 60px; margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; font-family: inherit; background: var(--bg-secondary); color: var(--text-primary); }
         .edit-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
@@ -225,8 +258,50 @@
     <div class="card">
         <h2>Your Quotes ({{len .Quotes}})</h2>
         {{if .Quotes}}
+            <div class="bulk-bar" id="bulkBar">
+                <span class="selected-count"><span id="selectedCount">0</span> selected</span>
+                <select id="bulkAction">
+                    <option value="">-- Choose action --</option>
+                    <option value="channel">Set channel</option>
+                    <option value="civilization">Set civilization</option>
+                    <option value="clear-channel">Clear channel (make global)</option>
+                    <option value="delete">Delete selected</option>
+                </select>
+                <input type="text" id="bulkValue" class="bulk-value" placeholder="Enter value..." style="display:none;">
+                <select id="bulkCivValue" class="bulk-value" style="display:none;">
+                    <option value="">-- No civ --</option>
+                    <option value="Abbasid Dynasty">Abbasid Dynasty</option>
+                    <option value="Ayyubids">Ayyubids</option>
+                    <option value="Byzantines">Byzantines</option>
+                    <option value="Chinese">Chinese</option>
+                    <option value="Delhi Sultanate">Delhi Sultanate</option>
+                    <option value="English">English</option>
+                    <option value="French">French</option>
+                    <option value="Golden Horde">Golden Horde</option>
+                    <option value="Holy Roman Empire">Holy Roman Empire</option>
+                    <option value="House of Lancaster">House of Lancaster</option>
+                    <option value="Japanese">Japanese</option>
+                    <option value="Jeanne d'Arc">Jeanne d'Arc</option>
+                    <option value="Knights Templar">Knights Templar</option>
+                    <option value="Macedonian Dynasty">Macedonian Dynasty</option>
+                    <option value="Malians">Malians</option>
+                    <option value="Mongols">Mongols</option>
+                    <option value="Order of the Dragon">Order of the Dragon</option>
+                    <option value="Ottomans">Ottomans</option>
+                    <option value="Rus">Rus</option>
+                    <option value="Sengoku Daimyo">Sengoku Daimyo</option>
+                    <option value="Tughlaq Dynasty">Tughlaq Dynasty</option>
+                    <option value="Zhu Xi's Legacy">Zhu Xi's Legacy</option>
+                </select>
+                <button type="button" class="btn btn-small" id="bulkApply" onclick="applyBulkAction()">Apply</button>
+            </div>
+            <div class="select-all-row">
+                <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                <label for="selectAll">Select all</label>
+            </div>
             {{range .Quotes}}
-                <div class="quote-item">
+                <div class="quote-item" data-id="{{.ID}}">
+                    <input type="checkbox" class="quote-checkbox" data-id="{{.ID}}" onchange="updateBulkBar()">
                     <div class="quote-display" id="display-{{.ID}}">
                         <div class="quote-text">"{{.Text}}"</div>
                         {{if .Author}}
@@ -336,6 +411,100 @@
             edit.style.display = 'none';
         }
     }
+
+    // Bulk edit functionality
+    function getSelectedIds() {
+        const checkboxes = document.querySelectorAll('.quote-checkbox:checked');
+        return Array.from(checkboxes).map(cb => cb.dataset.id);
+    }
+
+    function updateBulkBar() {
+        const selected = getSelectedIds();
+        const bulkBar = document.getElementById('bulkBar');
+        const countSpan = document.getElementById('selectedCount');
+        countSpan.textContent = selected.length;
+        
+        if (selected.length > 0) {
+            bulkBar.classList.add('visible');
+        } else {
+            bulkBar.classList.remove('visible');
+        }
+
+        // Update selected styling
+        document.querySelectorAll('.quote-item').forEach(item => {
+            const cb = item.querySelector('.quote-checkbox');
+            if (cb && cb.checked) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+
+    function toggleSelectAll() {
+        const selectAll = document.getElementById('selectAll');
+        document.querySelectorAll('.quote-checkbox').forEach(cb => {
+            cb.checked = selectAll.checked;
+        });
+        updateBulkBar();
+    }
+
+    // Show/hide value input based on action
+    document.getElementById('bulkAction')?.addEventListener('change', function() {
+        const bulkValue = document.getElementById('bulkValue');
+        const bulkCivValue = document.getElementById('bulkCivValue');
+        bulkValue.style.display = 'none';
+        bulkCivValue.style.display = 'none';
+        
+        if (this.value === 'channel') {
+            bulkValue.style.display = 'block';
+            bulkValue.placeholder = 'Channel name (empty = global)';
+        } else if (this.value === 'civilization') {
+            bulkCivValue.style.display = 'block';
+        }
+    });
+
+    async function applyBulkAction() {
+        const ids = getSelectedIds();
+        const action = document.getElementById('bulkAction').value;
+        const textValue = document.getElementById('bulkValue').value;
+        const civValue = document.getElementById('bulkCivValue').value;
+
+        if (ids.length === 0) {
+            alert('No quotes selected');
+            return;
+        }
+        if (!action) {
+            alert('Please select an action');
+            return;
+        }
+
+        let value = '';
+        if (action === 'channel') value = textValue;
+        else if (action === 'civilization') value = civValue;
+        else if (action === 'clear-channel') value = '';
+        else if (action === 'delete') {
+            if (!confirm(`Delete ${ids.length} quotes? This cannot be undone.`)) return;
+        }
+
+        try {
+            const response = await fetch('/quotes/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: ids.map(Number), action, value })
+            });
+            
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                const text = await response.text();
+                alert('Error: ' + text);
+            }
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+    }
+
     function toggleTheme() {
         const html = document.documentElement;
         const current = html.getAttribute('data-theme');
