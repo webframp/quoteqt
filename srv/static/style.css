@@ -499,3 +499,25 @@ hr::after {
 .copied-feedback.show {
   opacity: 1;
 }
+
+/* Footer */
+.site-footer {
+    margin-top: 3rem;
+    padding: 1.5rem;
+    text-align: center;
+    border-top: 1px solid var(--border, #374151);
+    color: var(--text-secondary, #9ca3af);
+    font-size: 0.9rem;
+}
+.site-footer a {
+    color: var(--accent, #3b82f6);
+    text-decoration: none;
+}
+.site-footer a:hover {
+    text-decoration: underline;
+}
+.kofi-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
