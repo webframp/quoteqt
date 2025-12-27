@@ -165,10 +165,9 @@ Migrations are in `db/migrations/` and run automatically on startup.
 
 ## Custom Domain
 
-To use a custom domain, see [exe.dev custom domains documentation](https://exe.dev/docs/custom-domains.md):
+To use a custom domain, see [exe.dev custom domains documentation](https://exe.dev/docs/cnames):
 
 1. Add a CNAME record pointing to your exe.dev VM
-2. Configure the domain: `ssh exe.dev share domain <vmname> <domain>`
 
 ## Observability with Honeycomb
 
