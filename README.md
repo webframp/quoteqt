@@ -31,6 +31,7 @@ API endpoints support content negotiation via the `Accept` header:
 | `GET /api/matchup?civ=hre&vs=french` | Random matchup tip for civ vs opponent |
 | `GET /api/matchup?hre french` | Matchup tip (Nightbot querystring format) |
 | `GET /api/quotes` | All quotes as JSON |
+| `POST /api/suggestions` | Submit a quote suggestion (rate limited) |
 
 ### Authenticated
 
@@ -40,6 +41,9 @@ API endpoints support content negotiation via the `Accept` header:
 | `POST /quotes` | Add a new quote |
 | `POST /quotes/{id}/delete` | Delete a quote |
 | `GET /civs` | Civilization management page |
+| `GET /suggestions` | Review pending suggestions |
+| `POST /suggestions/{id}/approve` | Approve a suggestion |
+| `POST /suggestions/{id}/reject` | Reject a suggestion |
 
 ## Civilization Shortnames
 

@@ -35,6 +35,20 @@ type Quote struct {
 	CreatedByEmail *string   `json:"created_by_email"`
 }
 
+type QuoteSuggestion struct {
+	ID            int64      `json:"id"`
+	Text          string     `json:"text"`
+	Author        *string    `json:"author"`
+	Civilization  *string    `json:"civilization"`
+	OpponentCiv   *string    `json:"opponent_civ"`
+	Channel       string     `json:"channel"`
+	SubmittedByIp string     `json:"submitted_by_ip"`
+	SubmittedAt   time.Time  `json:"submitted_at"`
+	Status        string     `json:"status"`
+	ReviewedBy    *string    `json:"reviewed_by"`
+	ReviewedAt    *time.Time `json:"reviewed_at"`
+}
+
 type Visitor struct {
 	ID        string    `json:"id"`
 	ViewCount int64     `json:"view_count"`

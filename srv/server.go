@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -1108,6 +1109,9 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("POST /civs", s.HandleAddCiv)
 	mux.HandleFunc("POST /civs/{id}/edit", s.HandleEditCiv)
 	mux.HandleFunc("POST /civs/{id}/delete", s.HandleDeleteCiv)
+	mux.HandleFunc("GET /suggestions", s.HandleListSuggestions)
+	mux.HandleFunc("POST /suggestions/{id}/approve", s.HandleApproveSuggestion)
+	mux.HandleFunc("POST /suggestions/{id}/reject", s.HandleRejectSuggestion)
 	mux.Handle("/static/", http.StripPrefix("/static/", StaticFileServer(s.StaticDir)))
 
 	// API routes with rate limiting
@@ -1116,6 +1120,7 @@ func (s *Server) Serve(addr string) error {
 	apiMux.HandleFunc("GET /api/quote/{id}", s.HandleGetQuote)
 	apiMux.HandleFunc("GET /api/quotes", s.HandleListAllQuotes)
 	apiMux.HandleFunc("GET /api/matchup", s.HandleMatchup)
+	apiMux.HandleFunc("POST /api/suggestions", s.HandleSubmitSuggestion)
 	mux.Handle("/api/", s.APILimiter.Middleware(apiMux))
 
 	s.httpServer = &http.Server{
@@ -1133,4 +1138,260 @@ func (s *Server) Shutdown(ctx context.Context) error {
 		return nil
 	}
 	return s.httpServer.Shutdown(ctx)
+}
+
+// SuggestionRequest is the JSON body for submitting a quote suggestion
+type SuggestionRequest struct {
+	Text         string  `json:"text"`
+	Author       *string `json:"author,omitempty"`
+	Civilization *string `json:"civilization,omitempty"`
+	OpponentCiv  *string `json:"opponent_civ,omitempty"`
+	Channel      string  `json:"channel"`
+}
+
+// SuggestionResponse is the JSON response for a suggestion
+type SuggestionResponse struct {
+	ID          int64   `json:"id"`
+	Text        string  `json:"text"`
+	Author      *string `json:"author,omitempty"`
+	Civilization *string `json:"civilization,omitempty"`
+	OpponentCiv *string `json:"opponent_civ,omitempty"`
+	Channel     string  `json:"channel"`
+	Status      string  `json:"status"`
+	SubmittedAt string  `json:"submitted_at"`
+}
+
+func (s *Server) HandleSubmitSuggestion(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get client IP for rate limiting and tracking
+	ip := r.Header.Get("X-Forwarded-For")
+	if ip == "" {
+		ip = r.RemoteAddr
+		// Strip port from RemoteAddr
+		if host, _, err := net.SplitHostPort(ip); err == nil {
+			ip = host
+		}
+	}
+
+	// Rate limit: max 5 suggestions per IP per hour
+	q := dbgen.New(s.DB)
+	oneHourAgo := time.Now().Add(-1 * time.Hour)
+	count, err := q.CountRecentSuggestionsByIP(ctx, dbgen.CountRecentSuggestionsByIPParams{
+		SubmittedByIp: ip,
+		SubmittedAt:   oneHourAgo,
+	})
+	if err != nil {
+		slog.Error("count recent suggestions", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if count >= 5 {
+		span := trace.SpanFromContext(ctx)
+		span.AddEvent("suggestion_rate_limited", trace.WithAttributes(
+			attribute.String("client.ip", ip),
+			attribute.Int64("count", count),
+		))
+		http.Error(w, "Too many suggestions. Please try again later.", http.StatusTooManyRequests)
+		return
+	}
+
+	// Parse request body
+	var req SuggestionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Validate required fields
+	if strings.TrimSpace(req.Text) == "" {
+		http.Error(w, "Text is required", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Channel) == "" {
+		http.Error(w, "Channel is required", http.StatusBadRequest)
+		return
+	}
+
+	// Limit text length
+	if len(req.Text) > 500 {
+		http.Error(w, "Text too long (max 500 characters)", http.StatusBadRequest)
+		return
+	}
+
+	// Resolve civ shortnames if provided
+	if req.Civilization != nil && *req.Civilization != "" {
+		if resolved, err := q.ResolveCivName(ctx, dbgen.ResolveCivNameParams{
+			Shortname: req.Civilization,
+			LOWER:     strings.ToLower(*req.Civilization),
+		}); err == nil {
+			req.Civilization = &resolved
+		}
+	}
+	if req.OpponentCiv != nil && *req.OpponentCiv != "" {
+		if resolved, err := q.ResolveCivName(ctx, dbgen.ResolveCivNameParams{
+			Shortname: req.OpponentCiv,
+			LOWER:     strings.ToLower(*req.OpponentCiv),
+		}); err == nil {
+			req.OpponentCiv = &resolved
+		}
+	}
+
+	// Create the suggestion
+	now := time.Now()
+	err = q.CreateSuggestion(ctx, dbgen.CreateSuggestionParams{
+		Text:          req.Text,
+		Author:        req.Author,
+		Civilization:  req.Civilization,
+		OpponentCiv:   req.OpponentCiv,
+		Channel:       req.Channel,
+		SubmittedByIp: ip,
+		SubmittedAt:   now,
+	})
+	if err != nil {
+		slog.Error("create suggestion", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("suggestion_created", trace.WithAttributes(
+		attribute.String("channel", req.Channel),
+	))
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Suggestion submitted for review",
+		"channel": req.Channel,
+	})
+}
+
+func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
+	userEmail := r.Header.Get("X-User-Email")
+	if userEmail == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	ctx := r.Context()
+	q := dbgen.New(s.DB)
+
+	suggestions, err := q.ListPendingSuggestions(ctx)
+	if err != nil {
+		slog.Error("list suggestions", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	data := struct {
+		Hostname    string
+		UserEmail   string
+		LogoutURL   string
+		Suggestions []dbgen.QuoteSuggestion
+	}{
+		Hostname:    s.Hostname,
+		UserEmail:   userEmail,
+		LogoutURL:   "/__exe.dev/logout",
+		Suggestions: suggestions,
+	}
+
+	if err := s.templates["suggestions.html"].Execute(w, data); err != nil {
+		slog.Error("execute template", "error", err)
+	}
+}
+
+func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request) {
+	userEmail := r.Header.Get("X-User-Email")
+	userID := r.Header.Get("X-User-Id")
+	if userEmail == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	ctx := r.Context()
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+
+	// Get the suggestion
+	suggestion, err := q.GetSuggestionByID(ctx, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Suggestion not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("get suggestion", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Create the quote from the suggestion
+	now := time.Now()
+	err = q.CreateQuote(ctx, dbgen.CreateQuoteParams{
+		UserID:         userID,
+		CreatedByEmail: &userEmail,
+		Text:           suggestion.Text,
+		Author:         suggestion.Author,
+		Civilization:   suggestion.Civilization,
+		OpponentCiv:    suggestion.OpponentCiv,
+		Channel:        &suggestion.Channel,
+		CreatedAt:      now,
+	})
+	if err != nil {
+		slog.Error("create quote from suggestion", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Mark suggestion as approved
+	err = q.ApproveSuggestion(ctx, dbgen.ApproveSuggestionParams{
+		ReviewedBy: &userEmail,
+		ReviewedAt: &now,
+		ID:         id,
+	})
+	if err != nil {
+		slog.Error("approve suggestion", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/suggestions", http.StatusSeeOther)
+}
+
+func (s *Server) HandleRejectSuggestion(w http.ResponseWriter, r *http.Request) {
+	userEmail := r.Header.Get("X-User-Email")
+	if userEmail == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	ctx := r.Context()
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	now := time.Now()
+
+	err = q.RejectSuggestion(ctx, dbgen.RejectSuggestionParams{
+		ReviewedBy: &userEmail,
+		ReviewedAt: &now,
+		ID:         id,
+	})
+	if err != nil {
+		slog.Error("reject suggestion", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/suggestions", http.StatusSeeOther)
 }
