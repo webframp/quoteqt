@@ -10,21 +10,9 @@ clean:
 run: build
 	./bin/srv
 
-# Start the server in background
-start: build
-	@pkill -x srv 2>/dev/null || true
-	@sleep 1
-	@./bin/srv & echo "Server started (PID: $$!)"
-
-# Stop the server
-stop:
-	@pkill -x srv 2>/dev/null && echo "Server stopped" || echo "Server not running"
-
-# Restart the server (rebuild and restart)
+# Restart the server via systemd (rebuild and restart)
 restart: build
-	@pkill -x srv 2>/dev/null || true
-	@sleep 1
-	@./bin/srv & echo "Server restarted (PID: $$!)"
+	sudo systemctl restart quotes
 
 # Run unit tests only
 test-unit:
