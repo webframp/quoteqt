@@ -1059,7 +1059,7 @@ var templateFuncs = template.FuncMap{
 
 func (s *Server) loadTemplates() error {
 	s.templates = make(map[string]*template.Template)
-	templateFiles := []string{"index.html", "quotes.html", "quotes_public.html", "civs.html"}
+	templateFiles := []string{"index.html", "quotes.html", "quotes_public.html", "civs.html", "suggestions.html"}
 	for _, name := range templateFiles {
 		path := filepath.Join(s.TemplatesDir, name)
 		tmpl, err := template.New(name).Funcs(templateFuncs).ParseFiles(path)
