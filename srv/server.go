@@ -649,6 +649,7 @@ type QuoteResponse struct {
 	Text         string  `json:"text"`
 	Author       *string `json:"author,omitempty"`
 	Civilization *string `json:"civilization,omitempty"`
+	OpponentCiv  *string `json:"opponent_civ,omitempty"`
 	CreatedAt    string  `json:"created_at"`
 }
 
@@ -730,6 +731,46 @@ func (s *Server) HandleListAllQuotes(w http.ResponseWriter, r *http.Request) {
 			Civilization: quote.Civilization,
 			CreatedAt:    quote.CreatedAt.Format(time.RFC3339),
 		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (s *Server) HandleGetQuote(w http.ResponseWriter, r *http.Request) {
+	AddNightbotAttributes(r)
+	ctx := r.Context()
+
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid quote ID", http.StatusBadRequest)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	dbCtx, span := StartDBSpan(ctx, "GetQuoteByID", attribute.Int64("quote.id", id))
+	quote, err := q.GetQuoteByID(dbCtx, id)
+	span.End()
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Quote not found", http.StatusNotFound)
+			return
+		}
+		RecordError(trace.SpanFromContext(ctx), err)
+		slog.Error("get quote by id", "error", err, "id", id)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	response := QuoteResponse{
+		ID:           quote.ID,
+		Text:         quote.Text,
+		Author:       quote.Author,
+		Civilization: quote.Civilization,
+		OpponentCiv:  quote.OpponentCiv,
+		CreatedAt:    quote.CreatedAt.Format(time.RFC3339),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1075,6 +1116,7 @@ func (s *Server) Serve(addr string) error {
 	// API routes with rate limiting
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("GET /api/quote", s.HandleRandomQuote)
+	apiMux.HandleFunc("GET /api/quote/{id}", s.HandleGetQuote)
 	apiMux.HandleFunc("GET /api/quotes", s.HandleListAllQuotes)
 	apiMux.HandleFunc("GET /api/matchup", s.HandleMatchup)
 	mux.Handle("/api/", s.APILimiter.Middleware(apiMux))

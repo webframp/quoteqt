@@ -19,6 +19,7 @@ A quote database application for Age of Empires IV streamers and their communiti
 |----------|-------------|
 | `GET /browse` | Browse all quotes (HTML) |
 | `GET /api/quote` | Random quote as plain text |
+| `GET /api/quote/{id}` | Get specific quote by ID as JSON |
 | `GET /api/quote?civ=hre` | Random quote filtered by civ shortname |
 | `GET /api/matchup?civ=hre&vs=french` | Random matchup tip for civ vs opponent |
 | `GET /api/matchup?hre french` | Matchup tip (Nightbot querystring format) |
