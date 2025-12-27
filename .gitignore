@@ -3,8 +3,10 @@ db.sqlite3
 db.sqlite3-shm
 db.sqlite3-wal
 
-# Built binary
+# Built binaries
+bin/
 srv/srv
+srv_bin
 
 # Environment file with secrets
 .env

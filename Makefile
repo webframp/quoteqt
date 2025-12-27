@@ -1,10 +1,30 @@
-.PHONY: build clean test test-unit test-integration
+.PHONY: build clean test test-unit test-integration run restart stop
 
 build:
-	go build -o srv ./cmd/srv
+	go build -o bin/srv ./cmd/srv
 
 clean:
-	rm -f srv
+	rm -f bin/srv
+
+# Run the server (foreground)
+run: build
+	./bin/srv
+
+# Start the server in background
+start: build
+	@pkill -x srv 2>/dev/null || true
+	@sleep 1
+	@./bin/srv & echo "Server started (PID: $$!)"
+
+# Stop the server
+stop:
+	@pkill -x srv 2>/dev/null && echo "Server stopped" || echo "Server not running"
+
+# Restart the server (rebuild and restart)
+restart: build
+	@pkill -x srv 2>/dev/null || true
+	@sleep 1
+	@./bin/srv & echo "Server restarted (PID: $$!)"
 
 # Run unit tests only
 test-unit:

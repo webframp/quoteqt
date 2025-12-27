@@ -75,6 +75,20 @@
         }
         .api-section { margin-top: 2rem; }
         .api-section h2 { color: var(--text-heading); font-size: 1.3rem; }
+        .setup-section h2 { color: var(--text-heading); font-size: 1.3rem; margin-top: 0; }
+        .setup-section h3 { color: var(--text-heading); font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .setup-section ol { padding-left: 1.5rem; }
+        .setup-section li { margin-bottom: 0.75rem; }
+        .code-block {
+            background: var(--code-bg);
+            padding: 0.75rem 1rem;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+            color: var(--text-primary);
+        }
         .theme-toggle {
             position: fixed;
             top: 1rem;
@@ -111,6 +125,28 @@
             <a href="{{.LoginURL}}" class="btn">Sign In</a>
         {{end}}
     </div>
+
+    {{if not .UserEmail}}
+    <div class="card setup-section">
+        <h2>🎮 Get Started</h2>
+        <p>Add a <code>!quote</code> command to your Twitch or YouTube stream in minutes!</p>
+        
+        <h3>Nightbot Setup</h3>
+        <ol>
+            <li><a href="/suggest">Suggest quotes</a> for your channel (or ask your viewers to)</li>
+            <li>Add this command in Nightbot:
+                <div class="code-block">!commands add !quote $(urlfetch https://quoteqt.exe.dev/api/quote)</div>
+            </li>
+            <li>That's it! Type <code>!quote</code> in chat to get a random quote.</li>
+        </ol>
+
+        <h3>Matchup Tips</h3>
+        <p>Want civ-specific tips? Add a matchup command:</p>
+        <div class="code-block">!commands add !tip $(urlfetch https://quoteqt.exe.dev/api/matchup?$(querystring))</div>
+        <p>Usage: <code>!tip hre french</code> → tips for HRE vs French</p>
+
+    </div>
+    {{end}}
 
     <div class="card api-section">
         <h2>🔗 API</h2>

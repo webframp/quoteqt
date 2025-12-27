@@ -75,6 +75,32 @@
             width: 100%;
         }
         button:hover { background: var(--accent-hover); }
+        .advanced-section {
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 0;
+        }
+        .advanced-section summary {
+            padding: 12px 15px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-weight: 500;
+            list-style: none;
+        }
+        .advanced-section summary::-webkit-details-marker { display: none; }
+        .advanced-section summary::before {
+            content: '▶ ';
+            font-size: 0.8em;
+        }
+        .advanced-section[open] summary::before {
+            content: '▼ ';
+        }
+        .advanced-section summary:hover { color: var(--text-primary); }
+        .advanced-content {
+            padding: 0 15px 15px 15px;
+            border-top: 1px solid var(--border);
+        }
         .message {
             padding: 15px;
             border-radius: 5px;
@@ -118,32 +144,37 @@
                     <p class="hint">Max 500 characters</p>
                 </div>
 
-                <div class="form-group">
-                    <label for="author">Who said it?</label>
-                    <input type="text" id="author" name="author" placeholder="e.g., BeastyQT">
-                </div>
+                <details class="advanced-section">
+                    <summary>Advanced options</summary>
+                    <div class="advanced-content">
+                        <div class="form-group">
+                            <label for="author">Who said it?</label>
+                            <input type="text" id="author" name="author" placeholder="e.g., BeastyQT">
+                        </div>
 
-                <div class="form-group">
-                    <label for="civilization">Civilization</label>
-                    <select id="civilization" name="civilization">
-                        <option value="">-- Optional --</option>
-                        {{range .Civs}}
-                        <option value="{{.Shortname}}">{{.Name}}</option>
-                        {{end}}
-                    </select>
-                    <p class="hint">If the quote is specific to a civilization</p>
-                </div>
+                        <div class="form-group">
+                            <label for="civilization">Civilization</label>
+                            <select id="civilization" name="civilization">
+                                <option value="">-- Optional --</option>
+                                {{range .Civs}}
+                                <option value="{{.Shortname}}">{{.Name}}</option>
+                                {{end}}
+                            </select>
+                            <p class="hint">If the quote is specific to a civilization</p>
+                        </div>
 
-                <div class="form-group">
-                    <label for="opponent_civ">Opponent Civilization</label>
-                    <select id="opponent_civ" name="opponent_civ">
-                        <option value="">-- Optional --</option>
-                        {{range .Civs}}
-                        <option value="{{.Shortname}}">{{.Name}}</option>
-                        {{end}}
-                    </select>
-                    <p class="hint">For matchup-specific tips (e.g., "how to beat French as HRE")</p>
-                </div>
+                        <div class="form-group">
+                            <label for="opponent_civ">Opponent Civilization</label>
+                            <select id="opponent_civ" name="opponent_civ">
+                                <option value="">-- Optional --</option>
+                                {{range .Civs}}
+                                <option value="{{.Shortname}}">{{.Name}}</option>
+                                {{end}}
+                            </select>
+                            <p class="hint">For matchup-specific tips (e.g., "how to beat French as HRE")</p>
+                        </div>
+                    </div>
+                </details>
 
                 <button type="submit">Submit Suggestion</button>
             </form>
