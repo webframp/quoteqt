@@ -25,6 +25,7 @@ API endpoints support content negotiation via the `Accept` header:
 | Endpoint | Description |
 |----------|-------------|
 | `GET /browse` | Browse all quotes (HTML) |
+| `GET /suggest` | Submit a quote suggestion (HTML form) |
 | `GET /api/quote` | Random quote |
 | `GET /api/quote/{id}` | Get specific quote by ID |
 | `GET /api/quote?civ=hre` | Random quote filtered by civ shortname |

@@ -1059,7 +1059,7 @@ var templateFuncs = template.FuncMap{
 
 func (s *Server) loadTemplates() error {
 	s.templates = make(map[string]*template.Template)
-	templateFiles := []string{"index.html", "quotes.html", "quotes_public.html", "civs.html", "suggestions.html"}
+	templateFiles := []string{"index.html", "quotes.html", "quotes_public.html", "civs.html", "suggestions.html", "suggest.html"}
 	for _, name := range templateFiles {
 		path := filepath.Join(s.TemplatesDir, name)
 		tmpl, err := template.New(name).Funcs(templateFuncs).ParseFiles(path)
@@ -1100,6 +1100,7 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("GET /{$}", s.HandleRoot)
 	mux.HandleFunc("GET /health", s.HandleHealth)
 	mux.HandleFunc("GET /browse", s.HandleQuotesPublic)
+	mux.HandleFunc("GET /suggest", s.HandleSuggestForm)
 	mux.HandleFunc("GET /quotes", s.HandleQuotes)
 	mux.HandleFunc("POST /quotes", s.HandleAddQuote)
 	mux.HandleFunc("POST /quotes/bulk", s.HandleBulkQuotes)
@@ -1394,4 +1395,28 @@ func (s *Server) HandleRejectSuggestion(w http.ResponseWriter, r *http.Request) 
 	}
 
 	http.Redirect(w, r, "/suggestions", http.StatusSeeOther)
+}
+
+func (s *Server) HandleSuggestForm(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	q := dbgen.New(s.DB)
+
+	civs, err := q.ListCivs(ctx)
+	if err != nil {
+		slog.Error("list civilizations", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	data := struct {
+		Hostname string
+		Civs     []dbgen.Civilization
+	}{
+		Hostname: s.Hostname,
+		Civs:     civs,
+	}
+
+	if err := s.templates["suggest.html"].Execute(w, data); err != nil {
+		slog.Error("execute template", "error", err)
+	}
 }

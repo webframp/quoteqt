@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suggest a Quote - AoE4 Quote Database</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #1f2937;
+            --text-primary: #e5e7eb;
+            --text-secondary: #9ca3af;
+            --text-heading: #f3f4f6;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --border: #374151;
+            --shadow: rgba(0,0,0,0.3);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        h1 { color: var(--text-heading); margin-bottom: 10px; }
+        .subtitle { color: var(--text-secondary); margin-bottom: 30px; }
+        .nav { margin-bottom: 2rem; }
+        .nav a { color: var(--accent); text-decoration: none; }
+        .nav a:hover { text-decoration: underline; }
+        .form-card {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 25px;
+            border: 1px solid var(--border);
+        }
+        .form-group { margin-bottom: 20px; }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-heading);
+            font-weight: 500;
+        }
+        .required { color: var(--danger); }
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 1em;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        textarea { resize: vertical; min-height: 100px; }
+        .hint { font-size: 0.85em; color: var(--text-secondary); margin-top: 5px; }
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            font-size: 1em;
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover { background: var(--accent-hover); }
+        .message {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .message.success {
+            background: #064e3b;
+            color: #6ee7b7;
+            border: 1px solid #10b981;
+        }
+        .message.error {
+            background: #7f1d1d;
+            color: #fca5a5;
+            border: 1px solid #ef4444;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">← Home</a>
+        </div>
+
+        <h1>💬 Suggest a Quote</h1>
+        <p class="subtitle">Submit a quote for your favorite streamer's channel. Suggestions are reviewed before being added.</p>
+
+        <div id="message" class="message hidden"></div>
+
+        <div class="form-card">
+            <form id="suggestForm">
+                <div class="form-group">
+                    <label for="channel">Channel <span class="required">*</span></label>
+                    <input type="text" id="channel" name="channel" required placeholder="e.g., beastyqt">
+                    <p class="hint">The streamer's Twitch/YouTube channel name</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="text">Quote <span class="required">*</span></label>
+                    <textarea id="text" name="text" required maxlength="500" placeholder="Enter the quote..."></textarea>
+                    <p class="hint">Max 500 characters</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="author">Who said it?</label>
+                    <input type="text" id="author" name="author" placeholder="e.g., BeastyQT">
+                </div>
+
+                <div class="form-group">
+                    <label for="civilization">Civilization</label>
+                    <select id="civilization" name="civilization">
+                        <option value="">-- Optional --</option>
+                        {{range .Civs}}
+                        <option value="{{.Shortname}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                    <p class="hint">If the quote is specific to a civilization</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="opponent_civ">Opponent Civilization</label>
+                    <select id="opponent_civ" name="opponent_civ">
+                        <option value="">-- Optional --</option>
+                        {{range .Civs}}
+                        <option value="{{.Shortname}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                    <p class="hint">For matchup-specific tips (e.g., "how to beat French as HRE")</p>
+                </div>
+
+                <button type="submit">Submit Suggestion</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('suggestForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const messageEl = document.getElementById('message');
+            
+            const data = {
+                text: form.text.value.trim(),
+                channel: form.channel.value.trim().toLowerCase(),
+            };
+            
+            if (form.author.value.trim()) {
+                data.author = form.author.value.trim();
+            }
+            if (form.civilization.value) {
+                data.civilization = form.civilization.value;
+            }
+            if (form.opponent_civ.value) {
+                data.opponent_civ = form.opponent_civ.value;
+            }
+
+            try {
+                const response = await fetch('/api/suggestions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    messageEl.textContent = '✓ ' + result.message;
+                    messageEl.className = 'message success';
+                    form.reset();
+                } else {
+                    messageEl.textContent = '✗ ' + (result.message || response.statusText);
+                    messageEl.className = 'message error';
+                }
+            } catch (err) {
+                messageEl.textContent = '✗ Failed to submit. Please try again.';
+                messageEl.className = 'message error';
+            }
+            
+            messageEl.classList.remove('hidden');
+        });
+    </script>
+</body>
+</html>
