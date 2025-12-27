@@ -773,8 +773,7 @@ func (s *Server) HandleGetQuote(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:    quote.CreatedAt.Format(time.RFC3339),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	WriteQuoteResponse(w, r, response)
 }
 
 func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
@@ -880,9 +879,8 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 				attribute.String("civ", playCiv),
 				attribute.String("vs", vsCiv),
 			))
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			// Return 200 so bots like Nightbot don't treat it as an error
-			fmt.Fprintf(w, "No tips for %s vs %s yet.\n", playCiv, vsCiv)
+			WriteNoResultsResponse(w, r, fmt.Sprintf("No tips for %s vs %s yet.", playCiv, vsCiv))
 			return
 		}
 		// Record error on parent span too
@@ -899,13 +897,15 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 		attribute.String("query_type", "matchup"),
 	))
 
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	var parts []string
-	parts = append(parts, quote.Text)
-	if quote.Author != nil && *quote.Author != "" {
-		parts = append(parts, fmt.Sprintf("— %s", *quote.Author))
+	response := QuoteResponse{
+		ID:           quote.ID,
+		Text:         quote.Text,
+		Author:       quote.Author,
+		Civilization: quote.Civilization,
+		OpponentCiv:  quote.OpponentCiv,
+		CreatedAt:    quote.CreatedAt.Format(time.RFC3339),
 	}
-	fmt.Fprintln(w, strings.Join(parts, " "))
+	WriteQuoteResponse(w, r, response)
 }
 
 func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
@@ -984,12 +984,11 @@ func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 				attribute.String("query_type", "quote"),
 				attribute.String("civ", civ),
 			))
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			// Return 200 so bots like Nightbot don't treat it as an error
 			if civ != "" {
-				fmt.Fprintf(w, "No quotes available for %s.\n", civ)
+				WriteNoResultsResponse(w, r, fmt.Sprintf("No quotes available for %s.", civ))
 			} else {
-				fmt.Fprintln(w, "No quotes available.")
+				WriteNoResultsResponse(w, r, "No quotes available.")
 			}
 			return
 		}
@@ -1001,22 +1000,20 @@ func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Record successful quote retrieval
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("quote_served", trace.WithAttributes(
+	rootSpan := trace.SpanFromContext(ctx)
+	rootSpan.AddEvent("quote_served", trace.WithAttributes(
 		attribute.Int64("quote.id", quote.ID),
 		attribute.String("query_type", "quote"),
 	))
 
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	var parts []string
-	parts = append(parts, quote.Text)
-	if quote.Author != nil && *quote.Author != "" {
-		parts = append(parts, fmt.Sprintf("— %s", *quote.Author))
+	response := QuoteResponse{
+		ID:           quote.ID,
+		Text:         quote.Text,
+		Author:       quote.Author,
+		Civilization: quote.Civilization,
+		CreatedAt:    quote.CreatedAt.Format(time.RFC3339),
 	}
-	if quote.Civilization != nil && *quote.Civilization != "" {
-		parts = append(parts, fmt.Sprintf("[%s]", *quote.Civilization))
-	}
-	fmt.Fprintln(w, strings.Join(parts, " "))
+	WriteQuoteResponse(w, r, response)
 }
 
 func loginURLForRequest(r *http.Request) string {
