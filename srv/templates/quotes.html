@@ -197,6 +197,7 @@
         <a href="/">← Home</a>
         <a href="/civs">Civilizations</a>
         <a href="/suggestions">Suggestions</a>
+        {{if .IsAdmin}}<a href="/admin/owners">Channel Owners</a>{{end}}
         <a href="{{.LogoutURL}}">Logout</a>
     </div>
 

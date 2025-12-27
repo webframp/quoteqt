@@ -519,6 +519,45 @@ func (q *Queries) ListQuotesByChannel(ctx context.Context, channel *string) ([]Q
 	return items, nil
 }
 
+const listQuotesByChannelOnly = `-- name: ListQuotesByChannelOnly :many
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
+WHERE channel = ?
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListQuotesByChannelOnly(ctx context.Context, channel *string) ([]Quote, error) {
+	rows, err := q.db.QueryContext(ctx, listQuotesByChannelOnly, channel)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Quote{}
+	for rows.Next() {
+		var i Quote
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Text,
+			&i.Author,
+			&i.CreatedAt,
+			&i.Civilization,
+			&i.OpponentCiv,
+			&i.Channel,
+			&i.CreatedByEmail,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listQuotesByUser = `-- name: ListQuotesByUser :many
 SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
 WHERE user_id = ?

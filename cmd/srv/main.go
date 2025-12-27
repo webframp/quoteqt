@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -54,7 +55,20 @@ func run() error {
 		slog.Info("OpenTelemetry configured", "endpoint", "api.honeycomb.io:443")
 	}
 
-	server, err := srv.New("db.sqlite3", hostname)
+	// Parse admin emails from environment variable (comma-separated)
+	var adminEmails []string
+	if adminEnv := os.Getenv("ADMIN_EMAILS"); adminEnv != "" {
+		for _, email := range strings.Split(adminEnv, ",") {
+			if e := strings.TrimSpace(email); e != "" {
+				adminEmails = append(adminEmails, e)
+			}
+		}
+		slog.Info("admin emails configured", "count", len(adminEmails))
+	} else {
+		slog.Warn("ADMIN_EMAILS not set, no admin access configured")
+	}
+
+	server, err := srv.New("db.sqlite3", hostname, adminEmails)
 	if err != nil {
 		return fmt.Errorf("create server: %w", err)
 	}

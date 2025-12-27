@@ -94,3 +94,8 @@ DELETE FROM quotes WHERE id IN (sqlc.slice('ids'));
 
 -- name: GetLastUpdated :one
 SELECT created_at FROM quotes ORDER BY created_at DESC LIMIT 1;
+
+-- name: ListQuotesByChannelOnly :many
+SELECT * FROM quotes
+WHERE channel = ?
+ORDER BY created_at DESC;

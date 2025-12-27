@@ -122,6 +122,19 @@ ssh exe.dev share set-public <vmname>
 
 See [exe.dev proxy documentation](https://exe.dev/docs/proxy.md) for more details.
 
+### Authorization Model
+
+Two roles exist:
+
+| Role | Access |
+|------|--------|
+| **Admin** | Full access to all quotes, suggestions, civs, and channel owner management |
+| **Channel Owner** | Can manage quotes and approve suggestions for their assigned channel(s) |
+
+Admins are configured via the `ADMIN_EMAILS` environment variable. Channel owners are managed by admins at `/admin/owners`.
+
+Users without a role can only use public endpoints and the suggestion form.
+
 ## Database
 
 This application uses SQLite (`db.sqlite3`). SQL queries are managed with [sqlc](https://sqlc.dev/).
@@ -222,6 +235,7 @@ The application is instrumented with OpenTelemetry and sends traces to Honeycomb
 
 | Variable | Description |
 |----------|-------------|
+| `ADMIN_EMAILS` | Comma-separated list of admin emails (full access) |
 | `HONEYCOMB_API_KEY` | API key for Honeycomb (enables tracing) |
 | `OTEL_SERVICE_NAME` | Service name in traces (default: `quoteqt`) |
 

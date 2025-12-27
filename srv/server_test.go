@@ -15,7 +15,7 @@ func TestServerSetupAndHandlers(t *testing.T) {
 	tempDB := filepath.Join(t.TempDir(), "test_server.sqlite3")
 	t.Cleanup(func() { os.Remove(tempDB) })
 
-	server, err := New(tempDB, "test-hostname")
+	server, err := New(tempDB, "test-hostname", []string{"admin@test.com"})
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}

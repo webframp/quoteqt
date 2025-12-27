@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+type ChannelOwner struct {
+	ID        int64     `json:"id"`
+	Channel   string    `json:"channel"`
+	UserEmail string    `json:"user_email"`
+	InvitedAt time.Time `json:"invited_at"`
+	InvitedBy string    `json:"invited_by"`
+}
+
 type Civilization struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`

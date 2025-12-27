@@ -29,6 +29,7 @@ type Server struct {
 	TemplatesDir string
 	StaticDir    string
 	APILimiter   *RateLimiter
+	AdminEmails  map[string]bool
 	templates    map[string]*template.Template
 	httpServer   *http.Server
 }
@@ -52,6 +53,9 @@ type pageData struct {
 	TotalPages int
 	HasPrev    bool
 	HasNext    bool
+	// Authorization
+	IsAdmin        bool
+	OwnedChannels  []string
 }
 
 type QuoteView struct {
@@ -74,15 +78,25 @@ type CivWithCount struct {
 	QuoteCount int64
 }
 
-func New(dbPath, hostname string) (*Server, error) {
+func New(dbPath, hostname string, adminEmails []string) (*Server, error) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	baseDir := filepath.Dir(thisFile)
+
+	adminSet := make(map[string]bool)
+	for _, email := range adminEmails {
+		email = strings.TrimSpace(strings.ToLower(email))
+		if email != "" {
+			adminSet[email] = true
+		}
+	}
+
 	srv := &Server{
 		Hostname:     hostname,
 		TemplatesDir: filepath.Join(baseDir, "templates"),
 		StaticDir:    filepath.Join(baseDir, "static"),
 		// Rate limit: 30 requests per minute per IP, burst of 10
-		APILimiter: NewRateLimiter(30, time.Minute, 10),
+		APILimiter:   NewRateLimiter(30, time.Minute, 10),
+		AdminEmails:  adminSet,
 	}
 	if err := srv.setUpDatabase(dbPath); err != nil {
 		return nil, err
@@ -165,27 +179,50 @@ func quotesToViews(quotes []dbgen.Quote) []QuoteView {
 func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	ctx := r.Context()
 
 	if userID == "" {
 		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
 		return
 	}
 
+	isAdmin := s.isAdmin(userEmail)
+	ownedChannels, _ := s.getOwnedChannels(ctx, userEmail)
+
+	// If not admin and not a channel owner, deny access
+	if !isAdmin && len(ownedChannels) == 0 {
+		http.Error(w, "You don't have permission to manage quotes. Contact an admin to get access.", http.StatusForbidden)
+		return
+	}
+
 	q := dbgen.New(s.DB)
-	quotes, err := q.ListAllQuotes(r.Context())
+	var quotes []dbgen.Quote
+	var err error
+
+	if isAdmin {
+		// Admins see all quotes
+		quotes, err = q.ListAllQuotes(ctx)
+	} else {
+		// Channel owners see only their channel's quotes
+		// For now, just use the first owned channel (most users will own one)
+		// TODO: add channel selector if user owns multiple channels
+		quotes, err = q.ListQuotesByChannelOnly(ctx, &ownedChannels[0])
+	}
 	if err != nil {
 		slog.Error("list quotes", "error", err)
 	}
 
 	data := pageData{
-		Hostname:  s.Hostname,
-		Now:       time.Now().Format(time.RFC3339),
-		UserEmail: userEmail,
-		UserID:    userID,
-		LoginURL:  loginURLForRequest(r),
-		LogoutURL: "/__exe.dev/logout",
-		Quotes:    quotesToViews(quotes),
-		Success:   r.URL.Query().Get("success"),
+		Hostname:      s.Hostname,
+		Now:           time.Now().Format(time.RFC3339),
+		UserEmail:     userEmail,
+		UserID:        userID,
+		LoginURL:      loginURLForRequest(r),
+		LogoutURL:     "/__exe.dev/logout",
+		Quotes:        quotesToViews(quotes),
+		Success:       r.URL.Query().Get("success"),
+		IsAdmin:       isAdmin,
+		OwnedChannels: ownedChannels,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -197,6 +234,7 @@ func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	ctx := r.Context()
 
 	if userID == "" {
 		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
@@ -213,6 +251,12 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 	civ := strings.TrimSpace(r.FormValue("civilization"))
 	opponentCiv := strings.TrimSpace(r.FormValue("opponent_civ"))
 	channel := strings.TrimSpace(r.FormValue("channel"))
+
+	// Check permission: must be admin or own this channel
+	if !s.canManageChannel(ctx, userEmail, channel) {
+		http.Error(w, "You don't have permission to add quotes to this channel", http.StatusForbidden)
+		return
+	}
 
 	// Validate inputs
 	if err := ValidateQuoteText(text); err != nil {
@@ -310,6 +354,7 @@ func (s *Server) HandleCivs(w http.ResponseWriter, r *http.Request) {
 		Civs:      civsWithCount,
 		Success:   r.URL.Query().Get("success"),
 		Error:     r.URL.Query().Get("error"),
+		IsAdmin:   s.isAdmin(userEmail),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -488,6 +533,9 @@ func (s *Server) HandleDeleteCiv(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	ctx := r.Context()
+
 	if userID == "" {
 		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
 		return
@@ -497,6 +545,30 @@ func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+
+	// Get the quote to check permission
+	quote, err := q.GetQuoteByID(ctx, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Quote not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("get quote", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Check permission: must be admin or own this channel
+	existingChannel := ""
+	if quote.Channel != nil {
+		existingChannel = *quote.Channel
+	}
+	if !s.canManageChannel(ctx, userEmail, existingChannel) {
+		http.Error(w, "You don't have permission to edit this quote", http.StatusForbidden)
 		return
 	}
 
@@ -521,7 +593,6 @@ func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	q := dbgen.New(s.DB)
 	var authorPtr, civPtr, opponentPtr, channelPtr *string
 	if author != "" {
 		authorPtr = &author
@@ -555,6 +626,8 @@ func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
 	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	ctx := r.Context()
 
 	if userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -569,7 +642,30 @@ func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := dbgen.New(s.DB)
-	err = q.DeleteQuoteByID(r.Context(), id)
+
+	// Get the quote to check permission
+	quote, err := q.GetQuoteByID(ctx, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Quote not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("get quote", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Check permission: must be admin or own this channel
+	channel := ""
+	if quote.Channel != nil {
+		channel = *quote.Channel
+	}
+	if !s.canManageChannel(ctx, userEmail, channel) {
+		http.Error(w, "You don't have permission to delete this quote", http.StatusForbidden)
+		return
+	}
+
+	err = q.DeleteQuoteByID(ctx, id)
 	if err != nil {
 		slog.Error("delete quote", "error", err)
 	}
@@ -1059,7 +1155,7 @@ var templateFuncs = template.FuncMap{
 
 func (s *Server) loadTemplates() error {
 	s.templates = make(map[string]*template.Template)
-	templateFiles := []string{"index.html", "quotes.html", "quotes_public.html", "civs.html", "suggestions.html", "suggest.html"}
+	templateFiles := []string{"index.html", "quotes.html", "quotes_public.html", "civs.html", "suggestions.html", "suggest.html", "admin_owners.html"}
 	for _, name := range templateFiles {
 		path := filepath.Join(s.TemplatesDir, name)
 		tmpl, err := template.New(name).Funcs(templateFuncs).ParseFiles(path)
@@ -1113,6 +1209,10 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("GET /suggestions", s.HandleListSuggestions)
 	mux.HandleFunc("POST /suggestions/{id}/approve", s.HandleApproveSuggestion)
 	mux.HandleFunc("POST /suggestions/{id}/reject", s.HandleRejectSuggestion)
+	// Admin routes
+	mux.HandleFunc("GET /admin/owners", s.HandleListChannelOwners)
+	mux.HandleFunc("POST /admin/owners", s.HandleAddChannelOwner)
+	mux.HandleFunc("POST /admin/owners/delete", s.HandleRemoveChannelOwner)
 	mux.Handle("/static/", http.StripPrefix("/static/", StaticFileServer(s.StaticDir)))
 
 	// API routes with rate limiting
@@ -1276,9 +1376,26 @@ func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	q := dbgen.New(s.DB)
+	isAdmin := s.isAdmin(userEmail)
+	ownedChannels, _ := s.getOwnedChannels(ctx, userEmail)
 
-	suggestions, err := q.ListPendingSuggestions(ctx)
+	// If not admin and not a channel owner, deny access
+	if !isAdmin && len(ownedChannels) == 0 {
+		http.Error(w, "You don't have permission to review suggestions. Contact an admin to get access.", http.StatusForbidden)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	var suggestions []dbgen.QuoteSuggestion
+	var err error
+
+	if isAdmin {
+		// Admins see all suggestions
+		suggestions, err = q.ListPendingSuggestions(ctx)
+	} else {
+		// Channel owners see only their channel's suggestions
+		suggestions, err = q.ListPendingSuggestionsByChannel(ctx, ownedChannels[0])
+	}
 	if err != nil {
 		slog.Error("list suggestions", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -1286,15 +1403,19 @@ func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Hostname    string
-		UserEmail   string
-		LogoutURL   string
-		Suggestions []dbgen.QuoteSuggestion
+		Hostname      string
+		UserEmail     string
+		LogoutURL     string
+		Suggestions   []dbgen.QuoteSuggestion
+		IsAdmin       bool
+		OwnedChannels []string
 	}{
-		Hostname:    s.Hostname,
-		UserEmail:   userEmail,
-		LogoutURL:   "/__exe.dev/logout",
-		Suggestions: suggestions,
+		Hostname:      s.Hostname,
+		UserEmail:     userEmail,
+		LogoutURL:     "/__exe.dev/logout",
+		Suggestions:   suggestions,
+		IsAdmin:       isAdmin,
+		OwnedChannels: ownedChannels,
 	}
 
 	if err := s.templates["suggestions.html"].Execute(w, data); err != nil {
@@ -1329,6 +1450,12 @@ func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request)
 		}
 		slog.Error("get suggestion", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Check permission: must be admin or own this channel
+	if !s.canManageChannel(ctx, userEmail, suggestion.Channel) {
+		http.Error(w, "You don't have permission to approve suggestions for this channel", http.StatusForbidden)
 		return
 	}
 
@@ -1381,6 +1508,25 @@ func (s *Server) HandleRejectSuggestion(w http.ResponseWriter, r *http.Request) 
 	}
 
 	q := dbgen.New(s.DB)
+
+	// Get the suggestion to check permission
+	suggestion, err := q.GetSuggestionByID(ctx, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Suggestion not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("get suggestion", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Check permission: must be admin or own this channel
+	if !s.canManageChannel(ctx, userEmail, suggestion.Channel) {
+		http.Error(w, "You don't have permission to reject suggestions for this channel", http.StatusForbidden)
+		return
+	}
+
 	now := time.Now()
 
 	err = q.RejectSuggestion(ctx, dbgen.RejectSuggestionParams{
@@ -1395,6 +1541,168 @@ func (s *Server) HandleRejectSuggestion(w http.ResponseWriter, r *http.Request) 
 	}
 
 	http.Redirect(w, r, "/suggestions", http.StatusSeeOther)
+}
+
+// Authorization helpers
+
+func (s *Server) isAdmin(email string) bool {
+	return s.AdminEmails[strings.ToLower(strings.TrimSpace(email))]
+}
+
+func (s *Server) getOwnedChannels(ctx context.Context, email string) ([]string, error) {
+	q := dbgen.New(s.DB)
+	return q.GetChannelsByOwner(ctx, strings.ToLower(strings.TrimSpace(email)))
+}
+
+func (s *Server) canManageChannel(ctx context.Context, email, channel string) bool {
+	if s.isAdmin(email) {
+		return true
+	}
+	channels, err := s.getOwnedChannels(ctx, email)
+	if err != nil {
+		return false
+	}
+	for _, ch := range channels {
+		if strings.EqualFold(ch, channel) {
+			return true
+		}
+	}
+	return false
+}
+
+// Admin handlers for channel owner management
+
+func (s *Server) HandleListChannelOwners(w http.ResponseWriter, r *http.Request) {
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	if userEmail == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	ctx := r.Context()
+	q := dbgen.New(s.DB)
+
+	owners, err := q.ListAllChannelOwners(ctx)
+	if err != nil {
+		slog.Error("list channel owners", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	channels, err := q.ListChannels(ctx)
+	if err != nil {
+		slog.Error("list channels", "error", err)
+	}
+
+	data := struct {
+		Hostname  string
+		UserEmail string
+		LogoutURL string
+		Owners    []dbgen.ChannelOwner
+		Channels  []*string
+		Success   string
+		Error     string
+	}{
+		Hostname:  s.Hostname,
+		UserEmail: userEmail,
+		LogoutURL: "/__exe.dev/logout",
+		Owners:    owners,
+		Channels:  channels,
+		Success:   r.URL.Query().Get("success"),
+		Error:     r.URL.Query().Get("error"),
+	}
+
+	if err := s.templates["admin_owners.html"].Execute(w, data); err != nil {
+		slog.Error("execute template", "error", err)
+	}
+}
+
+func (s *Server) HandleAddChannelOwner(w http.ResponseWriter, r *http.Request) {
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	if userEmail == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	channel := strings.TrimSpace(strings.ToLower(r.FormValue("channel")))
+	ownerEmail := strings.TrimSpace(strings.ToLower(r.FormValue("email")))
+
+	if channel == "" || ownerEmail == "" {
+		http.Redirect(w, r, "/admin/owners?error=Channel+and+email+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ctx := r.Context()
+	q := dbgen.New(s.DB)
+
+	err := q.AddChannelOwner(ctx, dbgen.AddChannelOwnerParams{
+		Channel:   channel,
+		UserEmail: ownerEmail,
+		InvitedBy: userEmail,
+	})
+	if err != nil {
+		slog.Error("add channel owner", "error", err)
+		http.Redirect(w, r, "/admin/owners?error=Failed+to+add+owner", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/admin/owners?success=Owner+added", http.StatusSeeOther)
+}
+
+func (s *Server) HandleRemoveChannelOwner(w http.ResponseWriter, r *http.Request) {
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	if userEmail == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	channel := strings.TrimSpace(r.FormValue("channel"))
+	ownerEmail := strings.TrimSpace(r.FormValue("email"))
+
+	if channel == "" || ownerEmail == "" {
+		http.Redirect(w, r, "/admin/owners?error=Channel+and+email+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ctx := r.Context()
+	q := dbgen.New(s.DB)
+
+	err := q.RemoveChannelOwner(ctx, dbgen.RemoveChannelOwnerParams{
+		Channel:   channel,
+		UserEmail: ownerEmail,
+	})
+	if err != nil {
+		slog.Error("remove channel owner", "error", err)
+		http.Redirect(w, r, "/admin/owners?error=Failed+to+remove+owner", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/admin/owners?success=Owner+removed", http.StatusSeeOther)
 }
 
 func (s *Server) HandleSuggestForm(w http.ResponseWriter, r *http.Request) {
