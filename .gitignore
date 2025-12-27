@@ -10,3 +10,10 @@ srv_bin
 
 # Environment file with secrets
 .env
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/terraform.tfvars
+terraform/.terraform.lock.hcl

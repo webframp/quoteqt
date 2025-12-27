@@ -1,0 +1,4 @@
+# Copy to terraform.tfvars and fill in values
+
+dataset            = "quoteqt"
+notification_email = "your-email@example.com"

@@ -1,149 +1,140 @@
-# Honeycomb Query Examples
+# Honeycomb Observability
 
-This document shows how to analyze quoteqt API usage in Honeycomb, with a focus on breaking down data by streamer channel.
+This document describes the observability setup for quoteqt using Honeycomb.
 
-## Key Fields for Streamer Analysis
+## Setup
 
-| Field | Description | Example Values |
-|-------|-------------|----------------|
-| `nightbot.channel.name` | Streamer's channel name | `beastyqt`, `marinelord` |
-| `nightbot.channel.provider` | Platform | `twitch`, `youtube` |
-| `nightbot.channel.provider_id` | Platform-specific ID | `12345678` |
-| `nightbot.user.name` | Viewer who triggered command | `viewer123` |
-| `nightbot.user.user_level` | Viewer's role | `owner`, `moderator`, `regular` |
+### Prerequisites
 
-## Query Examples
+1. Honeycomb account with API key
+2. `HONEYCOMB_API_KEY` set in `.env`
+3. Terraform (optional, for automated setup)
 
-### 1. Request Count by Streamer
+### Automated Setup with Terraform
 
-See which streamers are using the bot most:
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your email
+
+export HONEYCOMB_API_KEY="your-api-key"
+terraform init
+terraform plan
+terraform apply
+```
+
+This creates:
+- Derived columns for easier querying
+- Saved queries for common investigations
+- Alert triggers for error rate, latency, and downtime
+- SLO for API availability (99.9%)
+
+## Manual Queries
+
+If you prefer to set things up manually in the Honeycomb UI, here are the key queries:
+
+### Error Rate by Endpoint
+
+```
+VISUALIZE: COUNT, COUNT_DISTINCT(trace.trace_id) WHERE http.status_code >= 500
+GROUP BY: http.target
+FILTER: http.target starts with "/api/"
+TIME: Last 1 hour
+```
+
+### Latency Percentiles
+
+```
+VISUALIZE: P50(duration_ms), P95(duration_ms), P99(duration_ms)
+GROUP BY: http.target  
+FILTER: http.target starts with "/api/"
+TIME: Last 1 hour
+```
+
+### Nightbot Usage by Channel
 
 ```
 VISUALIZE: COUNT
 GROUP BY: nightbot.channel.name
-WHERE: nightbot.channel.name exists
+FILTER: nightbot.channel.name exists
+TIME: Last 24 hours
 ```
 
-### 2. Request Rate by Streamer Over Time
-
-Track usage patterns throughout a stream:
+### Slowest Requests
 
 ```
-VISUALIZE: COUNT
-GROUP BY: nightbot.channel.name
-WHERE: nightbot.channel.name exists
-```
-(Use time picker to select relevant time range)
-
-### 3. Error Rate by Streamer
-
-Identify if certain streamers experience more issues:
-
-```
-VISUALIZE: COUNT
-GROUP BY: nightbot.channel.name, http.response.status_code
-WHERE: nightbot.channel.name exists
+VISUALIZE: MAX(duration_ms), HEATMAP(duration_ms)
+GROUP BY: http.target
+ORDER BY: MAX(duration_ms) DESC
+TIME: Last 1 hour
 ```
 
-### 4. Rate Limited Requests by Streamer
+### Database Query Performance
 
-See which channels are hitting rate limits:
+```
+VISUALIZE: P50(duration_ms), P99(duration_ms), COUNT
+GROUP BY: db.operation
+FILTER: db.system = "sqlite"
+TIME: Last 1 hour
+```
+
+### Errors with Stack Traces
 
 ```
 VISUALIZE: COUNT
-WHERE: name = "rate_limited"
-GROUP BY: rate_limit.key
+GROUP BY: exception.message, exception.type
+FILTER: exception.message exists
+TIME: Last 24 hours
 ```
 
-Or using status code:
-```
-VISUALIZE: COUNT
-WHERE: http.response.status_code = 429
-GROUP BY: nightbot.channel.name
-```
+## Span Attributes
 
-### 5. Latency (P95) by Streamer
+### HTTP Spans (from otelhttp)
 
-Check if certain channels have slower response times:
+| Attribute | Description |
+|-----------|-------------|
+| `http.method` | GET, POST, etc. |
+| `http.target` | Request path |
+| `http.status_code` | Response status code |
+| `http.host` | Request host |
+| `duration_ms` | Request duration |
 
-```
-VISUALIZE: P95(duration_ms)
-GROUP BY: nightbot.channel.name
-WHERE: nightbot.channel.name exists
-```
+### Database Spans
 
-### 6. Most Requested Civilizations by Streamer
+| Attribute | Description |
+|-----------|-------------|
+| `db.system` | Always "sqlite" |
+| `db.operation` | Query name (e.g., GetRandomQuote) |
+| `quote.id` | Quote ID (when applicable) |
+| `civ.input` | Civilization filter input |
 
-See what civs each streamer's viewers ask about:
+### Nightbot Spans
 
-```
-VISUALIZE: COUNT
-GROUP BY: nightbot.channel.name, civ
-WHERE: civ exists
-```
+| Attribute | Description |
+|-----------|-------------|
+| `nightbot.channel.name` | Streamer's channel name |
+| `nightbot.channel.provider` | twitch or youtube |
+| `nightbot.user.name` | User who triggered command |
+| `nightbot.user.user_level` | owner, moderator, regular, etc. |
 
-### 7. Quote vs Matchup Usage by Streamer
+### Error Spans
 
-Compare endpoint usage patterns:
+| Attribute | Description |
+|-----------|-------------|
+| `exception.type` | Error type |
+| `exception.message` | Error message |
+| `exception.stacktrace` | Go stack trace |
 
-```
-VISUALIZE: COUNT
-GROUP BY: nightbot.channel.name, url.path
-WHERE: nightbot.channel.name exists
-```
+## Recommended Alerts
 
-### 8. Platform Breakdown (Twitch vs YouTube)
+| Alert | Condition | Frequency |
+|-------|-----------|----------|
+| High Error Rate | > 5% errors over 5 min | Every 5 min |
+| High Latency | P99 > 1 second | Every 5 min |
+| Zero Traffic | 0 requests in 15 min | Every 15 min |
 
-```
-VISUALIZE: COUNT
-GROUP BY: nightbot.channel.provider
-WHERE: nightbot.channel.provider exists
-```
+## SLO
 
-### 9. User Level Distribution
+**API Availability**: 99.9% of `/api/*` requests should succeed (status < 500)
 
-See if mostly mods or regular viewers use commands:
-
-```
-VISUALIZE: COUNT
-GROUP BY: nightbot.user.user_level
-WHERE: nightbot.user.user_level exists
-```
-
-### 10. No Results Rate by Streamer
-
-Find channels that might need more quotes added:
-
-```
-VISUALIZE: COUNT
-WHERE: name = "no_results"
-GROUP BY: nightbot.channel.name
-```
-
-## Creating a Streamer Dashboard
-
-Consider creating a Board with these queries:
-
-1. **Total Requests** - COUNT over time
-2. **Requests by Channel** - COUNT grouped by `nightbot.channel.name`
-3. **P95 Latency** - P95(duration_ms) over time
-4. **Error Rate** - COUNT where `http.response.status_code >= 400`
-5. **Rate Limited %** - Calculated from 429 responses
-6. **Top Civs Requested** - COUNT grouped by `civ`
-
-## Filtering to a Single Streamer
-
-Add this WHERE clause to any query to filter to one streamer:
-
-```
-WHERE: nightbot.channel.name = "beastyqt"
-```
-
-## Trace Exploration
-
-To see individual requests from a streamer:
-
-1. Query: `WHERE nightbot.channel.name = "beastyqt"`
-2. Click on a trace to see the waterfall view
-3. Child spans show database query timing
-4. Span events show rate limiting, no results, etc.
+This gives a monthly error budget of ~43 minutes of downtime or equivalent error volume.
