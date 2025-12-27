@@ -1268,7 +1268,7 @@ func (s *Server) HandleSubmitSuggestion(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
-	userEmail := r.Header.Get("X-User-Email")
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
 	if userEmail == "" {
 		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
 		return
@@ -1302,8 +1302,8 @@ func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request) {
-	userEmail := r.Header.Get("X-User-Email")
-	userID := r.Header.Get("X-User-Id")
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
 	if userEmail == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -1365,7 +1365,7 @@ func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) HandleRejectSuggestion(w http.ResponseWriter, r *http.Request) {
-	userEmail := r.Header.Get("X-User-Email")
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
 	if userEmail == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
