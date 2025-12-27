@@ -20,7 +20,28 @@ All other routes serve HTML pages for browser-based interaction.
 ### Authentication
 
 - Public routes: `/`, `/browse`, `/api/*`
-- Authenticated routes: `/quotes`, `/civs` (require exe.dev login)
+- Authenticated routes: `/quotes`, `/civs`, `/suggestions` (require exe.dev login)
+
+#### exe.dev Auth Headers
+
+When a user is logged in via exe.dev, the proxy sets these headers:
+
+| Header | Description |
+|--------|-------------|
+| `X-ExeDev-UserID` | Unique user ID |
+| `X-ExeDev-Email` | User's email address |
+
+**Important**: Always use `strings.TrimSpace()` when reading these headers.
+
+Example:
+```go
+userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+if userID == "" {
+    http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+    return
+}
+```
 
 ### Database
 
