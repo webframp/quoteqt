@@ -7,124 +7,23 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/theme.css?v=2">
     <style>
-        :root {
-            --bg-primary: #13111a;
-            --bg-secondary: #1c1926;
-            --bg-card: #231f2e;
-            --bg-card-hover: #2a2639;
-            --text-primary: #e8e4ef;
-            --text-secondary: #9d95ab;
-            --text-heading: #f8f6fc;
-            --accent: #a855f7;
-            --accent-hover: #9333ea;
-            --accent-soft: rgba(168, 85, 247, 0.1);
-            --success: #22c55e;
-            --danger: #ef4444;
-            --border: #332e42;
-            --border-subtle: #292536;
-            --code-bg: #1c1926;
-            --shadow: rgba(0, 0, 0, 0.4);
-            --radius: 16px;
-            --radius-sm: 10px;
-        }
-        [data-theme="light"] {
-            --bg-primary: #faf8fc;
-            --bg-secondary: #f3f0f7;
-            --bg-card: #ffffff;
-            --bg-card-hover: #faf8fc;
-            --text-primary: #1a1523;
-            --text-secondary: #6b6279;
-            --text-heading: #0d0a12;
-            --accent: #9333ea;
-            --accent-hover: #7e22ce;
-            --accent-soft: rgba(147, 51, 234, 0.08);
-            --border: #e9e4f0;
-            --border-subtle: #f0ecf5;
-            --code-bg: #f3f0f7;
-            --shadow: rgba(100, 60, 140, 0.06);
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        /* Page-specific styles */
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            line-height: 1.6;
             max-width: 800px;
             margin: 0 auto;
             padding: 2rem;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            transition: background 0.3s, color 0.3s;
         }
-        h1 { color: var(--text-heading); margin-bottom: 0.5rem; }
-        .subtitle { color: var(--text-secondary); margin-bottom: 2rem; }
-        .card {
-            background: var(--bg-card);
-            border-radius: var(--radius);
-            padding: 2rem;
-            margin-bottom: 1.5rem;
-            border: 1px solid var(--border-subtle);
-            box-shadow: 0 4px 12px var(--shadow);
-        }
+        .card { padding: 2rem; }
         .stats { font-size: 1.2rem; color: var(--success); }
-        a { color: var(--accent); text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--accent);
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: var(--radius-sm);
-            font-size: 1rem;
-            font-weight: 500;
-            margin-top: 1rem;
-            transition: all 0.2s;
-        }
-        .btn:hover { background: var(--accent-hover); text-decoration: none; transform: translateY(-1px); }
         .auth-info { margin-top: 1rem; color: var(--text-secondary); }
-        code {
-            background: var(--code-bg);
-            padding: 0.2rem 0.5rem;
-            border-radius: 3px;
-            font-family: 'Monaco', 'Consolas', monospace;
-            color: var(--text-primary);
-        }
         .api-section { margin-top: 2rem; }
         .api-section h2 { color: var(--text-heading); font-size: 1.3rem; }
         .setup-section h2 { color: var(--text-heading); font-size: 1.3rem; margin-top: 0; }
         .setup-section h3 { color: var(--text-heading); font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
         .setup-section ol { padding-left: 1.5rem; }
         .setup-section li { margin-bottom: 0.75rem; }
-        .code-block {
-            background: var(--code-bg);
-            padding: 0.75rem 1rem;
-            border-radius: var(--radius-sm);
-            font-family: 'Monaco', 'Consolas', monospace;
-            font-size: 0.85rem;
-            overflow-x: auto;
-            margin: 0.5rem 0;
-            color: var(--text-primary);
-            border: 1px solid var(--border-subtle);
-        }
-        .theme-toggle {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            cursor: pointer;
-            font-size: 1.2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 4px var(--shadow);
-            transition: transform 0.2s;
-        }
-        .theme-toggle:hover { transform: scale(1.1); }
     </style>
 </head>
 <body>

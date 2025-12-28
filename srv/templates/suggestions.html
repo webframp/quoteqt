@@ -7,38 +7,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/theme.css?v=2">
     <style>
-        :root {
-            --bg-primary: #13111a;
-            --bg-secondary: #1c1926;
-            --bg-card: #231f2e;
-            --bg-card-hover: #2a2639;
-            --text-primary: #e8e4ef;
-            --text-secondary: #9d95ab;
-            --text-heading: #f8f6fc;
-            --accent: #a855f7;
-            --accent-hover: #9333ea;
-            --accent-soft: rgba(168, 85, 247, 0.1);
-            --success: #22c55e;
-            --success-hover: #16a34a;
-            --danger: #ef4444;
-            --danger-hover: #dc2626;
-            --border: #332e42;
-            --border-subtle: #292536;
-            --civ-color: #c084fc;
-            --shadow: rgba(0, 0, 0, 0.4);
-            --radius: 16px;
-            --radius-sm: 10px;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            line-height: 1.6;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            padding: 2rem;
-            min-height: 100vh;
-        }
+        /* Page-specific styles */
+        body { padding: 2rem; min-height: 100vh; }
         .container { max-width: 900px; margin: 0 auto; }
         header {
             display: flex;
@@ -48,13 +20,8 @@
             flex-wrap: wrap;
             gap: 15px;
         }
-        h1 { color: var(--text-heading); margin: 0; }
+        h1 { margin: 0; }
         nav { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
-        nav a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-        nav a:hover { text-decoration: underline; }
         .user-info { color: var(--text-secondary); font-size: 0.9em; }
         .suggestion-card {
             background: var(--bg-card);

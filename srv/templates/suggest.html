@@ -7,41 +7,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/theme.css?v=2">
     <style>
-        :root {
-            --bg-primary: #13111a;
-            --bg-secondary: #1c1926;
-            --bg-card: #231f2e;
-            --bg-card-hover: #2a2639;
-            --text-primary: #e8e4ef;
-            --text-secondary: #9d95ab;
-            --text-heading: #f8f6fc;
-            --accent: #a855f7;
-            --accent-hover: #9333ea;
-            --accent-soft: rgba(168, 85, 247, 0.1);
-            --success: #22c55e;
-            --danger: #ef4444;
-            --border: #332e42;
-            --border-subtle: #292536;
-            --shadow: rgba(0, 0, 0, 0.4);
-            --radius: 16px;
-            --radius-sm: 10px;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            line-height: 1.6;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            padding: 2rem;
-            min-height: 100vh;
-        }
+        /* Page-specific styles */
+        body { padding: 2rem; min-height: 100vh; }
         .container { max-width: 600px; margin: 0 auto; }
-        h1 { color: var(--text-heading); margin-bottom: 10px; }
-        .subtitle { color: var(--text-secondary); margin-bottom: 30px; }
-        .nav { margin-bottom: 2rem; }
-        .nav a { color: var(--accent); text-decoration: none; }
-        .nav a:hover { text-decoration: underline; }
         .form-card {
             background: var(--bg-card);
             border-radius: var(--radius);
@@ -49,45 +19,10 @@
             border: 1px solid var(--border-subtle);
             box-shadow: 0 4px 12px var(--shadow);
         }
-        .form-group { margin-bottom: 20px; }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: var(--text-heading);
-            font-weight: 500;
-        }
+        .form-group { margin-bottom: 1.25rem; }
         .required { color: var(--danger); }
-        input, textarea, select {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-family: inherit;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        input:focus, textarea:focus, select:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-soft);
-        }
-        textarea { resize: vertical; min-height: 100px; }
         .hint { font-size: 0.85em; color: var(--text-secondary); margin-top: 5px; }
-        button {
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 0.875rem 1.5rem;
-            border-radius: var(--radius-sm);
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-            transition: all 0.2s;
-        }
-        button:hover { background: var(--accent-hover); transform: translateY(-1px); }
+        button { width: 100%; font-weight: 600; }
         .advanced-section {
             margin-bottom: 1.5rem;
             border: 1px solid var(--border-subtle);

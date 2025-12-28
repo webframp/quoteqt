@@ -7,61 +7,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/theme.css?v=2">
     <style>
-        :root {
-            --bg-primary: #13111a;
-            --bg-secondary: #1c1926;
-            --bg-card: #231f2e;
-            --bg-card-hover: #2a2639;
-            --text-primary: #e8e4ef;
-            --text-secondary: #9d95ab;
-            --text-heading: #f8f6fc;
-            --accent: #a855f7;
-            --accent-hover: #9333ea;
-            --accent-soft: rgba(168, 85, 247, 0.1);
-            --success: #22c55e;
-            --danger: #ef4444;
-            --border: #332e42;
-            --border-subtle: #292536;
-            --civ-bg: rgba(168, 85, 247, 0.15);
-            --civ-color: #c084fc;
-            --shadow: rgba(0, 0, 0, 0.4);
-            --radius: 16px;
-            --radius-sm: 10px;
-        }
-        [data-theme="light"] {
-            --bg-primary: #faf8fc;
-            --bg-secondary: #f3f0f7;
-            --bg-card: #ffffff;
-            --bg-card-hover: #faf8fc;
-            --text-primary: #1a1523;
-            --text-secondary: #6b6279;
-            --text-heading: #0d0a12;
-            --accent: #9333ea;
-            --accent-hover: #7e22ce;
-            --accent-soft: rgba(147, 51, 234, 0.08);
-            --border: #e9e4f0;
-            --border-subtle: #f0ecf5;
-            --civ-bg: rgba(147, 51, 234, 0.1);
-            --civ-color: #7e22ce;
-            --shadow: rgba(100, 60, 140, 0.06);
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        /* Page-specific styles */
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            line-height: 1.6;
             max-width: 900px;
             margin: 0 auto;
             padding: 2rem;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            transition: background 0.3s, color 0.3s;
         }
-        h1 { color: var(--text-heading); margin-bottom: 0.5rem; }
-        .subtitle { color: var(--text-secondary); margin-bottom: 2rem; }
-        .nav { margin-bottom: 2rem; }
-        .nav a { color: var(--accent); text-decoration: none; margin-right: 1rem; }
-        .nav a:hover { text-decoration: underline; }
         .quote-card {
             background: var(--bg-card);
             border-radius: var(--radius);
