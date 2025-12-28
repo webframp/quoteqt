@@ -207,24 +207,23 @@ if err != nil {
 
 ### High Priority
 
-- [ ] **Add SRI hashes to CDN scripts**
-  - Pin Lucide to specific version with integrity hash
-  - Consider SRI for Google Fonts CSS
+- [x] **Add SRI hashes to CDN scripts** ✅ (2024-12-28)
+  - Pinned Lucide to v0.462.0 with integrity hash
+  - All 7 templates updated
   
-- [ ] **Pin CDN versions**
-  - Change `lucide@latest` to `lucide@0.294.0` (or current stable)
-  - Document version update process
+- [x] **Pin CDN versions** ✅ (2024-12-28)
+  - Changed `lucide@latest` to `lucide@0.462.0`
+  - SRI hash: `sha384-8nT3SpButyvenpAdKYPJzXdSz3zidMGduMoaMvwjKnAWVv238n6P1mhveiJJQWrV`
 
 ### Medium Priority
 
-- [ ] **Add security headers middleware**
-  ```go
-  // Add to middleware chain
-  w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com")
-  w.Header().Set("X-Frame-Options", "DENY")
-  w.Header().Set("X-Content-Type-Options", "nosniff")
-  w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-  ```
+- [x] **Add security headers middleware** ✅ (2024-12-28)
+  - Added `SecurityHeaders` middleware in `srv/middleware.go`
+  - `X-Frame-Options: DENY` - prevents clickjacking
+  - `X-Content-Type-Options: nosniff` - prevents MIME sniffing
+  - `Referrer-Policy: strict-origin-when-cross-origin`
+  - `Content-Security-Policy` with restricted sources
+  - Note: `'unsafe-inline'` needed for existing inline scripts/handlers
 
 - [ ] **Add security event logging**
   - Log permission denied with user context

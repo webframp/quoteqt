@@ -131,3 +131,36 @@ func RequestLogger(next http.Handler) http.Handler {
 		}
 	})
 }
+
+// SecurityHeaders adds security-related HTTP headers to responses
+func SecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Prevent clickjacking
+		w.Header().Set("X-Frame-Options", "DENY")
+		
+		// Prevent MIME type sniffing
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		
+		// Control referrer information
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		
+		// Content Security Policy
+		// - default-src 'self': Only allow resources from same origin by default
+		// - script-src: Allow self, unpkg.com for Lucide, and unsafe-inline for theme toggle etc.
+		// - style-src: Allow self, inline styles (for theme.css vars), and Google Fonts
+		// - font-src: Allow Google Fonts
+		// - img-src: Allow self and data URIs (for inline images)
+		// - connect-src: Allow self for API calls
+		// Note: 'unsafe-inline' in script-src is needed for onclick handlers and inline scripts.
+		// In a future iteration, these could be moved to external scripts with nonces.
+		csp := "default-src 'self'; " +
+			"script-src 'self' 'unsafe-inline' https://unpkg.com; " +
+			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+			"font-src https://fonts.gstatic.com; " +
+			"img-src 'self' data:; " +
+			"connect-src 'self'"
+		w.Header().Set("Content-Security-Policy", csp)
+		
+		next.ServeHTTP(w, r)
+	})
+}

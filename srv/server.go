@@ -1271,7 +1271,7 @@ func (s *Server) Serve(addr string) error {
 
 	s.httpServer = &http.Server{
 		Addr:    addr,
-		Handler: otelhttp.NewHandler(RequestLogger(Gzip(LimitRequestBody(mux))), "quotes"),
+		Handler: otelhttp.NewHandler(SecurityHeaders(RequestLogger(Gzip(LimitRequestBody(mux)))), "quotes"),
 	}
 
 	slog.Info("starting server", "addr", addr)
