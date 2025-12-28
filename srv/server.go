@@ -1521,6 +1521,7 @@ func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 		OwnedChannels: ownedChannels,
 	}
 
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates["suggestions.html"].Execute(w, data); err != nil {
 		slog.Error("execute template", "error", err)
 	}
@@ -1751,6 +1752,7 @@ func (s *Server) HandleListChannelOwners(w http.ResponseWriter, r *http.Request)
 		Error:     r.URL.Query().Get("error"),
 	}
 
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates["admin_owners.html"].Execute(w, data); err != nil {
 		slog.Error("execute template", "error", err)
 	}
