@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/theme.css?v=5">
+    <link rel="stylesheet" href="/static/theme.css?v=6">
     <style>
         /* Page-specific styles */
         body { padding: 2rem; min-height: 100vh; }
@@ -75,7 +75,7 @@
             <a href="/">← Home</a>
         </div>
 
-        <h1><svg class="icon" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg> Suggest a Quote</h1>
+        <h1><i data-lucide="message-circle"></i> Suggest a Quote</h1>
         <p class="subtitle">Submit a quote for your favorite streamer's channel. Suggestions are reviewed before being added.</p>
 
         <div id="message" class="message hidden"></div>
@@ -177,5 +177,7 @@
             messageEl.classList.remove('hidden');
         });
     </script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script>lucide.createIcons();</script>
 </body>
 </html>
