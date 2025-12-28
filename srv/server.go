@@ -975,10 +975,13 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 	playCiv := r.URL.Query().Get("civ")
 	vsCiv := r.URL.Query().Get("vs")
 
-	// Get channel from Nightbot header for multi-streamer support
+	// Get channel from Nightbot header or query param for multi-streamer support
+	// Nightbot header takes precedence, then ?channel= query param
 	var channel string
 	if nb := ParseNightbotChannel(r.Header.Get("Nightbot-Channel")); nb != nil {
 		channel = nb.Name
+	} else if ch := r.URL.Query().Get("channel"); ch != "" {
+		channel = ch
 	}
 
 	// Log incoming request for debugging
@@ -1106,10 +1109,13 @@ func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 	q := dbgen.New(s.DB)
 	civ := r.URL.Query().Get("civ")
 
-	// Get channel from Nightbot header for multi-streamer support
+	// Get channel from Nightbot header or query param for multi-streamer support
+	// Nightbot header takes precedence, then ?channel= query param
 	var channel string
 	if nb := ParseNightbotChannel(r.Header.Get("Nightbot-Channel")); nb != nil {
 		channel = nb.Name
+	} else if ch := r.URL.Query().Get("channel"); ch != "" {
+		channel = ch
 	}
 
 	// Resolve shortname to full civ name
