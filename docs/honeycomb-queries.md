@@ -31,61 +31,75 @@ This creates:
 
 ## Manual Queries
 
-If you prefer to set things up manually in the Honeycomb UI, here are the key queries:
+To create these queries in the Honeycomb UI:
+
+1. Go to your dataset → **New Query**
+2. Set the **time range** in the top right
+3. Add **WHERE** clauses by clicking "+ Add filter" 
+4. Add **VISUALIZE** calculations
+5. Add **GROUP BY** fields
 
 ### Error Rate by Endpoint
 
-```
-VISUALIZE: COUNT, COUNT WHERE http.response.status_code >= 500
-GROUP BY: url.path
-FILTER: url.path starts with "/api/"
-TIME: Last 1 hour
-```
+| Section | Value |
+|---------|-------|
+| WHERE | `url.path` starts with `/api/` |
+| VISUALIZE | COUNT |
+| VISUALIZE | COUNT where `http.response.status_code` >= 500 |
+| GROUP BY | `url.path` |
+| Time | Last 1 hour |
 
 ### Latency Percentiles
 
-```
-VISUALIZE: P50(duration_ms), P95(duration_ms), P99(duration_ms)
-GROUP BY: url.path
-FILTER: url.path starts with "/api/"
-TIME: Last 1 hour
-```
+| Section | Value |
+|---------|-------|
+| WHERE | `url.path` starts with `/api/` |
+| VISUALIZE | P50(`duration_ms`) |
+| VISUALIZE | P95(`duration_ms`) |
+| VISUALIZE | P99(`duration_ms`) |
+| GROUP BY | `url.path` |
+| Time | Last 1 hour |
 
 ### Nightbot Usage by Channel
 
-```
-VISUALIZE: COUNT
-GROUP BY: nightbot.channel.name
-FILTER: nightbot.channel.name exists
-TIME: Last 24 hours
-```
+| Section | Value |
+|---------|-------|
+| WHERE | `nightbot.channel.name` exists |
+| VISUALIZE | COUNT |
+| GROUP BY | `nightbot.channel.name` |
+| Time | Last 24 hours |
 
 ### Slowest Requests
 
-```
-VISUALIZE: MAX(duration_ms), HEATMAP(duration_ms)
-GROUP BY: url.path
-ORDER BY: MAX(duration_ms) DESC
-TIME: Last 1 hour
-```
+| Section | Value |
+|---------|-------|
+| WHERE | `url.path` starts with `/api/` |
+| VISUALIZE | MAX(`duration_ms`) |
+| VISUALIZE | HEATMAP(`duration_ms`) |
+| GROUP BY | `url.path` |
+| ORDER BY | MAX(`duration_ms`) DESC |
+| Time | Last 1 hour |
 
 ### Database Query Performance
 
-```
-VISUALIZE: P50(duration_ms), P99(duration_ms), COUNT
-GROUP BY: db.operation
-FILTER: db.system = "sqlite"
-TIME: Last 1 hour
-```
+| Section | Value |
+|---------|-------|
+| WHERE | `db.system` = `sqlite` |
+| VISUALIZE | P50(`duration_ms`) |
+| VISUALIZE | P99(`duration_ms`) |
+| VISUALIZE | COUNT |
+| GROUP BY | `db.operation` |
+| Time | Last 1 hour |
 
 ### Errors with Stack Traces
 
-```
-VISUALIZE: COUNT
-GROUP BY: exception.message, exception.type
-FILTER: exception.message exists
-TIME: Last 24 hours
-```
+| Section | Value |
+|---------|-------|
+| WHERE | `exception.message` exists |
+| VISUALIZE | COUNT |
+| GROUP BY | `exception.message` |
+| GROUP BY | `exception.type` |
+| Time | Last 24 hours |
 
 ## Span Attributes
 
