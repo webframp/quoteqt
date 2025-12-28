@@ -389,3 +389,35 @@ tr:hover {
     font-style: italic;
     padding: 3rem;
 }
+
+/* Icons */
+.icon {
+    width: 1.25em;
+    height: 1.25em;
+    vertical-align: -0.2em;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    display: inline-block;
+}
+
+.icon-lg {
+    width: 1.5em;
+    height: 1.5em;
+    vertical-align: -0.3em;
+}
+
+.icon-sm {
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.15em;
+}
+
+h1 .icon {
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.1em;
+    margin-right: 0.25em;
+}
