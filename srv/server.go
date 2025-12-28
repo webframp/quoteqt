@@ -1200,7 +1200,7 @@ var templateFuncs = template.FuncMap{
 
 func (s *Server) loadTemplates() error {
 	s.templates = make(map[string]*template.Template)
-	templateFiles := []string{"index.html", "quotes.html", "quotes_public.html", "civs.html", "suggestions.html", "suggest.html", "admin_owners.html"}
+	templateFiles := []string{"index.html", "quotes.html", "quotes_public.html", "civs.html", "suggestions.html", "suggest.html", "admin_owners.html", "style_test.html"}
 	for _, name := range templateFiles {
 		path := filepath.Join(s.TemplatesDir, name)
 		tmpl, err := template.New(name).Funcs(templateFuncs).ParseFiles(path)
@@ -1241,6 +1241,7 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("GET /{$}", s.HandleRoot)
 	mux.HandleFunc("GET /health", s.HandleHealth)
 	mux.HandleFunc("GET /browse", s.HandleQuotesPublic)
+	mux.HandleFunc("GET /style-test", s.HandleStyleTest)
 	mux.HandleFunc("GET /suggest", s.HandleSuggestForm)
 	mux.HandleFunc("GET /quotes", s.HandleQuotes)
 	mux.HandleFunc("POST /quotes", s.HandleAddQuote)
@@ -1748,6 +1749,12 @@ func (s *Server) HandleRemoveChannelOwner(w http.ResponseWriter, r *http.Request
 	}
 
 	http.Redirect(w, r, "/admin/owners?success=Owner+removed", http.StatusSeeOther)
+}
+
+func (s *Server) HandleStyleTest(w http.ResponseWriter, r *http.Request) {
+	if err := s.templates["style_test.html"].Execute(w, nil); err != nil {
+		slog.Error("execute template", "error", err)
+	}
 }
 
 func (s *Server) HandleSuggestForm(w http.ResponseWriter, r *http.Request) {

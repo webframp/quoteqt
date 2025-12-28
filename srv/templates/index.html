@@ -4,38 +4,50 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AoE4 Quote Database</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #1a1a2e;
-            --bg-secondary: #16213e;
-            --bg-card: #1f2937;
-            --text-primary: #e5e7eb;
-            --text-secondary: #9ca3af;
-            --text-heading: #f3f4f6;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --success: #10b981;
-            --border: #374151;
-            --code-bg: #374151;
-            --shadow: rgba(0,0,0,0.3);
+            --bg-primary: #13111a;
+            --bg-secondary: #1c1926;
+            --bg-card: #231f2e;
+            --bg-card-hover: #2a2639;
+            --text-primary: #e8e4ef;
+            --text-secondary: #9d95ab;
+            --text-heading: #f8f6fc;
+            --accent: #a855f7;
+            --accent-hover: #9333ea;
+            --accent-soft: rgba(168, 85, 247, 0.1);
+            --success: #22c55e;
+            --danger: #ef4444;
+            --border: #332e42;
+            --border-subtle: #292536;
+            --code-bg: #1c1926;
+            --shadow: rgba(0, 0, 0, 0.4);
+            --radius: 16px;
+            --radius-sm: 10px;
         }
         [data-theme="light"] {
-            --bg-primary: #f5f5f5;
-            --bg-secondary: #e5e7eb;
-            --bg-card: white;
-            --text-primary: #333;
-            --text-secondary: #7f8c8d;
-            --text-heading: #2c3e50;
-            --accent: #3498db;
-            --accent-hover: #2980b9;
-            --success: #27ae60;
-            --border: #ddd;
-            --code-bg: #ecf0f1;
-            --shadow: rgba(0,0,0,0.1);
+            --bg-primary: #faf8fc;
+            --bg-secondary: #f3f0f7;
+            --bg-card: #ffffff;
+            --bg-card-hover: #faf8fc;
+            --text-primary: #1a1523;
+            --text-secondary: #6b6279;
+            --text-heading: #0d0a12;
+            --accent: #9333ea;
+            --accent-hover: #7e22ce;
+            --accent-soft: rgba(147, 51, 234, 0.08);
+            --border: #e9e4f0;
+            --border-subtle: #f0ecf5;
+            --code-bg: #f3f0f7;
+            --shadow: rgba(100, 60, 140, 0.06);
         }
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
             max-width: 800px;
             margin: 0 auto;
             padding: 2rem;
@@ -47,24 +59,29 @@
         .subtitle { color: var(--text-secondary); margin-bottom: 2rem; }
         .card {
             background: var(--bg-card);
-            border-radius: 8px;
+            border-radius: var(--radius);
             padding: 2rem;
             margin-bottom: 1.5rem;
-            box-shadow: 0 2px 4px var(--shadow);
+            border: 1px solid var(--border-subtle);
+            box-shadow: 0 4px 12px var(--shadow);
         }
         .stats { font-size: 1.2rem; color: var(--success); }
         a { color: var(--accent); text-decoration: none; }
         a:hover { text-decoration: underline; }
         .btn {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
             background: var(--accent);
             color: white;
             padding: 0.75rem 1.5rem;
-            border-radius: 4px;
+            border-radius: var(--radius-sm);
             font-size: 1rem;
+            font-weight: 500;
             margin-top: 1rem;
+            transition: all 0.2s;
         }
-        .btn:hover { background: var(--accent-hover); text-decoration: none; }
+        .btn:hover { background: var(--accent-hover); text-decoration: none; transform: translateY(-1px); }
         .auth-info { margin-top: 1rem; color: var(--text-secondary); }
         code {
             background: var(--code-bg);
@@ -82,12 +99,13 @@
         .code-block {
             background: var(--code-bg);
             padding: 0.75rem 1rem;
-            border-radius: 4px;
+            border-radius: var(--radius-sm);
             font-family: 'Monaco', 'Consolas', monospace;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             overflow-x: auto;
             margin: 0.5rem 0;
             color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
         }
         .theme-toggle {
             position: fixed;

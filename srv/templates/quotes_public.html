@@ -4,38 +4,52 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Browse Quotes - AoE4 Quote Database</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #1a1a2e;
-            --bg-card: #1f2937;
-            --text-primary: #e5e7eb;
-            --text-secondary: #9ca3af;
-            --text-heading: #f3f4f6;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --success: #10b981;
-            --border: #374151;
-            --civ-bg: #1e3a5f;
-            --civ-color: #60a5fa;
-            --shadow: rgba(0,0,0,0.3);
+            --bg-primary: #13111a;
+            --bg-secondary: #1c1926;
+            --bg-card: #231f2e;
+            --bg-card-hover: #2a2639;
+            --text-primary: #e8e4ef;
+            --text-secondary: #9d95ab;
+            --text-heading: #f8f6fc;
+            --accent: #a855f7;
+            --accent-hover: #9333ea;
+            --accent-soft: rgba(168, 85, 247, 0.1);
+            --success: #22c55e;
+            --danger: #ef4444;
+            --border: #332e42;
+            --border-subtle: #292536;
+            --civ-bg: rgba(168, 85, 247, 0.15);
+            --civ-color: #c084fc;
+            --shadow: rgba(0, 0, 0, 0.4);
+            --radius: 16px;
+            --radius-sm: 10px;
         }
         [data-theme="light"] {
-            --bg-primary: #f5f5f5;
-            --bg-card: white;
-            --text-primary: #333;
-            --text-secondary: #7f8c8d;
-            --text-heading: #2c3e50;
-            --accent: #3498db;
-            --accent-hover: #2980b9;
-            --success: #27ae60;
-            --border: #ddd;
-            --civ-bg: #e8f4f8;
-            --civ-color: #2980b9;
-            --shadow: rgba(0,0,0,0.1);
+            --bg-primary: #faf8fc;
+            --bg-secondary: #f3f0f7;
+            --bg-card: #ffffff;
+            --bg-card-hover: #faf8fc;
+            --text-primary: #1a1523;
+            --text-secondary: #6b6279;
+            --text-heading: #0d0a12;
+            --accent: #9333ea;
+            --accent-hover: #7e22ce;
+            --accent-soft: rgba(147, 51, 234, 0.08);
+            --border: #e9e4f0;
+            --border-subtle: #f0ecf5;
+            --civ-bg: rgba(147, 51, 234, 0.1);
+            --civ-color: #7e22ce;
+            --shadow: rgba(100, 60, 140, 0.06);
         }
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
             max-width: 900px;
             margin: 0 auto;
             padding: 2rem;
@@ -50,11 +64,17 @@
         .nav a:hover { text-decoration: underline; }
         .quote-card {
             background: var(--bg-card);
-            border-radius: 8px;
+            border-radius: var(--radius);
             padding: 1.5rem;
             margin-bottom: 1rem;
-            box-shadow: 0 2px 4px var(--shadow);
-            border-left: 4px solid var(--accent);
+            box-shadow: 0 4px 12px var(--shadow);
+            border: 1px solid var(--border-subtle);
+            transition: background 0.2s, border-color 0.2s, transform 0.2s;
+        }
+        .quote-card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border);
+            transform: translateY(-2px);
         }
         .quote-text {
             font-size: 1.2rem;
@@ -76,16 +96,18 @@
         .quote-civ {
             background: var(--civ-bg);
             color: var(--civ-color);
-            padding: 0.2rem 0.6rem;
-            border-radius: 12px;
-            font-size: 0.85rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 500;
         }
         .quote-channel {
-            background: var(--border);
-            color: var(--text-secondary);
-            padding: 0.2rem 0.6rem;
-            border-radius: 12px;
-            font-size: 0.85rem;
+            background: var(--accent-soft);
+            color: var(--accent);
+            padding: 0.25rem 0.75rem;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 500;
         }
         .quote-channel a {
             color: inherit;
@@ -101,11 +123,11 @@
             padding: 3rem;
         }
         .stats {
-            background: var(--bg-card);
-            border-radius: 8px;
-            padding: 1rem 1.5rem;
+            background: var(--bg-secondary);
+            border-radius: var(--radius);
+            padding: 1.25rem 1.5rem;
             margin-bottom: 1.5rem;
-            box-shadow: 0 2px 4px var(--shadow);
+            border: 1px solid var(--border-subtle);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -126,18 +148,21 @@
         }
         .pagination a, .pagination span {
             padding: 0.5rem 1rem;
-            border-radius: 4px;
+            border-radius: var(--radius-sm);
             text-decoration: none;
+            font-weight: 500;
         }
         .pagination a {
             background: var(--accent);
             color: white;
+            transition: all 0.2s;
         }
         .pagination a:hover {
             background: var(--accent-hover);
+            transform: translateY(-1px);
         }
         .pagination .disabled {
-            background: var(--border);
+            background: var(--border-subtle);
             color: var(--text-secondary);
             cursor: not-allowed;
         }
@@ -145,15 +170,19 @@
             color: var(--text-secondary);
         }
         .btn {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
             background: var(--accent);
             color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
+            padding: 0.625rem 1.25rem;
+            border-radius: var(--radius-sm);
             text-decoration: none;
             font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
         }
-        .btn:hover { background: var(--accent-hover); text-decoration: none; }
+        .btn:hover { background: var(--accent-hover); text-decoration: none; transform: translateY(-1px); }
         .theme-toggle {
             position: fixed;
             top: 1rem;
