@@ -56,6 +56,9 @@ type pageData struct {
 	// Authorization
 	IsAdmin        bool
 	OwnedChannels  []string
+	// Filtering
+	Channels        []string
+	SelectedChannel string
 }
 
 type QuoteView struct {
@@ -754,6 +757,7 @@ const defaultPageSize = 20
 
 func (s *Server) HandleQuotesPublic(w http.ResponseWriter, r *http.Request) {
 	q := dbgen.New(s.DB)
+	ctx := r.Context()
 
 	// Parse pagination params
 	page := 1
@@ -763,43 +767,84 @@ func (s *Server) HandleQuotesPublic(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	count, _ := q.CountQuotes(r.Context())
-	totalPages := int((count + defaultPageSize - 1) / defaultPageSize)
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
+	// Parse channel filter
+	selectedChannel := strings.TrimSpace(r.URL.Query().Get("channel"))
+
+	// Get list of channels for the filter dropdown
+	channelPtrs, _ := q.ListChannels(ctx)
+	var channels []string
+	for _, ch := range channelPtrs {
+		if ch != nil {
+			channels = append(channels, *ch)
+		}
 	}
 
-	offset := (page - 1) * defaultPageSize
-	quotes, err := q.ListQuotesPaginated(r.Context(), dbgen.ListQuotesPaginatedParams{
-		Limit:  defaultPageSize,
-		Offset: int64(offset),
-	})
+	// Get count and quotes based on filter
+	var count int64
+	var quotes []dbgen.Quote
+	var err error
+
+	if selectedChannel != "" {
+		count, _ = q.CountQuotesByChannel(ctx, &selectedChannel)
+		totalPages := int((count + defaultPageSize - 1) / defaultPageSize)
+		if totalPages < 1 {
+			totalPages = 1
+		}
+		if page > totalPages {
+			page = totalPages
+		}
+		offset := (page - 1) * defaultPageSize
+		quotes, err = q.ListQuotesByChannelPaginated(ctx, dbgen.ListQuotesByChannelPaginatedParams{
+			Channel: &selectedChannel,
+			Limit:   defaultPageSize,
+			Offset:  int64(offset),
+		})
+	} else {
+		count, _ = q.CountQuotes(ctx)
+		totalPages := int((count + defaultPageSize - 1) / defaultPageSize)
+		if totalPages < 1 {
+			totalPages = 1
+		}
+		if page > totalPages {
+			page = totalPages
+		}
+		offset := (page - 1) * defaultPageSize
+		quotes, err = q.ListQuotesPaginated(ctx, dbgen.ListQuotesPaginatedParams{
+			Limit:  defaultPageSize,
+			Offset: int64(offset),
+		})
+	}
+
 	if err != nil {
 		slog.Error("list quotes paginated", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
+	totalPages := int((count + defaultPageSize - 1) / defaultPageSize)
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
 	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
 
 	data := pageData{
-		Hostname:   s.Hostname,
-		Now:        time.Now().Format(time.RFC3339),
-		UserEmail:  userEmail,
-		UserID:     userID,
-		LoginURL:   loginURLForRequest(r),
-		LogoutURL:  "/__exe.dev/logout",
-		Quotes:     quotesToViews(quotes),
-		QuoteCount: count,
-		Page:       page,
-		PageSize:   defaultPageSize,
-		TotalPages: totalPages,
-		HasPrev:    page > 1,
-		HasNext:    page < totalPages,
+		Hostname:        s.Hostname,
+		Now:             time.Now().Format(time.RFC3339),
+		UserEmail:       userEmail,
+		UserID:          userID,
+		LoginURL:        loginURLForRequest(r),
+		LogoutURL:       "/__exe.dev/logout",
+		Quotes:          quotesToViews(quotes),
+		QuoteCount:      count,
+		Page:            page,
+		PageSize:        defaultPageSize,
+		TotalPages:      totalPages,
+		HasPrev:         page > 1,
+		HasNext:         page < totalPages,
+		Channels:        channels,
+		SelectedChannel: selectedChannel,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

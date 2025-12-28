@@ -91,6 +91,17 @@ func (q *Queries) CountQuotes(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countQuotesByChannel = `-- name: CountQuotesByChannel :one
+SELECT COUNT(*) as count FROM quotes WHERE channel = ?
+`
+
+func (q *Queries) CountQuotesByChannel(ctx context.Context, channel *string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countQuotesByChannel, channel)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createQuote = `-- name: CreateQuote :exec
 INSERT INTO quotes (user_id, created_by_email, text, author, civilization, opponent_civ, channel, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -527,6 +538,52 @@ ORDER BY created_at DESC
 
 func (q *Queries) ListQuotesByChannelOnly(ctx context.Context, channel *string) ([]Quote, error) {
 	rows, err := q.db.QueryContext(ctx, listQuotesByChannelOnly, channel)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Quote{}
+	for rows.Next() {
+		var i Quote
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Text,
+			&i.Author,
+			&i.CreatedAt,
+			&i.Civilization,
+			&i.OpponentCiv,
+			&i.Channel,
+			&i.CreatedByEmail,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listQuotesByChannelPaginated = `-- name: ListQuotesByChannelPaginated :many
+SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
+WHERE channel = ?
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?
+`
+
+type ListQuotesByChannelPaginatedParams struct {
+	Channel *string `json:"channel"`
+	Limit   int64   `json:"limit"`
+	Offset  int64   `json:"offset"`
+}
+
+func (q *Queries) ListQuotesByChannelPaginated(ctx context.Context, arg ListQuotesByChannelPaginatedParams) ([]Quote, error) {
+	rows, err := q.db.QueryContext(ctx, listQuotesByChannelPaginated, arg.Channel, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

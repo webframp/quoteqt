@@ -99,3 +99,12 @@ SELECT created_at FROM quotes ORDER BY created_at DESC LIMIT 1;
 SELECT * FROM quotes
 WHERE channel = ?
 ORDER BY created_at DESC;
+
+-- name: ListQuotesByChannelPaginated :many
+SELECT * FROM quotes
+WHERE channel = ?
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?;
+
+-- name: CountQuotesByChannel :one
+SELECT COUNT(*) as count FROM quotes WHERE channel = ?;
