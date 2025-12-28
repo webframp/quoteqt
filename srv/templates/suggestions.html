@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/theme.css?v=6">
+    <link rel="stylesheet" href="/static/theme.css?v=7">
     <style>
         /* Page-specific styles */
         body { padding: 2rem; min-height: 100vh; }
@@ -88,7 +88,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>🗳️ Review Suggestions</h1>
+            <h1><i data-lucide="inbox"></i> Review Suggestions</h1>
             <nav>
                 <a href="/">← Home</a>
                 <a href="/quotes">Manage Quotes</a>
@@ -112,10 +112,10 @@
                 </div>
                 <div class="actions">
                     <form method="POST" action="/suggestions/{{.ID}}/approve" style="display:inline;">
-                        <button type="submit" class="btn-approve">✓ Approve</button>
+                        <button type="submit" class="btn-approve"><i data-lucide="check"></i> Approve</button>
                     </form>
                     <form method="POST" action="/suggestions/{{.ID}}/reject" style="display:inline;">
-                        <button type="submit" class="btn-reject">✗ Reject</button>
+                        <button type="submit" class="btn-reject"><i data-lucide="x"></i> Reject</button>
                     </form>
                 </div>
             </div>
