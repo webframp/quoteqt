@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/theme.css?v=7">
+    <link rel="stylesheet" href="/static/theme.css?v=8">
     <style>
         /* Page-specific styles */
         body { padding: 2rem; min-height: 100vh; }
@@ -59,27 +59,15 @@
             display: flex;
             gap: 10px;
         }
+        /* Override default button sizing; uses theme.css for colors */
         button {
             padding: 8px 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
             font-size: 0.9em;
-            font-weight: 500;
         }
-        .btn-approve {
-            background: transparent;
-            color: #4ade80;
-            border: 1px solid rgba(74, 222, 128, 0.5);
-        }
-        .btn-approve:hover {
-            background: rgba(74, 222, 128, 0.1);
-            border-color: #4ade80;
-        }
+        /* Alias btn-reject to btn-danger style */
         .btn-reject {
-            background: transparent;
             color: #f87171;
-            border: 1px solid rgba(248, 113, 113, 0.5);
+            border-color: rgba(248, 113, 113, 0.5);
         }
         .btn-reject:hover {
             background: rgba(248, 113, 113, 0.1);

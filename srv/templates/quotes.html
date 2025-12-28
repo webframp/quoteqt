@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/theme.css?v=7">
+    <link rel="stylesheet" href="/static/theme.css?v=8">
     <style>
         /* Page-specific styles */
         body {
@@ -207,7 +207,7 @@
                 <input type="text" name="channel" id="channel" placeholder="Leave empty for global quote">
                 <small>If set, quote will only appear for this channel's Nightbot commands</small>
             </div>
-            <button type="submit" class="btn">Add Quote</button>
+            <button type="submit" class="btn btn-primary">Add Quote</button>
         </form>
     </div>
 
@@ -353,7 +353,7 @@
                             <input type="text" name="channel" value="{{.Channel}}" placeholder="Channel (empty = global)">
                         </div>
                         <div class="quote-actions">
-                            <button type="submit" class="btn btn-small">Save</button>
+                            <button type="submit" class="btn btn-primary btn-small">Save</button>
                             <button type="button" class="btn btn-small" onclick="toggleEdit({{.ID}})">Cancel</button>
                         </div>
                     </form>

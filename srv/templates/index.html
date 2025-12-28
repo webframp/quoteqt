@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/theme.css?v=7">
+    <link rel="stylesheet" href="/static/theme.css?v=8">
     <style>
         /* Page-specific styles */
         body {
@@ -16,8 +16,10 @@
             padding: 2rem;
         }
         .card { padding: 2rem; }
-        .stats { font-size: 1.2rem; color: var(--success); }
-        .auth-info { margin-top: 1rem; color: var(--text-secondary); }
+        .stats { font-size: 1.2rem; color: var(--success); margin-bottom: 1rem; }
+        .card > p { margin-bottom: 1rem; }
+        .card > .btn { margin-bottom: 0.75rem; }
+        .auth-info { margin-top: 0; margin-bottom: 0; color: var(--text-secondary); }
         .api-section { margin-top: 2rem; }
         .api-section h2 { color: var(--text-heading); font-size: 1.3rem; }
         .setup-section h2 { color: var(--text-heading); font-size: 1.3rem; margin-top: 0; }
@@ -35,11 +37,11 @@
         
         {{if .UserEmail}}
             <p>Welcome, <strong>{{.UserEmail}}</strong>!</p>
-            <a href="/quotes" class="btn">Manage Your Quotes</a>
+            <a href="/quotes" class="btn btn-primary">Manage Your Quotes</a>
             <p class="auth-info"><a href="{{.LogoutURL}}">Logout</a></p>
         {{else}}
             <p>Sign in to add quotes, or <a href="/suggest">suggest a quote</a> for your favorite streamer.</p>
-            <a href="{{.LoginURL}}" class="btn">Sign In</a>
+            <a href="{{.LoginURL}}" class="btn btn-primary">Sign In</a>
         {{end}}
     </div>
 
@@ -51,6 +53,7 @@
         <h3>Nightbot Setup</h3>
         <ol>
             <li><a href="/suggest">Suggest quotes</a> for your channel (or ask your viewers to)</li>
+            <li>Ask Webframp for an invite to manage the channel quotes.</li>
             <li>Add this command in Nightbot:
                 <div class="code-block">!commands add !quote $(urlfetch https://quoteqt.exe.dev/api/quote)</div>
             </li>

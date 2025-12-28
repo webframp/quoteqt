@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/theme.css?v=7">
+    <link rel="stylesheet" href="/static/theme.css?v=8">
     <style>
         /* Page-specific styles */
         body {
@@ -106,36 +106,26 @@
             font-weight: 500;
         }
         .pagination a {
-            background: var(--accent);
-            color: white;
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid rgba(168, 85, 247, 0.5);
             transition: all 0.2s;
         }
         .pagination a:hover {
-            background: var(--accent-hover);
+            background: var(--accent-soft);
+            border-color: var(--accent);
             transform: translateY(-1px);
         }
         .pagination .disabled {
-            background: var(--border-subtle);
+            background: transparent;
             color: var(--text-secondary);
+            border: 1px solid var(--border-subtle);
             cursor: not-allowed;
         }
         .pagination .current {
             color: var(--text-secondary);
         }
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--accent);
-            color: white;
-            padding: 0.625rem 1.25rem;
-            border-radius: var(--radius-sm);
-            text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-        .btn:hover { background: var(--accent-hover); text-decoration: none; transform: translateY(-1px); }
+        /* Uses ghost/outline button styles from theme.css */
         .theme-toggle {
             position: fixed;
             top: 1rem;

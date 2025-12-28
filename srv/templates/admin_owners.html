@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/theme.css?v=7">
+    <link rel="stylesheet" href="/static/theme.css?v=8">
     <style>
         /* Page-specific styles */
         body { padding: 2rem; min-height: 100vh; }
@@ -36,21 +36,7 @@
             border-color: var(--accent);
             box-shadow: 0 0 0 3px var(--accent-soft);
         }
-        button {
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.25rem;
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            font-family: inherit;
-            font-size: 0.95rem;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-        button:hover { background: var(--accent-hover); transform: translateY(-1px); }
-        button.danger { background: var(--danger); }
-        button.danger:hover { background: var(--danger-hover); }
+        /* Uses ghost/outline button styles from theme.css */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -110,7 +96,7 @@
                         {{end}}
                     </select>
                     <input type="email" name="email" placeholder="owner@example.com" required>
-                    <button type="submit">Add Owner</button>
+                    <button type="submit" class="btn-primary">Add Owner</button>
                 </div>
             </form>
             <p style="color: var(--text-secondary); font-size: 0.9em; margin: 0;">
@@ -120,7 +106,7 @@
                 <div class="form-row">
                     <input type="text" name="channel" placeholder="channel name" required>
                     <input type="email" name="email" placeholder="owner@example.com" required>
-                    <button type="submit">Add Owner</button>
+                    <button type="submit" class="btn-primary">Add Owner</button>
                 </div>
             </form>
         </div>
@@ -147,7 +133,7 @@
                             <form method="POST" action="/admin/owners/delete" style="margin: 0;">
                                 <input type="hidden" name="channel" value="{{.Channel}}">
                                 <input type="hidden" name="email" value="{{.UserEmail}}">
-                                <button type="submit" class="danger" onclick="return confirm('Remove this owner?')">Remove</button>
+                                <button type="submit" class="btn-danger" onclick="return confirm('Remove this owner?')">Remove</button>
                             </form>
                         </td>
                     </tr>
