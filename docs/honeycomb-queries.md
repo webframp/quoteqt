@@ -43,9 +43,9 @@ To create these queries in the Honeycomb UI:
 
 | Section | Value |
 |---------|-------|
-| WHERE | `url.path` starts with `/api/` |
 | VISUALIZE | COUNT |
 | VISUALIZE | COUNT where `http.response.status_code` >= 500 |
+| WHERE | `url.path` starts with `/api/` |
 | GROUP BY | `url.path` |
 | Time | Last 1 hour |
 
@@ -53,10 +53,10 @@ To create these queries in the Honeycomb UI:
 
 | Section | Value |
 |---------|-------|
-| WHERE | `url.path` starts with `/api/` |
 | VISUALIZE | P50(`duration_ms`) |
 | VISUALIZE | P95(`duration_ms`) |
 | VISUALIZE | P99(`duration_ms`) |
+| WHERE | `url.path` starts with `/api/` |
 | GROUP BY | `url.path` |
 | Time | Last 1 hour |
 
@@ -64,8 +64,8 @@ To create these queries in the Honeycomb UI:
 
 | Section | Value |
 |---------|-------|
-| WHERE | `nightbot.channel.name` exists |
 | VISUALIZE | COUNT |
+| WHERE | `nightbot.channel.name` exists |
 | GROUP BY | `nightbot.channel.name` |
 | Time | Last 24 hours |
 
@@ -73,9 +73,9 @@ To create these queries in the Honeycomb UI:
 
 | Section | Value |
 |---------|-------|
-| WHERE | `url.path` starts with `/api/` |
 | VISUALIZE | MAX(`duration_ms`) |
 | VISUALIZE | HEATMAP(`duration_ms`) |
+| WHERE | `url.path` starts with `/api/` |
 | GROUP BY | `url.path` |
 | ORDER BY | MAX(`duration_ms`) DESC |
 | Time | Last 1 hour |
@@ -84,10 +84,10 @@ To create these queries in the Honeycomb UI:
 
 | Section | Value |
 |---------|-------|
-| WHERE | `db.system` = `sqlite` |
 | VISUALIZE | P50(`duration_ms`) |
 | VISUALIZE | P99(`duration_ms`) |
 | VISUALIZE | COUNT |
+| WHERE | `db.system` = `sqlite` |
 | GROUP BY | `db.operation` |
 | Time | Last 1 hour |
 
@@ -95,8 +95,8 @@ To create these queries in the Honeycomb UI:
 
 | Section | Value |
 |---------|-------|
-| WHERE | `exception.message` exists |
 | VISUALIZE | COUNT |
+| WHERE | `exception.message` exists |
 | GROUP BY | `exception.message` |
 | GROUP BY | `exception.type` |
 | Time | Last 24 hours |
