@@ -182,12 +182,15 @@ button:hover, .btn:hover {
     border-color: var(--accent);
 }
 
-.btn-danger {
-    background: var(--danger);
+button.btn-danger, .btn.btn-danger, .btn-danger {
+    background: transparent;
+    color: #f87171;
+    border: 1px solid rgba(248, 113, 113, 0.5);
 }
 
-.btn-danger:hover {
-    background: var(--danger-hover);
+button.btn-danger:hover, .btn.btn-danger:hover, .btn-danger:hover {
+    background: rgba(248, 113, 113, 0.1);
+    border-color: #f87171;
 }
 
 .btn-small {
