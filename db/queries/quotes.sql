@@ -15,7 +15,6 @@ LIMIT 1;
 
 -- name: GetRandomQuoteGlobal :one
 SELECT * FROM quotes
-WHERE channel IS NULL
 ORDER BY RANDOM()
 LIMIT 1;
 
@@ -27,7 +26,7 @@ LIMIT 1;
 
 -- name: GetRandomQuoteByCivGlobal :one
 SELECT * FROM quotes
-WHERE civilization = ? AND channel IS NULL
+WHERE civilization = ?
 ORDER BY RANDOM()
 LIMIT 1;
 
@@ -60,7 +59,7 @@ LIMIT 1;
 
 -- name: GetRandomMatchupQuoteGlobal :one
 SELECT * FROM quotes
-WHERE civilization = ? AND opponent_civ = ? AND channel IS NULL
+WHERE civilization = ? AND opponent_civ = ?
 ORDER BY RANDOM()
 LIMIT 1;
 

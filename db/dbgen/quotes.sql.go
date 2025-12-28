@@ -228,7 +228,7 @@ func (q *Queries) GetRandomMatchupQuote(ctx context.Context, arg GetRandomMatchu
 
 const getRandomMatchupQuoteGlobal = `-- name: GetRandomMatchupQuoteGlobal :one
 SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
-WHERE civilization = ? AND opponent_civ = ? AND channel IS NULL
+WHERE civilization = ? AND opponent_civ = ?
 ORDER BY RANDOM()
 LIMIT 1
 `
@@ -310,7 +310,7 @@ func (q *Queries) GetRandomQuoteByCiv(ctx context.Context, arg GetRandomQuoteByC
 
 const getRandomQuoteByCivGlobal = `-- name: GetRandomQuoteByCivGlobal :one
 SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
-WHERE civilization = ? AND channel IS NULL
+WHERE civilization = ?
 ORDER BY RANDOM()
 LIMIT 1
 `
@@ -334,7 +334,6 @@ func (q *Queries) GetRandomQuoteByCivGlobal(ctx context.Context, civilization *s
 
 const getRandomQuoteGlobal = `-- name: GetRandomQuoteGlobal :one
 SELECT id, user_id, text, author, created_at, civilization, opponent_civ, channel, created_by_email FROM quotes
-WHERE channel IS NULL
 ORDER BY RANDOM()
 LIMIT 1
 `
