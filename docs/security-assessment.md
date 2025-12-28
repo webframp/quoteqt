@@ -245,6 +245,9 @@ if err != nil {
   - Even though exe.dev uses header auth, CSRF tokens add another layer
   - Use `gorilla/csrf` or similar
 
+- [ ] **Replace 'unsafe-inline' with CSP nonces**
+  - See [CSP Nonce Implementation Guide](#csp-nonce-implementation-guide) below
+
 - [ ] **Configure Honeycomb alerts**
   - Alert on error rate > threshold
   - Alert on rate limiting spike
@@ -276,12 +279,163 @@ To maintain security posture, consider adding:
 
 ---
 
+---
+
+## CSP Nonce Implementation Guide
+
+The current CSP uses `'unsafe-inline'` for scripts because the app has inline `<script>` blocks and `onclick` handlers. A more secure approach is to use nonces (number-used-once) that allow only specifically-marked scripts to execute.
+
+### How Nonces Work
+
+1. Server generates a random nonce per request
+2. Nonce is included in CSP header: `script-src 'nonce-abc123'`
+3. Each inline script must have matching attribute: `<script nonce="abc123">`
+4. Scripts without the nonce are blocked
+
+### Implementation Steps
+
+#### 1. Add nonce generation to middleware (`srv/middleware.go`)
+
+```go
+import (
+    "crypto/rand"
+    "encoding/base64"
+)
+
+type contextKey string
+const NonceKey contextKey = "csp-nonce"
+
+func generateNonce() string {
+    b := make([]byte, 16)
+    rand.Read(b)
+    return base64.StdEncoding.EncodeToString(b)
+}
+
+func SecurityHeaders(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        nonce := generateNonce()
+        
+        // Store nonce in context for templates
+        ctx := context.WithValue(r.Context(), NonceKey, nonce)
+        
+        // Build CSP with nonce instead of 'unsafe-inline'
+        csp := fmt.Sprintf(
+            "default-src 'self'; "+
+            "script-src 'nonce-%s' https://unpkg.com; "+
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "+
+            "font-src https://fonts.gstatic.com; "+
+            "img-src 'self' data:; "+
+            "connect-src 'self'",
+            nonce,
+        )
+        w.Header().Set("Content-Security-Policy", csp)
+        // ... other headers ...
+        
+        next.ServeHTTP(w, r.WithContext(ctx))
+    })
+}
+
+// Helper to extract nonce from context
+func GetNonce(ctx context.Context) string {
+    if nonce, ok := ctx.Value(NonceKey).(string); ok {
+        return nonce
+    }
+    return ""
+}
+```
+
+#### 2. Add Nonce field to all page data structs (`srv/server.go`)
+
+```go
+type pageData struct {
+    Nonce       string  // Add to all template data structs
+    // ... existing fields ...
+}
+```
+
+#### 3. Pass nonce in every handler
+
+```go
+func (s *Server) HandleRoot(w http.ResponseWriter, r *http.Request) {
+    data := pageData{
+        Nonce: GetNonce(r.Context()),
+        // ... other fields ...
+    }
+    s.renderTemplate(w, "index.html", data)
+}
+```
+
+#### 4. Update templates to use nonce
+
+**Before:**
+```html
+<script>lucide.createIcons();</script>
+<button onclick="toggleTheme()">Toggle</button>
+```
+
+**After:**
+```html
+<script nonce="{{.Nonce}}">lucide.createIcons();</script>
+<button id="theme-toggle">Toggle</button>
+<script nonce="{{.Nonce}}">
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+</script>
+```
+
+#### 5. Convert all onclick handlers
+
+All inline event handlers must be converted to `addEventListener` in nonced script blocks:
+
+| Template | onclick handlers to convert |
+|----------|----------------------------|
+| quotes.html | toggleEdit(), filterQuotes(), clearFilters(), toggleSelectAll(), updateBulkBar(), applyBulkAction() |
+| civs.html | toggleTheme() |
+| index.html | toggleTheme() |
+| quotes_public.html | toggleTheme() |
+| admin_owners.html | confirm() dialogs |
+
+### Effort Estimate
+
+- Middleware changes: ~30 minutes
+- Handler updates: ~1 hour (15+ handlers)
+- Template updates: ~2 hours (7 templates, ~20 onclick conversions)
+- Testing: ~30 minutes
+
+**Total: ~4 hours**
+
+### Testing the Implementation
+
+1. Check CSP header includes nonce:
+   ```bash
+   curl -sI http://localhost:8000/ | grep Content-Security-Policy
+   # Should show: script-src 'nonce-XXXXX' https://unpkg.com
+   ```
+
+2. Verify nonce changes per request:
+   ```bash
+   curl -sI http://localhost:8000/ | grep nonce
+   curl -sI http://localhost:8000/ | grep nonce
+   # Should show different nonces
+   ```
+
+3. Check browser console for CSP violations (there should be none)
+
+4. Test all interactive features:
+   - Theme toggle
+   - Quote filtering/editing
+   - Form submissions
+   - Bulk operations
+
+---
+
 ## Conclusion
 
 The application has a solid security foundation with proper authorization, parameterized queries, and rate limiting. The main areas for improvement are:
 
-1. **Supply chain security** - Pin and verify external resources
-2. **Security headers** - Add standard protective headers
+1. **Supply chain security** - Pin and verify external resources ✅ Done
+2. **Security headers** - Add standard protective headers ✅ Done
 3. **Security logging** - Better visibility into security events
 
 None of the findings represent critical vulnerabilities requiring immediate action, but addressing the medium-priority items would significantly improve the security posture.
+
+The CSP nonce implementation is optional but recommended for defense-in-depth against XSS attacks.
