@@ -36,9 +36,9 @@ If you prefer to set things up manually in the Honeycomb UI, here are the key qu
 ### Error Rate by Endpoint
 
 ```
-VISUALIZE: COUNT, COUNT_DISTINCT(trace.trace_id) WHERE http.status_code >= 500
-GROUP BY: http.target
-FILTER: http.target starts with "/api/"
+VISUALIZE: COUNT, COUNT WHERE http.response.status_code >= 500
+GROUP BY: url.path
+FILTER: url.path starts with "/api/"
 TIME: Last 1 hour
 ```
 
@@ -46,8 +46,8 @@ TIME: Last 1 hour
 
 ```
 VISUALIZE: P50(duration_ms), P95(duration_ms), P99(duration_ms)
-GROUP BY: http.target  
-FILTER: http.target starts with "/api/"
+GROUP BY: url.path
+FILTER: url.path starts with "/api/"
 TIME: Last 1 hour
 ```
 
@@ -64,7 +64,7 @@ TIME: Last 24 hours
 
 ```
 VISUALIZE: MAX(duration_ms), HEATMAP(duration_ms)
-GROUP BY: http.target
+GROUP BY: url.path
 ORDER BY: MAX(duration_ms) DESC
 TIME: Last 1 hour
 ```
@@ -93,10 +93,10 @@ TIME: Last 24 hours
 
 | Attribute | Description |
 |-----------|-------------|
-| `http.method` | GET, POST, etc. |
-| `http.target` | Request path |
-| `http.status_code` | Response status code |
-| `http.host` | Request host |
+| `http.request.method` | GET, POST, etc. |
+| `url.path` | Request path |
+| `http.response.status_code` | Response status code |
+| `url.scheme` | http or https |
 | `duration_ms` | Request duration |
 
 ### Database Spans

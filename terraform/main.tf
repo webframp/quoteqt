@@ -37,7 +37,7 @@ resource "honeycombio_derived_column" "is_api_request" {
   dataset     = var.dataset
   alias       = "is_api_request"
   description = "Request is to /api/* endpoint"
-  expression  = "STARTS_WITH($http.target, \"/api/\")"
+  expression  = "STARTS_WITH($url.path, \"/api/\")"
 }
 
 resource "honeycombio_derived_column" "is_nightbot" {
@@ -67,7 +67,7 @@ data "honeycombio_query_specification" "high_error_rate" {
   }
 
   filter {
-    column = "http.target"
+    column = "url.path"
     op     = "starts-with"
     value  = "/api/"
   }
@@ -88,7 +88,7 @@ data "honeycombio_query_specification" "high_latency" {
   }
 
   filter {
-    column = "http.target"
+    column = "url.path"
     op     = "starts-with"
     value  = "/api/"
   }
@@ -108,7 +108,7 @@ data "honeycombio_query_specification" "zero_traffic" {
   }
 
   filter {
-    column = "http.target"
+    column = "url.path"
     op     = "starts-with"
     value  = "/api/"
   }
