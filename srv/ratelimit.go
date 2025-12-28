@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 )
 
 // RateLimiter implements a simple token bucket rate limiter per IP.
@@ -104,13 +103,11 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 		key, keyType := getRateLimitKey(r)
 
 		if !rl.Allow(key) {
-			// Record rate limit event on span
-			span := trace.SpanFromContext(r.Context())
-			span.AddEvent("rate_limited", trace.WithAttributes(
+			RecordSecurityEvent(r.Context(), "rate_limited",
 				attribute.String("rate_limit.key", key),
 				attribute.String("rate_limit.key_type", keyType),
-				attribute.String("endpoint", r.URL.Path),
-			))
+				attribute.String("path", r.URL.Path),
+			)
 			http.Error(w, "Rate limit exceeded. Try again later.", http.StatusTooManyRequests)
 			return
 		}

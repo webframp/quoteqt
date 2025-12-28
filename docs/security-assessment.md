@@ -225,10 +225,11 @@ if err != nil {
   - `Content-Security-Policy` with restricted sources
   - Note: `'unsafe-inline'` needed for existing inline scripts/handlers
 
-- [ ] **Add security event logging**
-  - Log permission denied with user context
-  - Log rate limit hits with endpoint context
-  - Add structured fields for security filtering
+- [x] **Add security event logging** ✅ (2024-12-28)
+  - Added `RecordSecurityEvent()` function in `srv/tracing.go`
+  - Events logged to both OTel spans and slog
+  - Events: `auth_required`, `permission_denied`, `admin_required`, `rate_limited`, `suggestion_rate_limited`
+  - Structured attributes: user.email, path, resource, channel, reason
 
 - [ ] **Set up dependency scanning**
   - Add `govulncheck` to CI

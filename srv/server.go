@@ -185,6 +185,9 @@ func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if userID == "" {
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
 		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
 		return
 	}
@@ -194,6 +197,11 @@ func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 
 	// If not admin and not a channel owner, deny access
 	if !isAdmin && len(ownedChannels) == 0 {
+		RecordSecurityEvent(ctx, "permission_denied",
+			attribute.String("user.email", userEmail),
+			attribute.String("path", r.URL.Path),
+			attribute.String("reason", "not_channel_owner"),
+		)
 		http.Error(w, "You don't have permission to manage quotes. Contact an admin to get access.", http.StatusForbidden)
 		return
 	}
@@ -240,6 +248,9 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if userID == "" {
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
 		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
 		return
 	}
@@ -257,6 +268,13 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 
 	// Check permission: must be admin or own this channel
 	if !s.canManageChannel(ctx, userEmail, channel) {
+		RecordSecurityEvent(ctx, "permission_denied",
+			attribute.String("user.email", userEmail),
+			attribute.String("path", r.URL.Path),
+			attribute.String("resource", "quote"),
+			attribute.String("channel", channel),
+			attribute.String("reason", "not_channel_owner"),
+		)
 		http.Error(w, "You don't have permission to add quotes to this channel", http.StatusForbidden)
 		return
 	}
@@ -313,8 +331,12 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 func (s *Server) HandleCivs(w http.ResponseWriter, r *http.Request) {
 	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	ctx := r.Context()
 
 	if userID == "" {
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
 		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
 		return
 	}
@@ -368,7 +390,12 @@ func (s *Server) HandleCivs(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleAddCiv(w http.ResponseWriter, r *http.Request) {
 	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	ctx := r.Context()
+
 	if userID == "" {
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
 		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
 		return
 	}
@@ -540,6 +567,9 @@ func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if userID == "" {
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
 		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
 		return
 	}
@@ -571,6 +601,14 @@ func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 		existingChannel = *quote.Channel
 	}
 	if !s.canManageChannel(ctx, userEmail, existingChannel) {
+		RecordSecurityEvent(ctx, "permission_denied",
+			attribute.String("user.email", userEmail),
+			attribute.String("path", r.URL.Path),
+			attribute.String("resource", "quote"),
+			attribute.Int64("quote.id", id),
+			attribute.String("channel", existingChannel),
+			attribute.String("reason", "not_channel_owner"),
+		)
 		http.Error(w, "You don't have permission to edit this quote", http.StatusForbidden)
 		return
 	}
@@ -633,6 +671,9 @@ func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if userID == "" {
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -664,6 +705,14 @@ func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
 		channel = *quote.Channel
 	}
 	if !s.canManageChannel(ctx, userEmail, channel) {
+		RecordSecurityEvent(ctx, "permission_denied",
+			attribute.String("user.email", userEmail),
+			attribute.String("path", r.URL.Path),
+			attribute.String("resource", "quote"),
+			attribute.Int64("quote.id", id),
+			attribute.String("channel", channel),
+			attribute.String("reason", "not_channel_owner"),
+		)
 		http.Error(w, "You don't have permission to delete this quote", http.StatusForbidden)
 		return
 	}
@@ -1333,11 +1382,11 @@ func (s *Server) HandleSubmitSuggestion(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if count >= 5 {
-		span := trace.SpanFromContext(ctx)
-		span.AddEvent("suggestion_rate_limited", trace.WithAttributes(
+		RecordSecurityEvent(ctx, "suggestion_rate_limited",
 			attribute.String("client.ip", ip),
-			attribute.Int64("count", count),
-		))
+			attribute.Int64("suggestion_count", count),
+			attribute.String("path", r.URL.Path),
+		)
 		http.Error(w, "Too many suggestions. Please try again later.", http.StatusTooManyRequests)
 		return
 	}
@@ -1415,17 +1464,26 @@ func (s *Server) HandleSubmitSuggestion(w http.ResponseWriter, r *http.Request) 
 
 func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	ctx := r.Context()
+
 	if userEmail == "" {
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
 		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
 		return
 	}
 
-	ctx := r.Context()
 	isAdmin := s.isAdmin(userEmail)
 	ownedChannels, _ := s.getOwnedChannels(ctx, userEmail)
 
 	// If not admin and not a channel owner, deny access
 	if !isAdmin && len(ownedChannels) == 0 {
+		RecordSecurityEvent(ctx, "permission_denied",
+			attribute.String("user.email", userEmail),
+			attribute.String("path", r.URL.Path),
+			attribute.String("reason", "not_channel_owner"),
+		)
 		http.Error(w, "You don't have permission to review suggestions. Contact an admin to get access.", http.StatusForbidden)
 		return
 	}
@@ -1471,12 +1529,16 @@ func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request) {
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
 	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	ctx := r.Context()
+
 	if userEmail == "" {
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	ctx := r.Context()
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -1500,6 +1562,14 @@ func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request)
 
 	// Check permission: must be admin or own this channel
 	if !s.canManageChannel(ctx, userEmail, suggestion.Channel) {
+		RecordSecurityEvent(ctx, "permission_denied",
+			attribute.String("user.email", userEmail),
+			attribute.String("path", r.URL.Path),
+			attribute.String("resource", "suggestion"),
+			attribute.Int64("suggestion.id", id),
+			attribute.String("channel", suggestion.Channel),
+			attribute.String("reason", "not_channel_owner"),
+		)
 		http.Error(w, "You don't have permission to approve suggestions for this channel", http.StatusForbidden)
 		return
 	}
@@ -1539,12 +1609,16 @@ func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request)
 
 func (s *Server) HandleRejectSuggestion(w http.ResponseWriter, r *http.Request) {
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	ctx := r.Context()
+
 	if userEmail == "" {
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	ctx := r.Context()
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -1568,6 +1642,14 @@ func (s *Server) HandleRejectSuggestion(w http.ResponseWriter, r *http.Request) 
 
 	// Check permission: must be admin or own this channel
 	if !s.canManageChannel(ctx, userEmail, suggestion.Channel) {
+		RecordSecurityEvent(ctx, "permission_denied",
+			attribute.String("user.email", userEmail),
+			attribute.String("path", r.URL.Path),
+			attribute.String("resource", "suggestion"),
+			attribute.Int64("suggestion.id", id),
+			attribute.String("channel", suggestion.Channel),
+			attribute.String("reason", "not_channel_owner"),
+		)
 		http.Error(w, "You don't have permission to reject suggestions for this channel", http.StatusForbidden)
 		return
 	}
@@ -1619,17 +1701,24 @@ func (s *Server) canManageChannel(ctx context.Context, email, channel string) bo
 
 func (s *Server) HandleListChannelOwners(w http.ResponseWriter, r *http.Request) {
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	ctx := r.Context()
+
 	if userEmail == "" {
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
 		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
 		return
 	}
 
 	if !s.isAdmin(userEmail) {
+		RecordSecurityEvent(ctx, "admin_required",
+			attribute.String("user.email", userEmail),
+			attribute.String("path", r.URL.Path),
+		)
 		http.Error(w, "Admin access required", http.StatusForbidden)
 		return
 	}
-
-	ctx := r.Context()
 	q := dbgen.New(s.DB)
 
 	owners, err := q.ListAllChannelOwners(ctx)
@@ -1669,12 +1758,21 @@ func (s *Server) HandleListChannelOwners(w http.ResponseWriter, r *http.Request)
 
 func (s *Server) HandleAddChannelOwner(w http.ResponseWriter, r *http.Request) {
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	ctx := r.Context()
+
 	if userEmail == "" {
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	if !s.isAdmin(userEmail) {
+		RecordSecurityEvent(ctx, "admin_required",
+			attribute.String("user.email", userEmail),
+			attribute.String("path", r.URL.Path),
+		)
 		http.Error(w, "Admin access required", http.StatusForbidden)
 		return
 	}
@@ -1691,8 +1789,6 @@ func (s *Server) HandleAddChannelOwner(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/owners?error=Channel+and+email+are+required", http.StatusSeeOther)
 		return
 	}
-
-	ctx := r.Context()
 	q := dbgen.New(s.DB)
 
 	err := q.AddChannelOwner(ctx, dbgen.AddChannelOwnerParams{
@@ -1711,12 +1807,21 @@ func (s *Server) HandleAddChannelOwner(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleRemoveChannelOwner(w http.ResponseWriter, r *http.Request) {
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	ctx := r.Context()
+
 	if userEmail == "" {
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	if !s.isAdmin(userEmail) {
+		RecordSecurityEvent(ctx, "admin_required",
+			attribute.String("user.email", userEmail),
+			attribute.String("path", r.URL.Path),
+		)
 		http.Error(w, "Admin access required", http.StatusForbidden)
 		return
 	}
@@ -1733,8 +1838,6 @@ func (s *Server) HandleRemoveChannelOwner(w http.ResponseWriter, r *http.Request
 		http.Redirect(w, r, "/admin/owners?error=Channel+and+email+are+required", http.StatusSeeOther)
 		return
 	}
-
-	ctx := r.Context()
 	q := dbgen.New(s.DB)
 
 	err := q.RemoveChannelOwner(ctx, dbgen.RemoveChannelOwnerParams{

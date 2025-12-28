@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"runtime"
 	"strings"
@@ -27,6 +28,34 @@ func StartDBSpan(ctx context.Context, operation string, attrs ...attribute.KeyVa
 		trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(attrs...),
 	)
+}
+
+// RecordSecurityEvent records a security-related event on the current span.
+// Events are prefixed with "security." and also logged via slog for local visibility.
+// Use this for permission denied, auth required, rate limiting, etc.
+func RecordSecurityEvent(ctx context.Context, event string, attrs ...attribute.KeyValue) {
+	span := trace.SpanFromContext(ctx)
+	if !span.IsRecording() {
+		// Still log locally even if tracing is disabled
+		logSecurityEvent(event, attrs)
+		return
+	}
+
+	fullEvent := "security." + event
+	span.AddEvent(fullEvent, trace.WithAttributes(attrs...))
+
+	// Also log locally for visibility without Honeycomb
+	logSecurityEvent(event, attrs)
+}
+
+// logSecurityEvent logs a security event to slog with structured attributes
+func logSecurityEvent(event string, attrs []attribute.KeyValue) {
+	args := make([]any, 0, len(attrs)*2+2)
+	args = append(args, "event", "security."+event)
+	for _, attr := range attrs {
+		args = append(args, string(attr.Key), attr.Value.AsInterface())
+	}
+	slog.Warn("security event", args...)
 }
 
 // RecordError records an error on the span following OTel exception conventions.
