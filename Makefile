@@ -1,7 +1,12 @@
 .PHONY: build clean test test-unit test-integration run restart stop
 
+# Build variables
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT_SHA ?= $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
+LDFLAGS := -X srv.exe.dev/srv.Version=$(VERSION) -X srv.exe.dev/srv.CommitSHA=$(COMMIT_SHA)
+
 build:
-	go build -o bin/srv ./cmd/srv
+	go build -ldflags "$(LDFLAGS)" -o bin/srv ./cmd/srv
 
 clean:
 	rm -f bin/srv

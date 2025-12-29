@@ -30,6 +30,7 @@ type Server struct {
 	StaticDir    string
 	APILimiter   *RateLimiter
 	AdminEmails  map[string]bool
+	Markers      *MarkerClient
 	templates    map[string]*template.Template
 	httpServer   *http.Server
 }
@@ -100,6 +101,7 @@ func New(dbPath, hostname string, adminEmails []string) (*Server, error) {
 		// Rate limit: 30 requests per minute per IP, burst of 10
 		APILimiter:   NewRateLimiter(30, time.Minute, 10),
 		AdminEmails:  adminSet,
+		Markers:      NewMarkerClient(),
 	}
 	if err := srv.setUpDatabase(dbPath); err != nil {
 		return nil, err
@@ -107,6 +109,10 @@ func New(dbPath, hostname string, adminEmails []string) (*Server, error) {
 	if err := srv.loadTemplates(); err != nil {
 		return nil, err
 	}
+
+	// Create deploy marker on startup
+	srv.Markers.CreateDeployMarker()
+
 	return srv, nil
 }
 
@@ -789,6 +795,20 @@ func (s *Server) HandleBulkQuotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create marker for bulk operation
+	var opDesc string
+	switch req.Action {
+	case "channel":
+		opDesc = fmt.Sprintf("Bulk set channel to '%s'", req.Value)
+	case "civilization":
+		opDesc = fmt.Sprintf("Bulk set civilization to '%s'", req.Value)
+	case "clear-channel":
+		opDesc = "Bulk clear channel"
+	case "delete":
+		opDesc = "Bulk delete"
+	}
+	s.Markers.CreateBulkOperationMarker(opDesc, len(req.IDs))
+
 	slog.Info("bulk action completed", "action", req.Action, "count", len(req.IDs), "user", userID)
 	w.WriteHeader(http.StatusOK)
 }
@@ -1285,9 +1305,17 @@ func (s *Server) setUpDatabase(dbPath string) error {
 		return fmt.Errorf("failed to open db: %w", err)
 	}
 	s.DB = wdb
-	if err := db.RunMigrations(wdb); err != nil {
+
+	migrations, err := db.RunMigrations(wdb)
+	if err != nil {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
+
+	// Create markers for each migration that was applied
+	for _, m := range migrations {
+		s.Markers.CreateMigrationMarker(m.Filename, m.StartTime, m.EndTime)
+	}
+
 	return nil
 }
 
@@ -1810,6 +1838,9 @@ func (s *Server) HandleAddChannelOwner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create marker for config change
+	s.Markers.CreateConfigChangeMarker(fmt.Sprintf("Channel owner added: %s for #%s", ownerEmail, channel))
+
 	http.Redirect(w, r, "/admin/owners?success=Owner+added", http.StatusSeeOther)
 }
 
@@ -1857,6 +1888,9 @@ func (s *Server) HandleRemoveChannelOwner(w http.ResponseWriter, r *http.Request
 		http.Redirect(w, r, "/admin/owners?error=Failed+to+remove+owner", http.StatusSeeOther)
 		return
 	}
+
+	// Create marker for config change
+	s.Markers.CreateConfigChangeMarker(fmt.Sprintf("Channel owner removed: %s from #%s", ownerEmail, channel))
 
 	http.Redirect(w, r, "/admin/owners?success=Owner+removed", http.StatusSeeOther)
 }

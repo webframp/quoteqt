@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -40,12 +41,22 @@ func Open(path string) (*sql.DB, error) {
 	return db, nil
 }
 
+// MigrationResult contains information about an applied migration
+type MigrationResult struct {
+	Filename  string
+	StartTime time.Time
+	EndTime   time.Time
+}
+
 // RunMigrations executes database migrations in numeric order (NNN-*.sql),
 // similar in spirit to exed's exedb.RunMigrations.
-func RunMigrations(db *sql.DB) error {
+// Returns a list of migrations that were applied.
+func RunMigrations(db *sql.DB) ([]MigrationResult, error) {
+	var results []MigrationResult
+
 	entries, err := migrationFS.ReadDir("migrations")
 	if err != nil {
-		return fmt.Errorf("read migrations dir: %w", err)
+		return nil, fmt.Errorf("read migrations dir: %w", err)
 	}
 	var migrations []string
 	pat := regexp.MustCompile(`^(\d{3})-.*\.sql$`)
@@ -67,40 +78,49 @@ func RunMigrations(db *sql.DB) error {
 	case err == nil:
 		rows, err := db.Query("SELECT migration_number FROM migrations")
 		if err != nil {
-			return fmt.Errorf("query executed migrations: %w", err)
+			return nil, fmt.Errorf("query executed migrations: %w", err)
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var n int
 			if err := rows.Scan(&n); err != nil {
-				return fmt.Errorf("scan migration number: %w", err)
+				return nil, fmt.Errorf("scan migration number: %w", err)
 			}
 			executed[n] = true
 		}
 	case errors.Is(err, sql.ErrNoRows):
 		slog.Info("db: migrations table not found; running all migrations")
 	default:
-		return fmt.Errorf("check migrations table: %w", err)
+		return nil, fmt.Errorf("check migrations table: %w", err)
 	}
 
 	for _, m := range migrations {
 		match := pat.FindStringSubmatch(m)
 		if len(match) != 2 {
-			return fmt.Errorf("invalid migration filename: %s", m)
+			return nil, fmt.Errorf("invalid migration filename: %s", m)
 		}
 		n, err := strconv.Atoi(match[1])
 		if err != nil {
-			return fmt.Errorf("parse migration number %s: %w", m, err)
+			return nil, fmt.Errorf("parse migration number %s: %w", m, err)
 		}
 		if executed[n] {
 			continue
 		}
+
+		startTime := time.Now()
 		if err := executeMigration(db, m); err != nil {
-			return fmt.Errorf("execute %s: %w", m, err)
+			return results, fmt.Errorf("execute %s: %w", m, err)
 		}
+		endTime := time.Now()
+
+		results = append(results, MigrationResult{
+			Filename:  m,
+			StartTime: startTime,
+			EndTime:   endTime,
+		})
 		slog.Info("db: applied migration", "file", m, "number", n)
 	}
-	return nil
+	return results, nil
 }
 
 func executeMigration(db *sql.DB, filename string) error {
