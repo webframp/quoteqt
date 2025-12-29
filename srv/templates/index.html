@@ -28,6 +28,25 @@
         .setup-section h3 { color: var(--text-heading); font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
         .setup-section ol { padding-left: 1.5rem; }
         .setup-section li { margin-bottom: 0.75rem; }
+        details.setup-section summary {
+            cursor: pointer;
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-heading);
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        details.setup-section summary::-webkit-details-marker { display: none; }
+        details.setup-section summary::after {
+            content: '+';
+            margin-left: auto;
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+        }
+        details.setup-section[open] summary::after { content: '−'; }
+        details.setup-section > p:first-of-type { margin-top: 1rem; }
     </style>
 </head>
 <body>
@@ -47,7 +66,27 @@
         {{end}}
     </div>
 
-    {{if not .UserEmail}}
+    {{if .UserEmail}}
+    <details class="card setup-section">
+        <summary><i data-lucide="gamepad-2"></i> Setup Guide</summary>
+        <p>Add a <code>!quote</code> command to your Twitch or YouTube stream in minutes!</p>
+        
+        <h3>Nightbot Setup</h3>
+        <ol>
+            <li><a href="/suggest">Suggest quotes</a> for your channel (or ask your viewers to)</li>
+            <li>Ask Webframp for an invite to manage the channel quotes.</li>
+            <li>Add this command in Nightbot:
+                <div class="code-block">!commands add !quote $(urlfetch https://quoteqt.exe.dev/api/quote)</div>
+            </li>
+            <li>That's it! Type <code>!quote</code> in chat to get a random quote.</li>
+        </ol>
+
+        <h3>Matchup Tips</h3>
+        <p>Want civ-specific tips? Add a matchup command:</p>
+        <div class="code-block">!commands add !tip $(urlfetch https://quoteqt.exe.dev/api/matchup?$(querystring))</div>
+        <p>Usage: <code>!tip hre french</code> → tips for HRE vs French</p>
+    </details>
+    {{else}}
     <div class="card setup-section">
         <h2><i data-lucide="gamepad-2"></i> Get Started</h2>
         <p>Add a <code>!quote</code> command to your Twitch or YouTube stream in minutes!</p>
@@ -66,7 +105,6 @@
         <p>Want civ-specific tips? Add a matchup command:</p>
         <div class="code-block">!commands add !tip $(urlfetch https://quoteqt.exe.dev/api/matchup?$(querystring))</div>
         <p>Usage: <code>!tip hre french</code> → tips for HRE vs French</p>
-
     </div>
     {{end}}
 
