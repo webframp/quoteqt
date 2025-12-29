@@ -38,6 +38,7 @@ func run() error {
 	if honeycombKey != "" {
 		shutdownOtel, err = otelconfig.ConfigureOpenTelemetry(
 			otelconfig.WithServiceName("quoteqt"),
+			otelconfig.WithServiceVersion(srv.Version),
 			otelconfig.WithMetricsEnabled(false),
 			otelconfig.WithExporterEndpoint("api.honeycomb.io:443"),
 			otelconfig.WithHeaders(map[string]string{
