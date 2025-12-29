@@ -205,9 +205,21 @@
                 </select>
             </div>
             <div class="form-group">
-                <label for="channel">Channel (optional)</label>
+                <label for="channel">Channel{{if not .IsAdmin}} (required){{else}} (optional){{end}}</label>
+                {{if .IsAdmin}}
                 <input type="text" name="channel" id="channel" placeholder="Leave empty for global quote">
-                <small>If set, quote will only appear for this channel's Nightbot commands</small>
+                <small>If set, quote will only appear for this channel's Nightbot/Moobot commands</small>
+                {{else if eq (len .OwnedChannels) 1}}
+                <input type="text" name="channel" id="channel" value="{{index .OwnedChannels 0}}" readonly>
+                <small>Quotes will be added to your channel</small>
+                {{else}}
+                <select name="channel" id="channel" required>
+                    {{range .OwnedChannels}}
+                    <option value="{{.}}">{{.}}</option>
+                    {{end}}
+                </select>
+                <small>Select which channel to add this quote to</small>
+                {{end}}
             </div>
             <button type="submit" class="btn btn-primary">Add Quote</button>
         </form>
