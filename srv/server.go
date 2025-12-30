@@ -53,6 +53,7 @@ type Server struct {
 	APILimiter   *RateLimiter
 	AdminEmails  map[string]bool
 	Markers      *MarkerClient
+	Config       Config
 	templates    map[string]*template.Template
 	httpServer   *http.Server
 }
@@ -107,12 +108,23 @@ type CivWithCount struct {
 	QuoteCount int64
 }
 
+// New creates a new Server with the given config.
+// Deprecated: Use NewWithConfig instead.
 func New(dbPath, hostname string, adminEmails []string) (*Server, error) {
+	cfg := DefaultConfig()
+	cfg.DBPath = dbPath
+	cfg.Hostname = hostname
+	cfg.AdminEmails = adminEmails
+	return NewWithConfig(cfg)
+}
+
+// NewWithConfig creates a new Server with the provided configuration.
+func NewWithConfig(cfg Config) (*Server, error) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	baseDir := filepath.Dir(thisFile)
 
 	adminSet := make(map[string]bool)
-	for _, email := range adminEmails {
+	for _, email := range cfg.AdminEmails {
 		email = strings.TrimSpace(strings.ToLower(email))
 		if email != "" {
 			adminSet[email] = true
@@ -120,15 +132,15 @@ func New(dbPath, hostname string, adminEmails []string) (*Server, error) {
 	}
 
 	srv := &Server{
-		Hostname:     hostname,
+		Hostname:     cfg.Hostname,
 		TemplatesDir: filepath.Join(baseDir, "templates"),
 		StaticDir:    filepath.Join(baseDir, "static"),
-		// Rate limit: 30 requests per minute per IP, burst of 10
-		APILimiter:   NewRateLimiter(30, time.Minute, 10),
+		APILimiter:   NewRateLimiter(cfg.APIRateLimit, cfg.APIRateInterval, cfg.APIRateBurst),
 		AdminEmails:  adminSet,
 		Markers:      NewMarkerClient(),
+		Config:       cfg,
 	}
-	if err := srv.setUpDatabase(dbPath); err != nil {
+	if err := srv.setUpDatabase(cfg.DBPath); err != nil {
 		return nil, err
 	}
 	if err := srv.loadTemplates(); err != nil {
@@ -1501,7 +1513,7 @@ type SuggestionResponse struct {
 
 // HandleSubmitSuggestion godoc
 // @Summary Submit a quote suggestion
-// @Description Submit a new quote for review. Rate limited to 5 suggestions per IP per hour.
+// @Description Submit a new quote for review. Rate limited per IP (default: 5 per hour, configurable via SUGGESTION_RATE_LIMIT and SUGGESTION_RATE_INTERVAL).
 // @Tags suggestions
 // @Accept json
 // @Produce json
@@ -1531,19 +1543,19 @@ func (s *Server) HandleSubmitSuggestion(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	// Rate limit: max 5 suggestions per IP per hour
+	// Rate limit suggestions per IP
 	q := dbgen.New(s.DB)
-	oneHourAgo := time.Now().Add(-1 * time.Hour)
+	cutoff := time.Now().Add(-s.Config.SuggestionRateInterval)
 	count, err := q.CountRecentSuggestionsByIP(ctx, dbgen.CountRecentSuggestionsByIPParams{
 		SubmittedByIp: ip,
-		SubmittedAt:   oneHourAgo,
+		SubmittedAt:   cutoff,
 	})
 	if err != nil {
 		slog.Error("count recent suggestions", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	if count >= 5 {
+	if count >= int64(s.Config.SuggestionRateLimit) {
 		RecordSecurityEvent(ctx, "suggestion_rate_limited",
 			attribute.String("client.ip", ip),
 			attribute.Int64("suggestion_count", count),
@@ -1685,19 +1697,19 @@ func (s *Server) HandleBotSuggestion(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Rate limit: max 5 suggestions per channel per hour
+	// Rate limit suggestions per channel
 	q := dbgen.New(s.DB)
-	oneHourAgo := time.Now().Add(-1 * time.Hour)
+	cutoff := time.Now().Add(-s.Config.SuggestionRateInterval)
 	count, err := q.CountRecentSuggestionsByChannel(ctx, dbgen.CountRecentSuggestionsByChannelParams{
 		Channel:     channel,
-		SubmittedAt: oneHourAgo,
+		SubmittedAt: cutoff,
 	})
 	if err != nil {
 		slog.Error("count recent suggestions", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	if count >= 5 {
+	if count >= int64(s.Config.SuggestionRateLimit) {
 		RecordSecurityEvent(ctx, "suggestion_rate_limited",
 			attribute.String("channel", channel),
 			attribute.Int64("suggestion_count", count),

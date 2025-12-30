@@ -56,20 +56,31 @@ func run() error {
 		slog.Info("OpenTelemetry configured", "endpoint", "api.honeycomb.io:443")
 	}
 
+	// Load config from environment with defaults
+	cfg := srv.ConfigFromEnv()
+	cfg.Hostname = hostname
+
 	// Parse admin emails from environment variable (comma-separated)
-	var adminEmails []string
 	if adminEnv := os.Getenv("ADMIN_EMAILS"); adminEnv != "" {
 		for _, email := range strings.Split(adminEnv, ",") {
 			if e := strings.TrimSpace(email); e != "" {
-				adminEmails = append(adminEmails, e)
+				cfg.AdminEmails = append(cfg.AdminEmails, e)
 			}
 		}
-		slog.Info("admin emails configured", "count", len(adminEmails))
+		slog.Info("admin emails configured", "count", len(cfg.AdminEmails))
 	} else {
 		slog.Warn("ADMIN_EMAILS not set, no admin access configured")
 	}
 
-	server, err := srv.New("db.sqlite3", hostname, adminEmails)
+	slog.Info("server config loaded",
+		"api_rate_limit", cfg.APIRateLimit,
+		"api_rate_interval", cfg.APIRateInterval,
+		"api_rate_burst", cfg.APIRateBurst,
+		"suggestion_rate_limit", cfg.SuggestionRateLimit,
+		"suggestion_rate_interval", cfg.SuggestionRateInterval,
+	)
+
+	server, err := srv.NewWithConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("create server: %w", err)
 	}
