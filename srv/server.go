@@ -25,6 +25,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -572,7 +573,7 @@ func (s *Server) HandleDeleteCiv(w http.ResponseWriter, r *http.Request) {
 	// Check if civ has quotes before deleting
 	civ, err := q.GetCivByID(r.Context(), id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			http.Redirect(w, r, "/civs?error=Civilization+not+found", http.StatusSeeOther)
 			return
 		}
@@ -622,7 +623,7 @@ func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 	// Get the quote to check permission
 	quote, err := q.GetQuoteByID(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			http.Error(w, "Quote not found", http.StatusNotFound)
 			return
 		}
@@ -726,7 +727,7 @@ func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
 	// Get the quote to check permission
 	quote, err := q.GetQuoteByID(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			http.Error(w, "Quote not found", http.StatusNotFound)
 			return
 		}
@@ -1016,7 +1017,7 @@ func (s *Server) HandleGetQuote(w http.ResponseWriter, r *http.Request) {
 	span.End()
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			http.Error(w, "Quote not found", http.StatusNotFound)
 			return
 		}
@@ -1129,7 +1130,7 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 			OpponentCiv:  &vsCiv,
 			Channel:      &channel,
 		})
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			RecordError(span, err)
 		}
 		span.End()
@@ -1141,13 +1142,13 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 			Civilization: &playCiv,
 			OpponentCiv:  &vsCiv,
 		})
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			RecordError(span, err)
 		}
 		span.End()
 	}
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			span := trace.SpanFromContext(ctx)
 			span.AddEvent("no_results", trace.WithAttributes(
 				attribute.String("query_type", "matchup"),
@@ -1232,7 +1233,7 @@ func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 				Civilization: &civ,
 				Channel:      &channel,
 			})
-			if err != nil && err != sql.ErrNoRows {
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				RecordError(span, err)
 			}
 			span.End()
@@ -1240,7 +1241,7 @@ func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 			dbCtx, span := StartDBSpan(ctx, "GetRandomQuoteByCivGlobal",
 				attribute.String("civ", civ))
 			quote, err = q.GetRandomQuoteByCivGlobal(dbCtx, &civ)
-			if err != nil && err != sql.ErrNoRows {
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				RecordError(span, err)
 			}
 			span.End()
@@ -1250,14 +1251,14 @@ func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 			dbCtx, span := StartDBSpan(ctx, "GetRandomQuote",
 				attribute.String("channel", channel))
 			quote, err = q.GetRandomQuote(dbCtx, &channel)
-			if err != nil && err != sql.ErrNoRows {
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				RecordError(span, err)
 			}
 			span.End()
 		} else {
 			dbCtx, span := StartDBSpan(ctx, "GetRandomQuoteGlobal")
 			quote, err = q.GetRandomQuoteGlobal(dbCtx)
-			if err != nil && err != sql.ErrNoRows {
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				RecordError(span, err)
 			}
 			span.End()
@@ -1265,7 +1266,7 @@ func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			span := trace.SpanFromContext(ctx)
 			span.AddEvent("no_results", trace.WithAttributes(
 				attribute.String("query_type", "quote"),
@@ -1812,7 +1813,7 @@ func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request)
 	// Get the suggestion
 	suggestion, err := q.GetSuggestionByID(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			http.Error(w, "Suggestion not found", http.StatusNotFound)
 			return
 		}
@@ -1893,7 +1894,7 @@ func (s *Server) HandleRejectSuggestion(w http.ResponseWriter, r *http.Request) 
 	// Get the suggestion to check permission
 	suggestion, err := q.GetSuggestionByID(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			http.Error(w, "Suggestion not found", http.StatusNotFound)
 			return
 		}
