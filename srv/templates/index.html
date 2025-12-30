@@ -66,7 +66,6 @@
         {{end}}
     </div>
 
-    {{if .UserEmail}}
     <details class="card setup-section">
         <summary><i data-lucide="gamepad-2"></i> Setup Guide</summary>
         <p>Add a <code>!quote</code> command to your Twitch or YouTube stream in minutes!</p>
@@ -107,58 +106,16 @@
         <p>Let your chat suggest quotes (they go to your approval queue):</p>
         <p><strong>Nightbot:</strong></p>
         <div class="code-block">!commands add !addquote $(urlfetch https://quoteqt.webframp.com/api/suggest?text=$(querystring))</div>
-        <p><strong>Moobot:</strong> Create a custom command with Response tags "Arguments - All command arguments" and "URL fetch - Full (plain) response". Set URL to <code>https://quoteqt.webframp.com/api/suggest?text=</code> and add the "Command arguments" tag.</p>
+        <p><strong>Moobot:</strong></p>
+        <ol>
+            <li>Create a custom command with Response tags "Arguments - All command arguments" and "URL fetch - Full (plain) response"</li>
+            <li>Set URL to: <code>https://quoteqt.webframp.com/api/suggest?text=</code></li>
+            <li>Click "Add tag to URL" and select "Command arguments"</li>
+        </ol>
         <p><strong>StreamElements:</strong></p>
         <div class="code-block">$(customapi https://quoteqt.webframp.com/api/suggest?text=$(querystring)&channel=$(channel))</div>
         <p>Usage: <code>!addquote Never fight uphill</code></p>
     </details>
-    {{else}}
-    <div class="card setup-section">
-        <h2><i data-lucide="gamepad-2"></i> Get Started</h2>
-        <p>Add a <code>!quote</code> command to your Twitch or YouTube stream in minutes!</p>
-        
-        <h3>Nightbot Setup</h3>
-        <ol>
-            <li><a href="/suggest">Suggest quotes</a> for your channel (or ask your viewers to)</li>
-            <li>Ask Webframp for an invite to manage the channel quotes.</li>
-            <li>Add this command in Nightbot:
-                <div class="code-block">!commands add !quote $(urlfetch https://quoteqt.webframp.com/api/quote)</div>
-            </li>
-            <li>That's it! Type <code>!quote</code> in chat to get a random quote.</li>
-        </ol>
-
-        <h3>Moobot Setup</h3>
-        <ol>
-            <li>Go to your Moobot dashboard → Chat commands → Custom commands</li>
-            <li>Create a new command with response type "URL fetch"</li>
-            <li>Set the URL to:
-                <div class="code-block">https://quoteqt.webframp.com/api/quote</div>
-            </li>
-        </ol>
-
-        <h3>StreamElements Setup</h3>
-        <ol>
-            <li>Go to your StreamElements dashboard → Chat commands → Custom commands</li>
-            <li>Create a new command with the response:
-                <div class="code-block">$(customapi https://quoteqt.webframp.com/api/quote?channel=$(channel))</div>
-            </li>
-        </ol>
-
-        <h3>Matchup Tips</h3>
-        <p>Want civ-specific tips? Add a matchup command:</p>
-        <div class="code-block">!commands add !tip $(urlfetch https://quoteqt.webframp.com/api/matchup?$(querystring))</div>
-        <p>Usage: <code>!tip hre french</code> → tips for HRE vs French</p>
-
-        <h3>Let Viewers Add Quotes</h3>
-        <p>Let your chat suggest quotes (they go to your approval queue):</p>
-        <p><strong>Nightbot:</strong></p>
-        <div class="code-block">!commands add !addquote $(urlfetch https://quoteqt.webframp.com/api/suggest?text=$(querystring))</div>
-        <p><strong>Moobot:</strong> Create a custom command with Response tags "Arguments - All command arguments" and "URL fetch - Full (plain) response". Set URL to <code>https://quoteqt.webframp.com/api/suggest?text=</code> and add the "Command arguments" tag.</p>
-        <p><strong>StreamElements:</strong></p>
-        <div class="code-block">$(customapi https://quoteqt.webframp.com/api/suggest?text=$(querystring)&channel=$(channel))</div>
-        <p>Usage: <code>!addquote Never fight uphill</code></p>
-    </div>
-    {{end}}
 
     <div class="card api-section">
         <h2>🔗 API</h2>
