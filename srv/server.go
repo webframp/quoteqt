@@ -500,7 +500,12 @@ func (s *Server) HandleAddCiv(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleEditCiv(w http.ResponseWriter, r *http.Request) {
 	userID, _ := getAuthUser(r)
+	ctx := r.Context()
+
 	if userID == "" {
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
 		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
 		return
 	}
@@ -566,8 +571,13 @@ func (s *Server) HandleEditCiv(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleDeleteCiv(w http.ResponseWriter, r *http.Request) {
 	userID, _ := getAuthUser(r)
+	ctx := r.Context()
+
 	if userID == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
 		return
 	}
 
@@ -778,7 +788,12 @@ type BulkRequest struct {
 
 func (s *Server) HandleBulkQuotes(w http.ResponseWriter, r *http.Request) {
 	userID, _ := getAuthUser(r)
+	ctx := r.Context()
+
 	if userID == "" {
+		RecordSecurityEvent(ctx, "auth_required",
+			attribute.String("path", r.URL.Path),
+		)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
