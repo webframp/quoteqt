@@ -30,6 +30,13 @@ test-integration:
 # Run all tests
 test: test-unit test-integration
 
+# Generate swagger/OpenAPI documentation
+# Requires: go install github.com/swaggo/swag/cmd/swag@latest
+swagger:
+	~/go/bin/swag init -g srv/server.go -o docs/swagger --parseDependency --parseInternal
+	cp docs/swagger/swagger.json srv/swagger.json
+	@echo "Swagger docs generated. Remember to rebuild the server."
+
 # Load testing with hey
 # Install: go install github.com/rakyll/hey@latest
 

@@ -58,6 +58,27 @@ if userID == "" {
 - Migrations in `db/migrations/` run automatically on startup
 - After modifying `db/queries/*.sql`, regenerate with `cd db && go generate`
 
+### API Documentation
+
+- API docs are auto-generated using [swaggo/swag](https://github.com/swaggo/swag)
+- OpenAPI spec served at `/api/openapi.json`
+- Interactive Swagger UI at `/api/`
+- After modifying API handlers, regenerate docs: `make swagger`
+- The swagger.json is embedded in the binary via `//go:embed`
+
+**Adding swagger annotations to new handlers:**
+```go
+// HandleExample godoc
+// @Summary Brief description
+// @Description Longer description
+// @Tags tagname
+// @Produce json
+// @Param name query string false "Parameter description"
+// @Success 200 {object} ResponseType
+// @Router /path [get]
+func (s *Server) HandleExample(w http.ResponseWriter, r *http.Request) {
+```
+
 ### Testing
 
 - Run `make test-unit` for unit tests, `make test-integration` for API tests

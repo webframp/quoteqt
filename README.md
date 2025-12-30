@@ -13,6 +13,10 @@ A quote database application for Age of Empires IV streamers and their communiti
 
 ## API Endpoints
 
+### Interactive API Documentation
+
+Visit `/api/` for interactive Swagger UI documentation. You can also access the raw OpenAPI spec at `/api/openapi.json`.
+
 ### Content Negotiation
 
 API endpoints support content negotiation via the `Accept` header:

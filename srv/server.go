@@ -1,5 +1,27 @@
 package srv
 
+// @title AoE4 Quote Database API
+// @version 1.0
+// @description API for Age of Empires IV quotes and matchup tips. Designed for chat bots (Nightbot, Moobot) and stream overlays.
+// @termsOfService https://quotes.exe.dev/terms
+
+// @contact.name API Support
+// @contact.url https://quotes.exe.dev
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host quotes.exe.dev
+// @BasePath /api
+// @schemes https
+
+// @tag.name quotes
+// @tag.description Get random quotes, optionally filtered by civilization
+// @tag.name matchups
+// @tag.description Get matchup-specific tips for civ vs civ scenarios
+// @tag.name suggestions
+// @tag.description Submit quote suggestions for review
+
 import (
 	"context"
 	"database/sql"
@@ -922,6 +944,14 @@ func (s *Server) HandleQuotesPublic(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// HandleListAllQuotes godoc
+// @Summary List all quotes
+// @Description Returns all quotes in the database as JSON
+// @Tags quotes
+// @Produce json
+// @Success 200 {array} QuoteResponse "List of all quotes"
+// @Failure 500 {string} string "Internal server error"
+// @Router /quotes [get]
 func (s *Server) HandleListAllQuotes(w http.ResponseWriter, r *http.Request) {
 	AddNightbotAttributes(r)
 
@@ -948,6 +978,17 @@ func (s *Server) HandleListAllQuotes(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// HandleGetQuote godoc
+// @Summary Get a specific quote by ID
+// @Description Returns a single quote by its database ID
+// @Tags quotes
+// @Produce plain
+// @Produce json
+// @Param id path int true "Quote ID"
+// @Success 200 {object} QuoteResponse "Quote found"
+// @Failure 400 {string} string "Invalid quote ID"
+// @Failure 404 {string} string "Quote not found"
+// @Router /quote/{id} [get]
 func (s *Server) HandleGetQuote(w http.ResponseWriter, r *http.Request) {
 	AddNightbotAttributes(r)
 	ctx := r.Context()
@@ -987,6 +1028,19 @@ func (s *Server) HandleGetQuote(w http.ResponseWriter, r *http.Request) {
 	WriteQuoteResponse(w, r, response)
 }
 
+// HandleMatchup godoc
+// @Summary Get a matchup tip
+// @Description Returns a random tip for a specific civilization matchup (your civ vs opponent civ).
+// @Description Supports two query formats: standard (?civ=X&vs=Y) or Nightbot querystring (?X Y).
+// @Tags matchups
+// @Produce plain
+// @Produce json
+// @Param civ query string false "Your civilization shortname (e.g., hre)"
+// @Param vs query string false "Opponent civilization shortname (e.g., french)"
+// @Success 200 {object} QuoteResponse "Matchup tip found"
+// @Success 200 {string} string "Matchup tip text (plain text default)"
+// @Failure 400 {string} string "Usage: /api/matchup?civ=X&vs=Y"
+// @Router /matchup [get]
 func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 	AddNightbotAttributes(r)
 	ctx := r.Context()
@@ -1119,6 +1173,18 @@ func (s *Server) HandleMatchup(w http.ResponseWriter, r *http.Request) {
 	WriteQuoteResponse(w, r, response)
 }
 
+// HandleRandomQuote godoc
+// @Summary Get a random quote
+// @Description Returns a random quote from the database. Supports filtering by civilization and channel.
+// @Tags quotes
+// @Produce plain
+// @Produce json
+// @Param civ query string false "Civilization shortname (e.g., hre, french, mongols)"
+// @Param channel query string false "Channel name for channel-specific quotes"
+// @Success 200 {object} QuoteResponse "Quote found (JSON when Accept: application/json)"
+// @Success 200 {string} string "Quote text (plain text default)"
+// @Header 200 {string} Content-Type "text/plain or application/json based on Accept header"
+// @Router /quote [get]
 func (s *Server) HandleRandomQuote(w http.ResponseWriter, r *http.Request) {
 	AddNightbotAttributes(r)
 	ctx := r.Context()
@@ -1337,6 +1403,10 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("POST /admin/owners/delete", s.HandleRemoveChannelOwner)
 	mux.Handle("/static/", http.StripPrefix("/static/", StaticFileServer(s.StaticDir)))
 
+	// API documentation (served without rate limiting)
+	mux.HandleFunc("GET /api/{$}", s.HandleAPIDocs)
+	mux.HandleFunc("GET /api/openapi.json", s.HandleAPISpec)
+
 	// API routes with rate limiting
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("GET /api/quote", s.HandleRandomQuote)
@@ -1385,6 +1455,18 @@ type SuggestionResponse struct {
 	SubmittedAt string  `json:"submitted_at"`
 }
 
+// HandleSubmitSuggestion godoc
+// @Summary Submit a quote suggestion
+// @Description Submit a new quote for review. Rate limited to 5 suggestions per IP per hour.
+// @Tags suggestions
+// @Accept json
+// @Produce json
+// @Param suggestion body SuggestionRequest true "Quote suggestion"
+// @Success 201 {object} map[string]string "Suggestion submitted successfully"
+// @Failure 400 {string} string "Invalid request (missing fields or text too long)"
+// @Failure 429 {string} string "Too many suggestions"
+// @Failure 500 {string} string "Internal server error"
+// @Router /suggestions [post]
 func (s *Server) HandleSubmitSuggestion(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -1491,10 +1573,20 @@ func (s *Server) HandleSubmitSuggestion(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// HandleBotSuggestion handles quote suggestions from chat bots via GET request.
-// Bots use $(urlfetch) which only supports GET, so we accept the quote text as a query param.
-// Example: GET /api/suggest?text=This+is+a+funny+quote
-// Channel is determined from bot headers (Nightbot/Moobot) or ?channel= param.
+// HandleBotSuggestion godoc
+// @Summary Submit a quote suggestion via GET (for chat bots)
+// @Description Submit a quote suggestion using GET request. Designed for Nightbot/Moobot $(urlfetch) commands.
+// @Description Channel is determined from bot headers (Nightbot-Channel, Moobot-Channel) or query param.
+// @Tags suggestions
+// @Produce plain
+// @Param text query string true "Quote text to suggest"
+// @Param channel query string false "Channel name (optional if bot headers present)"
+// @Param author query string false "Quote author"
+// @Param civ query string false "Civilization shortname"
+// @Success 200 {string} string "Success message"
+// @Failure 400 {string} string "Missing text or channel"
+// @Failure 429 {string} string "Too many suggestions"
+// @Router /suggest [get]
 func (s *Server) HandleBotSuggestion(w http.ResponseWriter, r *http.Request) {
 	AddBotAttributes(r)
 	ctx := r.Context()

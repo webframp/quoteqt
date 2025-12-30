@@ -1,0 +1,236 @@
+basePath: /api
+definitions:
+  srv.QuoteResponse:
+    properties:
+      author:
+        type: string
+      civilization:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      opponent_civ:
+        type: string
+      text:
+        type: string
+    type: object
+  srv.SuggestionRequest:
+    properties:
+      author:
+        type: string
+      channel:
+        type: string
+      civilization:
+        type: string
+      opponent_civ:
+        type: string
+      text:
+        type: string
+    type: object
+host: quotes.exe.dev
+info:
+  contact:
+    name: API Support
+    url: https://quotes.exe.dev
+  description: API for Age of Empires IV quotes and matchup tips. Designed for chat
+    bots (Nightbot, Moobot) and stream overlays.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://quotes.exe.dev/terms
+  title: AoE4 Quote Database API
+  version: "1.0"
+paths:
+  /matchup:
+    get:
+      description: |-
+        Returns a random tip for a specific civilization matchup (your civ vs opponent civ).
+        Supports two query formats: standard (?civ=X&vs=Y) or Nightbot querystring (?X Y).
+      parameters:
+      - description: Your civilization shortname (e.g., hre)
+        in: query
+        name: civ
+        type: string
+      - description: Opponent civilization shortname (e.g., french)
+        in: query
+        name: vs
+        type: string
+      produces:
+      - text/plain
+      - application/json
+      responses:
+        "200":
+          description: Matchup tip text (plain text default)
+          schema:
+            type: string
+        "400":
+          description: 'Usage: /api/matchup?civ=X&vs=Y'
+          schema:
+            type: string
+      summary: Get a matchup tip
+      tags:
+      - matchups
+  /quote:
+    get:
+      description: Returns a random quote from the database. Supports filtering by
+        civilization and channel.
+      parameters:
+      - description: Civilization shortname (e.g., hre, french, mongols)
+        in: query
+        name: civ
+        type: string
+      - description: Channel name for channel-specific quotes
+        in: query
+        name: channel
+        type: string
+      produces:
+      - text/plain
+      - application/json
+      responses:
+        "200":
+          description: Quote text (plain text default)
+          headers:
+            Content-Type:
+              description: text/plain or application/json based on Accept header
+              type: string
+          schema:
+            type: string
+      summary: Get a random quote
+      tags:
+      - quotes
+  /quote/{id}:
+    get:
+      description: Returns a single quote by its database ID
+      parameters:
+      - description: Quote ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - text/plain
+      - application/json
+      responses:
+        "200":
+          description: Quote found
+          schema:
+            $ref: '#/definitions/srv.QuoteResponse'
+        "400":
+          description: Invalid quote ID
+          schema:
+            type: string
+        "404":
+          description: Quote not found
+          schema:
+            type: string
+      summary: Get a specific quote by ID
+      tags:
+      - quotes
+  /quotes:
+    get:
+      description: Returns all quotes in the database as JSON
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all quotes
+          schema:
+            items:
+              $ref: '#/definitions/srv.QuoteResponse'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List all quotes
+      tags:
+      - quotes
+  /suggest:
+    get:
+      description: |-
+        Submit a quote suggestion using GET request. Designed for Nightbot/Moobot $(urlfetch) commands.
+        Channel is determined from bot headers (Nightbot-Channel, Moobot-Channel) or query param.
+      parameters:
+      - description: Quote text to suggest
+        in: query
+        name: text
+        required: true
+        type: string
+      - description: Channel name (optional if bot headers present)
+        in: query
+        name: channel
+        type: string
+      - description: Quote author
+        in: query
+        name: author
+        type: string
+      - description: Civilization shortname
+        in: query
+        name: civ
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Success message
+          schema:
+            type: string
+        "400":
+          description: Missing text or channel
+          schema:
+            type: string
+        "429":
+          description: Too many suggestions
+          schema:
+            type: string
+      summary: Submit a quote suggestion via GET (for chat bots)
+      tags:
+      - suggestions
+  /suggestions:
+    post:
+      consumes:
+      - application/json
+      description: Submit a new quote for review. Rate limited to 5 suggestions per
+        IP per hour.
+      parameters:
+      - description: Quote suggestion
+        in: body
+        name: suggestion
+        required: true
+        schema:
+          $ref: '#/definitions/srv.SuggestionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Suggestion submitted successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request (missing fields or text too long)
+          schema:
+            type: string
+        "429":
+          description: Too many suggestions
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Submit a quote suggestion
+      tags:
+      - suggestions
+schemes:
+- https
+swagger: "2.0"
+tags:
+- description: Get random quotes, optionally filtered by civilization
+  name: quotes
+- description: Get matchup-specific tips for civ vs civ scenarios
+  name: matchups
+- description: Submit quote suggestions for review
+  name: suggestions

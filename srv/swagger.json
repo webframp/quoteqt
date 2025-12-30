@@ -1,0 +1,350 @@
+{
+    "schemes": [
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "API for Age of Empires IV quotes and matchup tips. Designed for chat bots (Nightbot, Moobot) and stream overlays.",
+        "title": "AoE4 Quote Database API",
+        "termsOfService": "https://quotes.exe.dev/terms",
+        "contact": {
+            "name": "API Support",
+            "url": "https://quotes.exe.dev"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
+        "version": "1.0"
+    },
+    "host": "quotes.exe.dev",
+    "basePath": "/api",
+    "paths": {
+        "/matchup": {
+            "get": {
+                "description": "Returns a random tip for a specific civilization matchup (your civ vs opponent civ).\nSupports two query formats: standard (?civ=X\u0026vs=Y) or Nightbot querystring (?X Y).",
+                "produces": [
+                    "text/plain",
+                    "application/json"
+                ],
+                "tags": [
+                    "matchups"
+                ],
+                "summary": "Get a matchup tip",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Your civilization shortname (e.g., hre)",
+                        "name": "civ",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Opponent civilization shortname (e.g., french)",
+                        "name": "vs",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Matchup tip text (plain text default)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Usage: /api/matchup?civ=X\u0026vs=Y",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/quote": {
+            "get": {
+                "description": "Returns a random quote from the database. Supports filtering by civilization and channel.",
+                "produces": [
+                    "text/plain",
+                    "application/json"
+                ],
+                "tags": [
+                    "quotes"
+                ],
+                "summary": "Get a random quote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Civilization shortname (e.g., hre, french, mongols)",
+                        "name": "civ",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Channel name for channel-specific quotes",
+                        "name": "channel",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Quote text (plain text default)",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "headers": {
+                            "Content-Type": {
+                                "type": "string",
+                                "description": "text/plain or application/json based on Accept header"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/quote/{id}": {
+            "get": {
+                "description": "Returns a single quote by its database ID",
+                "produces": [
+                    "text/plain",
+                    "application/json"
+                ],
+                "tags": [
+                    "quotes"
+                ],
+                "summary": "Get a specific quote by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Quote ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Quote found",
+                        "schema": {
+                            "$ref": "#/definitions/srv.QuoteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid quote ID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Quote not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/quotes": {
+            "get": {
+                "description": "Returns all quotes in the database as JSON",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "quotes"
+                ],
+                "summary": "List all quotes",
+                "responses": {
+                    "200": {
+                        "description": "List of all quotes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/srv.QuoteResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/suggest": {
+            "get": {
+                "description": "Submit a quote suggestion using GET request. Designed for Nightbot/Moobot $(urlfetch) commands.\nChannel is determined from bot headers (Nightbot-Channel, Moobot-Channel) or query param.",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "suggestions"
+                ],
+                "summary": "Submit a quote suggestion via GET (for chat bots)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Quote text to suggest",
+                        "name": "text",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Channel name (optional if bot headers present)",
+                        "name": "channel",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Quote author",
+                        "name": "author",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Civilization shortname",
+                        "name": "civ",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success message",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing text or channel",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many suggestions",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/suggestions": {
+            "post": {
+                "description": "Submit a new quote for review. Rate limited to 5 suggestions per IP per hour.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "suggestions"
+                ],
+                "summary": "Submit a quote suggestion",
+                "parameters": [
+                    {
+                        "description": "Quote suggestion",
+                        "name": "suggestion",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/srv.SuggestionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Suggestion submitted successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request (missing fields or text too long)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many suggestions",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "srv.QuoteResponse": {
+            "type": "object",
+            "properties": {
+                "author": {
+                    "type": "string"
+                },
+                "civilization": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "opponent_civ": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "srv.SuggestionRequest": {
+            "type": "object",
+            "properties": {
+                "author": {
+                    "type": "string"
+                },
+                "channel": {
+                    "type": "string"
+                },
+                "civilization": {
+                    "type": "string"
+                },
+                "opponent_civ": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "tags": [
+        {
+            "description": "Get random quotes, optionally filtered by civilization",
+            "name": "quotes"
+        },
+        {
+            "description": "Get matchup-specific tips for civ vs civ scenarios",
+            "name": "matchups"
+        },
+        {
+            "description": "Submit quote suggestions for review",
+            "name": "suggestions"
+        }
+    ]
+}
