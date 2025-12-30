@@ -153,56 +153,19 @@
 
     <h2 id="api-reference">API Reference</h2>
     <div class="card">
-        <p>Full interactive documentation: <a href="/api/">/api/</a></p>
-        
-        <h3>Endpoints</h3>
-        
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <code>/api/quote</code>
-        </div>
-        <p>Get a random quote. Returns plain text by default.</p>
-        <table>
-            <tr><th>Parameter</th><th>Description</th></tr>
-            <tr><td class="param">civ</td><td>Filter by civilization shortname (e.g., <code>hre</code>, <code>french</code>)</td></tr>
-            <tr><td class="param">channel</td><td>Channel name (usually sent automatically by bot)</td></tr>
-        </table>
-        
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <code>/api/matchup</code>
-        </div>
-        <p>Get a matchup tip for civ vs civ.</p>
-        <table>
-            <tr><th>Parameter</th><th>Description</th></tr>
-            <tr><td class="param">civ</td><td>Your civilization</td></tr>
-            <tr><td class="param">vs</td><td>Opponent civilization</td></tr>
-        </table>
-        <p>Also supports Nightbot format: <code>/api/matchup?hre french</code></p>
-        
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <code>/api/suggest</code>
-        </div>
-        <p>Submit a quote suggestion (for bots using GET).</p>
-        <table>
-            <tr><th>Parameter</th><th>Description</th></tr>
-            <tr><td class="param">text</td><td>The quote text (required)</td></tr>
-            <tr><td class="param">author</td><td>Who said it (optional)</td></tr>
-            <tr><td class="param">channel</td><td>Channel name (usually sent automatically)</td></tr>
-        </table>
-        
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <code>/api/quotes</code>
-        </div>
-        <p>Get all quotes as JSON.</p>
-        
-        <div class="endpoint">
-            <span class="method">GET</span>
-            <code>/api/quote/{id}</code>
-        </div>
-        <p>Get a specific quote by ID.</p>
+        <p>For advanced users and developers, full interactive API documentation is available at:</p>
+        <p style="text-align: center; margin: 1.5rem 0;">
+            <a href="https://quoteqt.webframp.com/api/" class="btn btn-primary" target="_blank">
+                <i data-lucide="code"></i> View API Documentation
+            </a>
+        </p>
+        <p>The API docs include:</p>
+        <ul>
+            <li>All available endpoints with parameters</li>
+            <li>Request/response examples</li>
+            <li>Interactive "Try it out" feature to test endpoints</li>
+            <li>JSON schema definitions</li>
+        </ul>
     </div>
 
     <h2 id="civilizations">Civilization Shortnames</h2>
