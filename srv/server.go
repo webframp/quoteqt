@@ -141,6 +141,20 @@ func New(dbPath, hostname string, adminEmails []string) (*Server, error) {
 	return srv, nil
 }
 
+// getAuthUser extracts the authenticated user's ID and email from exe.dev proxy headers.
+// Returns empty strings if the user is not authenticated.
+func getAuthUser(r *http.Request) (userID, userEmail string) {
+	userID = strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	userEmail = strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	return
+}
+
+// getAuthEmail extracts just the authenticated user's email from exe.dev proxy headers.
+// Returns empty string if the user is not authenticated.
+func getAuthEmail(r *http.Request) string {
+	return strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+}
+
 func (s *Server) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	// Check database connection
 	if err := s.DB.PingContext(r.Context()); err != nil {
@@ -153,8 +167,7 @@ func (s *Server) HandleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleRoot(w http.ResponseWriter, r *http.Request) {
-	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	userID, userEmail := getAuthUser(r)
 
 	q := dbgen.New(s.DB)
 	count, _ := q.CountQuotes(r.Context())
@@ -214,8 +227,7 @@ func quotesToViews(quotes []dbgen.Quote) []QuoteView {
 }
 
 func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
-	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	userID, userEmail := getAuthUser(r)
 	ctx := r.Context()
 
 	if userID == "" {
@@ -278,8 +290,7 @@ func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
-	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	userID, userEmail := getAuthUser(r)
 	ctx := r.Context()
 
 	if userID == "" {
@@ -365,8 +376,7 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleCivs(w http.ResponseWriter, r *http.Request) {
-	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	userID, userEmail := getAuthUser(r)
 	ctx := r.Context()
 
 	if userID == "" {
@@ -426,7 +436,7 @@ func (s *Server) HandleCivs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleAddCiv(w http.ResponseWriter, r *http.Request) {
-	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	userID, _ := getAuthUser(r)
 	ctx := r.Context()
 
 	if userID == "" {
@@ -489,7 +499,7 @@ func (s *Server) HandleAddCiv(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleEditCiv(w http.ResponseWriter, r *http.Request) {
-	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	userID, _ := getAuthUser(r)
 	if userID == "" {
 		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
 		return
@@ -555,7 +565,7 @@ func (s *Server) HandleEditCiv(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleDeleteCiv(w http.ResponseWriter, r *http.Request) {
-	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	userID, _ := getAuthUser(r)
 	if userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -599,8 +609,7 @@ func (s *Server) HandleDeleteCiv(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
-	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	userID, userEmail := getAuthUser(r)
 	ctx := r.Context()
 
 	if userID == "" {
@@ -703,8 +712,7 @@ func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
-	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	userID, userEmail := getAuthUser(r)
 	ctx := r.Context()
 
 	if userID == "" {
@@ -769,7 +777,7 @@ type BulkRequest struct {
 }
 
 func (s *Server) HandleBulkQuotes(w http.ResponseWriter, r *http.Request) {
-	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	userID, _ := getAuthUser(r)
 	if userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -926,8 +934,7 @@ func (s *Server) HandleQuotesPublic(w http.ResponseWriter, r *http.Request) {
 		totalPages = 1
 	}
 
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
-	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	userID, userEmail := getAuthUser(r)
 
 	data := pageData{
 		Hostname:        s.Hostname,
@@ -1493,7 +1500,7 @@ func (s *Server) HandleSubmitSuggestion(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 
 	// Get submitter info from auth headers (if logged in)
-	submittedByUser := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	submittedByUser := getAuthEmail(r)
 	var submittedByUserPtr *string
 	if submittedByUser != "" {
 		submittedByUserPtr = &submittedByUser
@@ -1720,7 +1727,7 @@ func (s *Server) HandleBotSuggestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	userEmail := getAuthEmail(r)
 	ctx := r.Context()
 
 	if userEmail == "" {
@@ -1789,8 +1796,7 @@ func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request) {
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
-	userID := strings.TrimSpace(r.Header.Get("X-ExeDev-UserID"))
+	userID, userEmail := getAuthUser(r)
 	ctx := r.Context()
 
 	if userEmail == "" {
@@ -1871,7 +1877,7 @@ func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) HandleRejectSuggestion(w http.ResponseWriter, r *http.Request) {
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	userEmail := getAuthEmail(r)
 	ctx := r.Context()
 
 	if userEmail == "" {
@@ -1963,7 +1969,7 @@ func (s *Server) canManageChannel(ctx context.Context, email, channel string) bo
 // Admin handlers for channel owner management
 
 func (s *Server) HandleListChannelOwners(w http.ResponseWriter, r *http.Request) {
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	userEmail := getAuthEmail(r)
 	ctx := r.Context()
 
 	if userEmail == "" {
@@ -2027,7 +2033,7 @@ func (s *Server) HandleListChannelOwners(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) HandleAddChannelOwner(w http.ResponseWriter, r *http.Request) {
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	userEmail := getAuthEmail(r)
 	ctx := r.Context()
 
 	if userEmail == "" {
@@ -2079,7 +2085,7 @@ func (s *Server) HandleAddChannelOwner(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleRemoveChannelOwner(w http.ResponseWriter, r *http.Request) {
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	userEmail := getAuthEmail(r)
 	ctx := r.Context()
 
 	if userEmail == "" {
