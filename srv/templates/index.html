@@ -105,7 +105,11 @@
 
         <h3>Let Viewers Add Quotes</h3>
         <p>Let your chat suggest quotes (they go to your approval queue):</p>
+        <p><strong>Nightbot:</strong></p>
         <div class="code-block">!commands add !addquote $(urlfetch https://quoteqt.webframp.com/api/suggest?text=$(querystring))</div>
+        <p><strong>Moobot:</strong> Create a custom command with Response tags "Arguments - All command arguments" and "URL fetch - Full (plain) response". Set URL to <code>https://quoteqt.webframp.com/api/suggest?text=</code> and add the "Command arguments" tag.</p>
+        <p><strong>StreamElements:</strong></p>
+        <div class="code-block">$(customapi https://quoteqt.webframp.com/api/suggest?text=$(querystring)&channel=$(channel))</div>
         <p>Usage: <code>!addquote Never fight uphill</code></p>
     </details>
     {{else}}
@@ -147,7 +151,11 @@
 
         <h3>Let Viewers Add Quotes</h3>
         <p>Let your chat suggest quotes (they go to your approval queue):</p>
+        <p><strong>Nightbot:</strong></p>
         <div class="code-block">!commands add !addquote $(urlfetch https://quoteqt.webframp.com/api/suggest?text=$(querystring))</div>
+        <p><strong>Moobot:</strong> Create a custom command with Response tags "Arguments - All command arguments" and "URL fetch - Full (plain) response". Set URL to <code>https://quoteqt.webframp.com/api/suggest?text=</code> and add the "Command arguments" tag.</p>
+        <p><strong>StreamElements:</strong></p>
+        <div class="code-block">$(customapi https://quoteqt.webframp.com/api/suggest?text=$(querystring)&channel=$(channel))</div>
         <p>Usage: <code>!addquote Never fight uphill</code></p>
     </div>
     {{end}}
