@@ -383,11 +383,19 @@ code {
     border-top: 1px solid var(--border);
     color: var(--text-secondary);
     font-size: 0.9rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
 }
 
 .site-footer a {
     color: var(--accent);
     text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
 }
 
 .site-footer a:hover {
