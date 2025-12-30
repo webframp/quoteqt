@@ -1908,6 +1908,7 @@ func (s *Server) HandleSuggestForm(w http.ResponseWriter, r *http.Request) {
 		Civs:     civs,
 	}
 
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates["suggest.html"].Execute(w, data); err != nil {
 		slog.Error("execute template", "error", err)
 	}
