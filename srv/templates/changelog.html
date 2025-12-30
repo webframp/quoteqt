@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <title>Changelog - AoE4 Quote Database</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/theme.css?v=8">
+    <style>
+        body { max-width: 800px; margin: 0 auto; padding: 2rem; }
+        h1 { display: flex; align-items: center; gap: 0.5rem; }
+        .changelog-entry {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .changelog-entry:last-child {
+            border-bottom: none;
+        }
+        .changelog-date {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+        .changelog-version {
+            display: inline-block;
+            background: var(--accent-soft);
+            color: var(--accent);
+            padding: 0.2rem 0.6rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        .changelog-changes {
+            list-style: none;
+            padding: 0;
+            margin: 0.75rem 0 0 0;
+        }
+        .changelog-changes li {
+            padding: 0.4rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+            color: var(--text-primary);
+        }
+        .changelog-changes li::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0.75rem;
+            width: 6px;
+            height: 6px;
+            background: var(--accent);
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    {{template "nav" .}}
+
+    <h1><i data-lucide="history"></i> Changelog</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 2rem;">Recent updates and improvements to the AoE4 Quote Database.</p>
+
+    {{range .Changelog}}
+    <div class="changelog-entry">
+        <div class="changelog-date">
+            {{.Date}}
+            {{if .Version}}<span class="changelog-version">{{.Version}}</span>{{end}}
+        </div>
+        <ul class="changelog-changes">
+            {{range .Changes}}
+            <li>{{.}}</li>
+            {{end}}
+        </ul>
+    </div>
+    {{end}}
+
+    <footer class="site-footer">
+        <a href="https://ko-fi.com/webframp" class="kofi-link" target="_blank" rel="noopener">
+            <i data-lucide="coffee"></i> Support this project on Ko-fi
+        </a>
+    </footer>
+
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <span id="theme-icon"><i data-lucide="sun"></i></span>
+    </button>
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('theme-icon');
+            icon.innerHTML = theme === 'light' ? '<i data-lucide="moon"></i>' : '<i data-lucide="sun"></i>';
+            lucide.createIcons();
+        }
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        updateThemeIcon(savedTheme);
+    </script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

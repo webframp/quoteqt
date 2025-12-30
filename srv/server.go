@@ -1441,6 +1441,7 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("GET /{$}", s.HandleRoot)
 	mux.HandleFunc("GET /health", s.HandleHealth)
 	mux.HandleFunc("GET /help", s.HandleHelp)
+	mux.HandleFunc("GET /changelog", s.HandleChangelog)
 	mux.HandleFunc("GET /browse", s.HandleQuotesPublic)
 	mux.HandleFunc("GET /suggest", s.HandleSuggestForm)
 	mux.HandleFunc("GET /quotes", s.HandleQuotes)
@@ -2182,6 +2183,32 @@ func (s *Server) HandleHelp(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.renderTemplate(w, "help.html", data); err != nil {
+		slog.Warn("render template", "url", r.URL.Path, "error", err)
+	}
+}
+
+// HandleChangelog serves the changelog page
+func (s *Server) HandleChangelog(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		Hostname        string
+		Changelog       []ChangelogEntry
+		IsPublicPage    bool
+		IsAuthenticated bool
+		IsAdmin         bool
+		LoginURL        string
+		LogoutURL       string
+	}{
+		Hostname:        s.Hostname,
+		Changelog:       Changelog,
+		IsPublicPage:    true,
+		IsAuthenticated: false,
+		IsAdmin:         false,
+		LoginURL:        loginURLForRequest(r),
+		LogoutURL:       "/__exe.dev/logout",
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.renderTemplate(w, "changelog.html", data); err != nil {
 		slog.Warn("render template", "url", r.URL.Path, "error", err)
 	}
 }
