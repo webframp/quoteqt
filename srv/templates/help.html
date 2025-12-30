@@ -73,7 +73,7 @@
             <li><a href="#quick-start">Quick Start</a></li>
             <li><a href="#bot-setup">Bot Setup Guides</a></li>
             <li><a href="#api-reference">API Reference</a></li>
-            <li><a href="#civilizations">Civilization Shortnames</a></li>
+
             <li><a href="#faq">FAQ</a></li>
         </ul>
     </div>
@@ -168,31 +168,6 @@
         </ul>
     </div>
 
-    <h2 id="civilizations">Civilization Shortnames</h2>
-    <div class="card">
-        <p>Use these shortnames for the <code>civ</code> parameter:</p>
-        <table>
-            <tr><th>Civilization</th><th>Shortname</th></tr>
-            <tr><td>Abbasid Dynasty</td><td class="param">abbasid</td></tr>
-            <tr><td>Ayyubids</td><td class="param">ayyubids</td></tr>
-            <tr><td>Byzantines</td><td class="param">byzantines</td></tr>
-            <tr><td>Chinese</td><td class="param">chinese</td></tr>
-            <tr><td>Delhi Sultanate</td><td class="param">delhi</td></tr>
-            <tr><td>English</td><td class="param">english</td></tr>
-            <tr><td>French</td><td class="param">french</td></tr>
-            <tr><td>Holy Roman Empire</td><td class="param">hre</td></tr>
-            <tr><td>Japanese</td><td class="param">japanese</td></tr>
-            <tr><td>Jeanne d'Arc</td><td class="param">jeannedarc</td></tr>
-            <tr><td>Malians</td><td class="param">malians</td></tr>
-            <tr><td>Mongols</td><td class="param">mongols</td></tr>
-            <tr><td>Order of the Dragon</td><td class="param">orderofthedragon</td></tr>
-            <tr><td>Ottomans</td><td class="param">ottomans</td></tr>
-            <tr><td>Rus</td><td class="param">rus</td></tr>
-            <tr><td>Zhu Xi's Legacy</td><td class="param">zhuxi</td></tr>
-        </table>
-        <p><em>Plus additional civs from Dynasties of the East and Knights of Cross and Rose DLCs.</em></p>
-    </div>
-
     <h2 id="faq">FAQ</h2>
     <div class="card">
         <h3>How do I get my channel approved?</h3>
@@ -202,7 +177,7 @@
         <p>Yes! Use the <code>!addquote</code> command setup above. Suggestions go to an approval queue - you review and approve them at <a href="/suggestions">/suggestions</a>.</p>
         
         <h3>How do I filter quotes by civilization?</h3>
-        <p>Add <code>?civ=shortname</code> to the URL, e.g.:</p>
+        <p>Add <code>?civ=shortname</code> to the URL. Use the shortnames from <a href="https://aoe4world.com/explorer/civs" target="_blank">aoe4world.com</a> (e.g., <code>hre</code>, <code>french</code>, <code>mongols</code>).</p>
         <div class="code-block">!commands add !hrequote $(urlfetch https://{{.Hostname}}/api/quote?civ=hre)</div>
         
         <h3>Can I have channel-specific quotes?</h3>
