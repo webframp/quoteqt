@@ -154,11 +154,11 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		// Note: 'unsafe-inline' in script-src is needed for onclick handlers and inline scripts.
 		// In a future iteration, these could be moved to external scripts with nonces.
 		csp := "default-src 'self'; " +
-			"script-src 'self' 'unsafe-inline' https://unpkg.com; " +
-			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; " +
-			"font-src https://fonts.gstatic.com; " +
-			"img-src 'self' data:; " +
-			"connect-src 'self'"
+			"script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; " +
+			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net; " +
+			"font-src https://fonts.gstatic.com https://cdn.jsdelivr.net; " +
+			"img-src 'self' data: https://cdn.jsdelivr.net; " +
+			"connect-src 'self' https://proxy.scalar.com"
 		w.Header().Set("Content-Security-Policy", csp)
 		
 		next.ServeHTTP(w, r)
