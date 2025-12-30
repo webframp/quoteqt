@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <title>Help - AoE4 Quote Database</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/theme.css?v=8">
+    <style>
+        body { max-width: 900px; margin: 0 auto; padding: 2rem; }
+        h1 { display: flex; align-items: center; gap: 0.5rem; }
+        h2 { color: var(--text-heading); margin-top: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+        h3 { color: var(--accent); margin-top: 1.5rem; }
+        .card { margin-bottom: 1.5rem; }
+        .code-block {
+            background: var(--bg-secondary);
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-sm);
+            font-family: monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+            border: 1px solid var(--border);
+        }
+        code {
+            background: var(--bg-secondary);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .endpoint {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.5rem 0;
+        }
+        .method {
+            background: var(--accent);
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .method.post { background: var(--success); }
+        table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+        th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-secondary); font-weight: 500; }
+        .param { font-family: monospace; color: var(--accent); }
+        .toc { background: var(--bg-card); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 2rem; }
+        .toc h3 { margin-top: 0; }
+        .toc ul { margin: 0; padding-left: 1.5rem; }
+        .toc li { margin: 0.5rem 0; }
+        .toc a { color: var(--accent); }
+        .tip { background: rgba(139, 92, 246, 0.1); border-left: 3px solid var(--accent); padding: 1rem; margin: 1rem 0; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+        .warning { background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; padding: 1rem; margin: 1rem 0; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+    </style>
+</head>
+<body>
+    {{template "nav" .}}
+
+    <h1><i data-lucide="help-circle"></i> Help & Documentation</h1>
+    <p class="subtitle">Everything you need to add quotes to your stream</p>
+
+    <div class="toc">
+        <h3>Contents</h3>
+        <ul>
+            <li><a href="#what-is-this">What is this?</a></li>
+            <li><a href="#quick-start">Quick Start</a></li>
+            <li><a href="#bot-setup">Bot Setup Guides</a></li>
+            <li><a href="#api-reference">API Reference</a></li>
+            <li><a href="#civilizations">Civilization Shortnames</a></li>
+            <li><a href="#faq">FAQ</a></li>
+        </ul>
+    </div>
+
+    <h2 id="what-is-this">What is this?</h2>
+    <div class="card">
+        <p>The <strong>AoE4 Quote Database</strong> is a free tool for Age of Empires IV streamers to add fun quote commands to their Twitch or YouTube chat.</p>
+        <p>Features:</p>
+        <ul>
+            <li><strong>!quote</strong> - Get random quotes, jokes, or wisdom from your collection</li>
+            <li><strong>!tip</strong> - Get matchup-specific tips (e.g., "HRE vs French")</li>
+            <li><strong>!addquote</strong> - Let viewers suggest quotes (with approval queue)</li>
+            <li><strong>Channel-specific quotes</strong> - Each streamer has their own quote collection</li>
+            <li><strong>Civ filtering</strong> - Filter quotes by civilization</li>
+        </ul>
+        <p>Works with <strong>Nightbot</strong>, <strong>Moobot</strong>, <strong>StreamElements</strong>, and any bot that supports URL fetch.</p>
+    </div>
+
+    <h2 id="quick-start">Quick Start</h2>
+    <div class="card">
+        <ol>
+            <li><strong>Suggest some quotes</strong> - Go to <a href="/suggest">/suggest</a> and add quotes for your channel</li>
+            <li><strong>Get approved</strong> - Contact the admin to approve your channel and quotes</li>
+            <li><strong>Add the bot command</strong> - Copy the command for your bot (see below)</li>
+            <li><strong>Type !quote in chat</strong> - That's it!</li>
+        </ol>
+    </div>
+
+    <h2 id="bot-setup">Bot Setup Guides</h2>
+
+    <h3><i data-lucide="bot"></i> Nightbot</h3>
+    <div class="card">
+        <p><strong>Basic !quote command:</strong></p>
+        <div class="code-block">!commands add !quote $(urlfetch https://{{.Hostname}}/api/quote)</div>
+        
+        <p><strong>Matchup tips (!tip hre french):</strong></p>
+        <div class="code-block">!commands add !tip $(urlfetch https://{{.Hostname}}/api/matchup?$(querystring))</div>
+        
+        <p><strong>Let viewers suggest quotes:</strong></p>
+        <div class="code-block">!commands add !addquote $(urlfetch https://{{.Hostname}}/api/suggest?text=$(querystring))</div>
+        
+        <div class="tip">
+            <strong>Tip:</strong> Nightbot automatically sends your channel name, so quotes are filtered to your channel.
+        </div>
+    </div>
+
+    <h3><i data-lucide="bot"></i> Moobot</h3>
+    <div class="card">
+        <ol>
+            <li>Go to Moobot dashboard → Chat commands → Custom commands</li>
+            <li>Create new command, set response type to <strong>"URL fetch"</strong></li>
+            <li>Set the URL to:
+                <div class="code-block">https://{{.Hostname}}/api/quote</div>
+            </li>
+        </ol>
+        
+        <p><strong>For !addquote:</strong></p>
+        <ol>
+            <li>Create command with Response tags: "Arguments - All command arguments" and "URL fetch"</li>
+            <li>Set URL to: <code>https://{{.Hostname}}/api/suggest?text=</code></li>
+            <li>Click "Add tag to URL" and select "Command arguments"</li>
+        </ol>
+    </div>
+
+    <h3><i data-lucide="bot"></i> StreamElements</h3>
+    <div class="card">
+        <p><strong>Basic !quote command:</strong></p>
+        <div class="code-block">$(customapi https://{{.Hostname}}/api/quote?channel=$(channel))</div>
+        
+        <p><strong>Let viewers suggest quotes:</strong></p>
+        <div class="code-block">$(customapi https://{{.Hostname}}/api/suggest?text=$(querystring)&channel=$(channel))</div>
+        
+        <div class="warning">
+            <strong>Note:</strong> StreamElements doesn't send channel headers automatically, so you must include <code>?channel=$(channel)</code> in the URL.
+        </div>
+    </div>
+
+    <h2 id="api-reference">API Reference</h2>
+    <div class="card">
+        <p>Full interactive documentation: <a href="/api/">/api/</a></p>
+        
+        <h3>Endpoints</h3>
+        
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <code>/api/quote</code>
+        </div>
+        <p>Get a random quote. Returns plain text by default.</p>
+        <table>
+            <tr><th>Parameter</th><th>Description</th></tr>
+            <tr><td class="param">civ</td><td>Filter by civilization shortname (e.g., <code>hre</code>, <code>french</code>)</td></tr>
+            <tr><td class="param">channel</td><td>Channel name (usually sent automatically by bot)</td></tr>
+        </table>
+        
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <code>/api/matchup</code>
+        </div>
+        <p>Get a matchup tip for civ vs civ.</p>
+        <table>
+            <tr><th>Parameter</th><th>Description</th></tr>
+            <tr><td class="param">civ</td><td>Your civilization</td></tr>
+            <tr><td class="param">vs</td><td>Opponent civilization</td></tr>
+        </table>
+        <p>Also supports Nightbot format: <code>/api/matchup?hre french</code></p>
+        
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <code>/api/suggest</code>
+        </div>
+        <p>Submit a quote suggestion (for bots using GET).</p>
+        <table>
+            <tr><th>Parameter</th><th>Description</th></tr>
+            <tr><td class="param">text</td><td>The quote text (required)</td></tr>
+            <tr><td class="param">author</td><td>Who said it (optional)</td></tr>
+            <tr><td class="param">channel</td><td>Channel name (usually sent automatically)</td></tr>
+        </table>
+        
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <code>/api/quotes</code>
+        </div>
+        <p>Get all quotes as JSON.</p>
+        
+        <div class="endpoint">
+            <span class="method">GET</span>
+            <code>/api/quote/{id}</code>
+        </div>
+        <p>Get a specific quote by ID.</p>
+    </div>
+
+    <h2 id="civilizations">Civilization Shortnames</h2>
+    <div class="card">
+        <p>Use these shortnames for the <code>civ</code> parameter:</p>
+        <table>
+            <tr><th>Civilization</th><th>Shortname</th></tr>
+            <tr><td>Abbasid Dynasty</td><td class="param">abbasid</td></tr>
+            <tr><td>Ayyubids</td><td class="param">ayyubids</td></tr>
+            <tr><td>Byzantines</td><td class="param">byzantines</td></tr>
+            <tr><td>Chinese</td><td class="param">chinese</td></tr>
+            <tr><td>Delhi Sultanate</td><td class="param">delhi</td></tr>
+            <tr><td>English</td><td class="param">english</td></tr>
+            <tr><td>French</td><td class="param">french</td></tr>
+            <tr><td>Holy Roman Empire</td><td class="param">hre</td></tr>
+            <tr><td>Japanese</td><td class="param">japanese</td></tr>
+            <tr><td>Jeanne d'Arc</td><td class="param">jeannedarc</td></tr>
+            <tr><td>Malians</td><td class="param">malians</td></tr>
+            <tr><td>Mongols</td><td class="param">mongols</td></tr>
+            <tr><td>Order of the Dragon</td><td class="param">orderofthedragon</td></tr>
+            <tr><td>Ottomans</td><td class="param">ottomans</td></tr>
+            <tr><td>Rus</td><td class="param">rus</td></tr>
+            <tr><td>Zhu Xi's Legacy</td><td class="param">zhuxi</td></tr>
+        </table>
+        <p><em>Plus additional civs from Dynasties of the East and Knights of Cross and Rose DLCs.</em></p>
+    </div>
+
+    <h2 id="faq">FAQ</h2>
+    <div class="card">
+        <h3>How do I get my channel approved?</h3>
+        <p>Contact the admin (Webframp) on Discord or Twitch. Once approved, you can manage your own quotes.</p>
+        
+        <h3>Can my viewers add quotes?</h3>
+        <p>Yes! Use the <code>!addquote</code> command setup above. Suggestions go to an approval queue - you review and approve them at <a href="/suggestions">/suggestions</a>.</p>
+        
+        <h3>How do I filter quotes by civilization?</h3>
+        <p>Add <code>?civ=shortname</code> to the URL, e.g.:</p>
+        <div class="code-block">!commands add !hrequote $(urlfetch https://{{.Hostname}}/api/quote?civ=hre)</div>
+        
+        <h3>Can I have channel-specific quotes?</h3>
+        <p>Yes! When you add quotes through the web interface, you can assign them to your channel. They'll only appear for your channel's bot commands.</p>
+        
+        <h3>What's the rate limit?</h3>
+        <p>The API is rate-limited to prevent abuse. Normal bot usage won't hit the limits. Suggestion submissions are limited to 5 per hour per channel.</p>
+        
+        <h3>Is there a JSON API?</h3>
+        <p>Yes! Add <code>Accept: application/json</code> header to get JSON responses, or use <code>/api/quotes</code> for all quotes as JSON. See the <a href="/api/">API docs</a> for details.</p>
+    </div>
+
+    <footer class="site-footer">
+        <a href="https://ko-fi.com/webframp" class="kofi-link" target="_blank" rel="noopener">
+            <i data-lucide="coffee"></i> Support this project on Ko-fi
+        </a>
+    </footer>
+
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <span id="theme-icon"><i data-lucide="sun"></i></span>
+    </button>
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const next = current === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateThemeIcon(next);
+        }
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('theme-icon');
+            icon.innerHTML = theme === 'light' ? '<i data-lucide="moon"></i>' : '<i data-lucide="sun"></i>';
+            lucide.createIcons();
+        }
+        const saved = localStorage.getItem('theme');
+        if (saved) {
+            document.documentElement.setAttribute('data-theme', saved);
+            updateThemeIcon(saved);
+        }
+    </script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

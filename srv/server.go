@@ -1345,7 +1345,7 @@ var templateFuncs = template.FuncMap{
 
 func (s *Server) loadTemplates() error {
 	s.templates = make(map[string]*template.Template)
-	templateFiles := []string{"index.html", "quotes.html", "quotes_public.html", "civs.html", "suggestions.html", "suggest.html", "admin_owners.html"}
+	templateFiles := []string{"index.html", "quotes.html", "quotes_public.html", "civs.html", "suggestions.html", "suggest.html", "admin_owners.html", "help.html"}
 	navPath := filepath.Join(s.TemplatesDir, "nav.html")
 	for _, name := range templateFiles {
 		path := filepath.Join(s.TemplatesDir, name)
@@ -1394,6 +1394,7 @@ func (s *Server) Serve(addr string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.HandleRoot)
 	mux.HandleFunc("GET /health", s.HandleHealth)
+	mux.HandleFunc("GET /help", s.HandleHelp)
 	mux.HandleFunc("GET /browse", s.HandleQuotesPublic)
 	mux.HandleFunc("GET /suggest", s.HandleSuggestForm)
 	mux.HandleFunc("GET /quotes", s.HandleQuotes)
@@ -2114,6 +2115,30 @@ func (s *Server) HandleRemoveChannelOwner(w http.ResponseWriter, r *http.Request
 	s.Markers.CreateConfigChangeMarker(fmt.Sprintf("Channel owner removed: %s from #%s", ownerEmail, channel))
 
 	http.Redirect(w, r, "/admin/owners?success=Owner+removed", http.StatusSeeOther)
+}
+
+// HandleHelp serves the help/documentation page
+func (s *Server) HandleHelp(w http.ResponseWriter, r *http.Request) {
+	data := struct {
+		Hostname        string
+		IsPublicPage    bool
+		IsAuthenticated bool
+		IsAdmin         bool
+		LoginURL        string
+		LogoutURL       string
+	}{
+		Hostname:        "quoteqt.webframp.com",
+		IsPublicPage:    true,
+		IsAuthenticated: false,
+		IsAdmin:         false,
+		LoginURL:        loginURLForRequest(r),
+		LogoutURL:       "/__exe.dev/logout",
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.templates["help.html"].Execute(w, data); err != nil {
+		slog.Error("execute template", "error", err)
+	}
 }
 
 func (s *Server) HandleSuggestForm(w http.ResponseWriter, r *http.Request) {
