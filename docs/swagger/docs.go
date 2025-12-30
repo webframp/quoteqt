@@ -355,9 +355,9 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "quotes.exe.dev",
+	Host:             "",
 	BasePath:         "/api",
-	Schemes:          []string{"https"},
+	Schemes:          []string{"https", "http"},
 	Title:            "AoE4 Quote Database API",
 	Description:      "API for Age of Empires IV quotes and matchup tips. Designed for chat bots (Nightbot, Moobot) and stream overlays.",
 	InfoInstanceName: "swagger",

@@ -28,7 +28,6 @@ definitions:
       text:
         type: string
     type: object
-host: quotes.exe.dev
 info:
   contact:
     name: API Support
@@ -226,6 +225,7 @@ paths:
       - suggestions
 schemes:
 - https
+- http
 swagger: "2.0"
 tags:
 - description: Get random quotes, optionally filtered by civilization

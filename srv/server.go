@@ -11,9 +11,8 @@ package srv
 // @license.name MIT
 // @license.url https://opensource.org/licenses/MIT
 
-// @host quotes.exe.dev
 // @BasePath /api
-// @schemes https
+// @schemes https http
 
 // @tag.name quotes
 // @tag.description Get random quotes, optionally filtered by civilization
