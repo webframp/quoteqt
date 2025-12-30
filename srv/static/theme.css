@@ -402,6 +402,10 @@ code {
     text-decoration: underline;
 }
 
+.site-footer .divider {
+    color: var(--text-secondary);
+}
+
 /* Subtitle */
 .subtitle {
     color: var(--text-secondary);
