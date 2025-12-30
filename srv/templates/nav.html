@@ -1,0 +1,20 @@
+{{define "nav"}}
+<nav class="nav">
+    <a href="/">← Home</a>
+    {{if .IsPublicPage}}
+        <a href="/suggest">Suggest a Quote</a>
+    {{end}}
+    {{if .IsAuthenticated}}
+        <a href="/quotes">Manage Quotes</a>
+        <a href="/civs">Manage Civilizations</a>
+        <a href="/suggestions">Manage Suggestions</a>
+    {{end}}
+    <a href="/api/">API Docs</a>
+    {{if .IsAdmin}}<a href="/admin/owners">Channel Owners</a>{{end}}
+    {{if .IsAuthenticated}}
+        <a href="{{.LogoutURL}}">Logout</a>
+    {{else if .IsPublicPage}}
+        <a href="{{.LoginURL}}">Sign In</a>
+    {{end}}
+</nav>
+{{end}}

@@ -149,17 +149,7 @@
     </style>
 </head>
 <body>
-    <div class="nav">
-        <a href="/">← Home</a>
-        <a href="/suggest">Suggest a Quote</a>
-        <a href="/api/">API Docs</a>
-        {{if .UserEmail}}
-            <a href="/quotes">Manage Quotes</a>
-            <a href="{{.LogoutURL}}">Logout</a>
-        {{else}}
-            <a href="{{.LoginURL}}">Sign In</a>
-        {{end}}
-    </div>
+    {{template "nav" .}}
 
     <h1><i data-lucide="swords"></i> Quote Collection</h1>
     <p class="subtitle">Wisdom from the battlefield</p>

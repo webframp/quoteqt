@@ -127,14 +127,7 @@
     </style>
 </head>
 <body>
-    <div class="nav">
-        <a href="/">← Home</a>
-        <a href="/civs">Manage Civilizations</a>
-        <a href="/suggestions">Manage Suggestions</a>
-        <a href="/api/">API Docs</a>
-        {{if .IsAdmin}}<a href="/admin/owners">Channel Owners</a>{{end}}
-        <a href="{{.LogoutURL}}">Logout</a>
-    </div>
+    {{template "nav" .}}
 
     <h1><i data-lucide="swords"></i> Manage Quotes</h1>
     <p>Logged in as <strong>{{.UserEmail}}</strong></p>

@@ -77,8 +77,10 @@ type pageData struct {
 	HasPrev    bool
 	HasNext    bool
 	// Authorization
-	IsAdmin        bool
-	OwnedChannels  []string
+	IsAdmin         bool
+	IsAuthenticated bool
+	IsPublicPage    bool
+	OwnedChannels   []string
 	// Filtering
 	Channels        []string
 	SelectedChannel string
@@ -252,16 +254,17 @@ func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := pageData{
-		Hostname:      s.Hostname,
-		Now:           time.Now().Format(time.RFC3339),
-		UserEmail:     userEmail,
-		UserID:        userID,
-		LoginURL:      loginURLForRequest(r),
-		LogoutURL:     "/__exe.dev/logout",
-		Quotes:        quotesToViews(quotes),
-		Success:       r.URL.Query().Get("success"),
-		IsAdmin:       isAdmin,
-		OwnedChannels: ownedChannels,
+		Hostname:        s.Hostname,
+		Now:             time.Now().Format(time.RFC3339),
+		UserEmail:       userEmail,
+		UserID:          userID,
+		LoginURL:        loginURLForRequest(r),
+		LogoutURL:       "/__exe.dev/logout",
+		Quotes:          quotesToViews(quotes),
+		Success:         r.URL.Query().Get("success"),
+		IsAdmin:         isAdmin,
+		IsAuthenticated: true,
+		OwnedChannels:   ownedChannels,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -398,16 +401,17 @@ func (s *Server) HandleCivs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := pageData{
-		Hostname:  s.Hostname,
-		Now:       time.Now().Format(time.RFC3339),
-		UserEmail: userEmail,
-		UserID:    userID,
-		LoginURL:  loginURLForRequest(r),
-		LogoutURL: "/__exe.dev/logout",
-		Civs:      civsWithCount,
-		Success:   r.URL.Query().Get("success"),
-		Error:     r.URL.Query().Get("error"),
-		IsAdmin:   s.isAdmin(userEmail),
+		Hostname:        s.Hostname,
+		Now:             time.Now().Format(time.RFC3339),
+		UserEmail:       userEmail,
+		UserID:          userID,
+		LoginURL:        loginURLForRequest(r),
+		LogoutURL:       "/__exe.dev/logout",
+		Civs:            civsWithCount,
+		Success:         r.URL.Query().Get("success"),
+		Error:           r.URL.Query().Get("error"),
+		IsAdmin:         s.isAdmin(userEmail),
+		IsAuthenticated: true,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -936,6 +940,8 @@ func (s *Server) HandleQuotesPublic(w http.ResponseWriter, r *http.Request) {
 		HasNext:         page < totalPages,
 		Channels:        channels,
 		SelectedChannel: selectedChannel,
+		IsPublicPage:    true,
+		IsAuthenticated: userEmail != "",
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1336,9 +1342,10 @@ var templateFuncs = template.FuncMap{
 func (s *Server) loadTemplates() error {
 	s.templates = make(map[string]*template.Template)
 	templateFiles := []string{"index.html", "quotes.html", "quotes_public.html", "civs.html", "suggestions.html", "suggest.html", "admin_owners.html"}
+	navPath := filepath.Join(s.TemplatesDir, "nav.html")
 	for _, name := range templateFiles {
 		path := filepath.Join(s.TemplatesDir, name)
-		tmpl, err := template.New(name).Funcs(templateFuncs).ParseFiles(path)
+		tmpl, err := template.New(name).Funcs(templateFuncs).ParseFiles(path, navPath)
 		if err != nil {
 			return fmt.Errorf("parse template %q: %w", name, err)
 		}
@@ -1726,19 +1733,23 @@ func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Hostname      string
-		UserEmail     string
-		LogoutURL     string
-		Suggestions   []dbgen.QuoteSuggestion
-		IsAdmin       bool
-		OwnedChannels []string
+		Hostname        string
+		UserEmail       string
+		LogoutURL       string
+		Suggestions     []dbgen.QuoteSuggestion
+		IsAdmin         bool
+		IsAuthenticated bool
+		IsPublicPage    bool
+		OwnedChannels   []string
 	}{
-		Hostname:      s.Hostname,
-		UserEmail:     userEmail,
-		LogoutURL:     "/__exe.dev/logout",
-		Suggestions:   suggestions,
-		IsAdmin:       isAdmin,
-		OwnedChannels: ownedChannels,
+		Hostname:        s.Hostname,
+		UserEmail:       userEmail,
+		LogoutURL:       "/__exe.dev/logout",
+		Suggestions:     suggestions,
+		IsAdmin:         isAdmin,
+		IsAuthenticated: true,
+		IsPublicPage:    false,
+		OwnedChannels:   ownedChannels,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1955,21 +1966,27 @@ func (s *Server) HandleListChannelOwners(w http.ResponseWriter, r *http.Request)
 	}
 
 	data := struct {
-		Hostname  string
-		UserEmail string
-		LogoutURL string
-		Owners    []dbgen.ChannelOwner
-		Channels  []*string
-		Success   string
-		Error     string
+		Hostname        string
+		UserEmail       string
+		LogoutURL       string
+		Owners          []dbgen.ChannelOwner
+		Channels        []*string
+		Success         string
+		Error           string
+		IsAdmin         bool
+		IsAuthenticated bool
+		IsPublicPage    bool
 	}{
-		Hostname:  s.Hostname,
-		UserEmail: userEmail,
-		LogoutURL: "/__exe.dev/logout",
-		Owners:    owners,
-		Channels:  channels,
-		Success:   r.URL.Query().Get("success"),
-		Error:     r.URL.Query().Get("error"),
+		Hostname:        s.Hostname,
+		UserEmail:       userEmail,
+		LogoutURL:       "/__exe.dev/logout",
+		Owners:          owners,
+		Channels:        channels,
+		Success:         r.URL.Query().Get("success"),
+		Error:           r.URL.Query().Get("error"),
+		IsAdmin:         true,
+		IsAuthenticated: true,
+		IsPublicPage:    false,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -2093,11 +2110,21 @@ func (s *Server) HandleSuggestForm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Hostname string
-		Civs     []dbgen.Civilization
+		Hostname        string
+		Civs            []dbgen.Civilization
+		IsPublicPage    bool
+		IsAuthenticated bool
+		IsAdmin         bool
+		LoginURL        string
+		LogoutURL       string
 	}{
-		Hostname: s.Hostname,
-		Civs:     civs,
+		Hostname:        s.Hostname,
+		Civs:            civs,
+		IsPublicPage:    true,
+		IsAuthenticated: false,
+		IsAdmin:         false,
+		LoginURL:        loginURLForRequest(r),
+		LogoutURL:       "/__exe.dev/logout",
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

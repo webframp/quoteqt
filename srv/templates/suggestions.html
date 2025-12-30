@@ -87,15 +87,7 @@
     <div class="container">
         <header>
             <h1><i data-lucide="inbox"></i> Review Suggestions</h1>
-            <nav>
-                <a href="/">← Home</a>
-                <a href="/quotes">Manage Quotes</a>
-                <a href="/civs">Manage Civilizations</a>
-                <a href="/api/">API Docs</a>
-                {{if .IsAdmin}}<a href="/admin/owners">Channel Owners</a>{{end}}
-                <span class="user-info">{{.UserEmail}}</span>
-                <a href="{{.LogoutURL}}">Logout</a>
-            </nav>
+            {{template "nav" .}}
         </header>
 
         {{if .Suggestions}}
