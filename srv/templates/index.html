@@ -102,6 +102,11 @@
         <p>Want civ-specific tips? Add a matchup command:</p>
         <div class="code-block">!commands add !tip $(urlfetch https://quoteqt.webframp.com/api/matchup?$(querystring))</div>
         <p>Usage: <code>!tip hre french</code> → tips for HRE vs French</p>
+
+        <h3>Let Viewers Add Quotes</h3>
+        <p>Let your chat suggest quotes (they go to your approval queue):</p>
+        <div class="code-block">!commands add !addquote $(urlfetch https://quoteqt.webframp.com/api/suggest?text=$(querystring))</div>
+        <p>Usage: <code>!addquote Never fight uphill</code></p>
     </details>
     {{else}}
     <div class="card setup-section">
@@ -139,6 +144,11 @@
         <p>Want civ-specific tips? Add a matchup command:</p>
         <div class="code-block">!commands add !tip $(urlfetch https://quoteqt.webframp.com/api/matchup?$(querystring))</div>
         <p>Usage: <code>!tip hre french</code> → tips for HRE vs French</p>
+
+        <h3>Let Viewers Add Quotes</h3>
+        <p>Let your chat suggest quotes (they go to your approval queue):</p>
+        <div class="code-block">!commands add !addquote $(urlfetch https://quoteqt.webframp.com/api/suggest?text=$(querystring))</div>
+        <p>Usage: <code>!addquote Never fight uphill</code></p>
     </div>
     {{end}}
 

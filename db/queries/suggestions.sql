@@ -35,5 +35,9 @@ SELECT COUNT(*) as count FROM quote_suggestions WHERE channel = ? AND status = '
 SELECT COUNT(*) as count FROM quote_suggestions
 WHERE submitted_by_ip = ? AND submitted_at > ?;
 
+-- name: CountRecentSuggestionsByChannel :one
+SELECT COUNT(*) as count FROM quote_suggestions
+WHERE channel = ? AND submitted_at > ?;
+
 -- name: DeleteSuggestion :exec
 DELETE FROM quote_suggestions WHERE id = ?;

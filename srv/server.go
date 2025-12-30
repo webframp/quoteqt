@@ -1344,6 +1344,7 @@ func (s *Server) Serve(addr string) error {
 	apiMux.HandleFunc("GET /api/quotes", s.HandleListAllQuotes)
 	apiMux.HandleFunc("GET /api/matchup", s.HandleMatchup)
 	apiMux.HandleFunc("POST /api/suggestions", s.HandleSubmitSuggestion)
+	apiMux.HandleFunc("GET /api/suggest", s.HandleBotSuggestion)
 	mux.Handle("/api/", s.APILimiter.Middleware(apiMux))
 
 	s.httpServer = &http.Server{
@@ -1488,6 +1489,105 @@ func (s *Server) HandleSubmitSuggestion(w http.ResponseWriter, r *http.Request) 
 		"message": "Suggestion submitted for review",
 		"channel": req.Channel,
 	})
+}
+
+// HandleBotSuggestion handles quote suggestions from chat bots via GET request.
+// Bots use $(urlfetch) which only supports GET, so we accept the quote text as a query param.
+// Example: GET /api/suggest?text=This+is+a+funny+quote
+// Channel is determined from bot headers (Nightbot/Moobot) or ?channel= param.
+func (s *Server) HandleBotSuggestion(w http.ResponseWriter, r *http.Request) {
+	AddBotAttributes(r)
+	ctx := r.Context()
+
+	// Get channel from bot headers or query param
+	var channel string
+	if bc := GetBotChannel(r); bc != nil {
+		channel = bc.Name
+	}
+	if channel == "" {
+		http.Error(w, "Could not determine channel. Make sure your bot sends channel headers.", http.StatusBadRequest)
+		return
+	}
+
+	// Get quote text from query param
+	text := strings.TrimSpace(r.URL.Query().Get("text"))
+	if text == "" {
+		http.Error(w, "Usage: !addquote <quote text>", http.StatusBadRequest)
+		return
+	}
+
+	// Validate text length
+	if len(text) < 3 {
+		http.Error(w, "Quote too short (min 3 characters)", http.StatusBadRequest)
+		return
+	}
+	if len(text) > 500 {
+		http.Error(w, "Quote too long (max 500 characters)", http.StatusBadRequest)
+		return
+	}
+
+	// Get client IP for rate limiting
+	ip := r.Header.Get("X-Forwarded-For")
+	if ip == "" {
+		ip = r.RemoteAddr
+		if host, _, err := net.SplitHostPort(ip); err == nil {
+			ip = host
+		}
+	}
+
+	// Rate limit: max 5 suggestions per channel per hour
+	q := dbgen.New(s.DB)
+	oneHourAgo := time.Now().Add(-1 * time.Hour)
+	count, err := q.CountRecentSuggestionsByChannel(ctx, dbgen.CountRecentSuggestionsByChannelParams{
+		Channel:     channel,
+		SubmittedAt: oneHourAgo,
+	})
+	if err != nil {
+		slog.Error("count recent suggestions", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if count >= 5 {
+		RecordSecurityEvent(ctx, "suggestion_rate_limited",
+			attribute.String("channel", channel),
+			attribute.Int64("suggestion_count", count),
+			attribute.String("path", r.URL.Path),
+		)
+		fmt.Fprint(w, "Too many suggestions for this channel. Try again later.")
+		return
+	}
+
+	// Get optional author from query param
+	var authorPtr *string
+	if author := strings.TrimSpace(r.URL.Query().Get("author")); author != "" {
+		authorPtr = &author
+	}
+
+	// Create the suggestion
+	now := time.Now()
+	err = q.CreateSuggestion(ctx, dbgen.CreateSuggestionParams{
+		Text:          text,
+		Author:        authorPtr,
+		Civilization:  nil,
+		OpponentCiv:   nil,
+		Channel:       channel,
+		SubmittedByIp: ip,
+		SubmittedAt:   now,
+	})
+	if err != nil {
+		slog.Error("create suggestion", "error", err)
+		http.Error(w, "Failed to submit quote", http.StatusInternalServerError)
+		return
+	}
+
+	span := trace.SpanFromContext(ctx)
+	span.AddEvent("bot_suggestion_created", trace.WithAttributes(
+		attribute.String("channel", channel),
+		attribute.Int("text_length", len(text)),
+	))
+
+	slog.Info("bot suggestion created", "channel", channel, "text_length", len(text))
+	fmt.Fprintf(w, "Quote submitted for review!")
 }
 
 func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {

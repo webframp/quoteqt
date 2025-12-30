@@ -49,6 +49,23 @@ func (q *Queries) CountPendingSuggestionsByChannel(ctx context.Context, channel 
 	return count, err
 }
 
+const countRecentSuggestionsByChannel = `-- name: CountRecentSuggestionsByChannel :one
+SELECT COUNT(*) as count FROM quote_suggestions
+WHERE channel = ? AND submitted_at > ?
+`
+
+type CountRecentSuggestionsByChannelParams struct {
+	Channel     string    `json:"channel"`
+	SubmittedAt time.Time `json:"submitted_at"`
+}
+
+func (q *Queries) CountRecentSuggestionsByChannel(ctx context.Context, arg CountRecentSuggestionsByChannelParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRecentSuggestionsByChannel, arg.Channel, arg.SubmittedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countRecentSuggestionsByIP = `-- name: CountRecentSuggestionsByIP :one
 SELECT COUNT(*) as count FROM quote_suggestions
 WHERE submitted_by_ip = ? AND submitted_at > ?
