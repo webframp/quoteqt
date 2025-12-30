@@ -1409,12 +1409,10 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("POST /admin/owners/delete", s.HandleRemoveChannelOwner)
 	mux.Handle("/static/", http.StripPrefix("/static/", StaticFileServer(s.StaticDir)))
 
-	// API documentation (served without rate limiting)
-	mux.HandleFunc("GET /api/{$}", s.HandleAPIDocs)
-	mux.HandleFunc("GET /api/openapi.json", s.HandleAPISpec)
-
-	// API routes with rate limiting
+	// API routes with rate limiting (including docs)
 	apiMux := http.NewServeMux()
+	apiMux.HandleFunc("GET /api/{$}", s.HandleAPIDocs)
+	apiMux.HandleFunc("GET /api/openapi.json", s.HandleAPISpec)
 	apiMux.HandleFunc("GET /api/quote", s.HandleRandomQuote)
 	apiMux.HandleFunc("GET /api/quote/{id}", s.HandleGetQuote)
 	apiMux.HandleFunc("GET /api/quotes", s.HandleListAllQuotes)

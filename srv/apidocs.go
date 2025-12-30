@@ -27,7 +27,6 @@ func (s *Server) HandleAPIDocs(w http.ResponseWriter, r *http.Request) {
 // HandleAPISpec serves the raw OpenAPI spec as JSON
 func (s *Server) HandleAPISpec(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Write(swaggerJSON)
 }
 
