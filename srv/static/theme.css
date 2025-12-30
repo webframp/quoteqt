@@ -49,6 +49,18 @@
     --success-text: #4ade80;
     --error-bg: rgba(239, 68, 68, 0.1);
     --error-text: #f87171;
+    
+    /* DLC Badge Colors */
+    --dlc-base-bg: #064e3b;
+    --dlc-base-text: #6ee7b7;
+    --dlc-anniversary-bg: #78350f;
+    --dlc-anniversary-text: #fcd34d;
+    --dlc-sultans-bg: #831843;
+    --dlc-sultans-text: #f9a8d4;
+    --dlc-dynasties-bg: #581c87;
+    --dlc-dynasties-text: #d8b4fe;
+    --dlc-knights-bg: #1e3a8a;
+    --dlc-knights-text: #93c5fd;
 }
 
 /* ============================================
@@ -94,6 +106,18 @@
     --success-text: #16a34a;
     --error-bg: rgba(239, 68, 68, 0.1);
     --error-text: #dc2626;
+    
+    /* DLC Badge Colors */
+    --dlc-base-bg: #e8f8e8;
+    --dlc-base-text: #27ae60;
+    --dlc-anniversary-bg: #fff3e0;
+    --dlc-anniversary-text: #e67e22;
+    --dlc-sultans-bg: #fce4ec;
+    --dlc-sultans-text: #c2185b;
+    --dlc-dynasties-bg: #f3e5f5;
+    --dlc-dynasties-text: #7b1fa2;
+    --dlc-knights-bg: #e3f2fd;
+    --dlc-knights-text: #1565c0;
 }
 
 /* ============================================
