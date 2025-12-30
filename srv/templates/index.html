@@ -90,6 +90,14 @@
             </li>
         </ol>
 
+        <h3>StreamElements Setup</h3>
+        <ol>
+            <li>Go to your StreamElements dashboard → Chat commands → Custom commands</li>
+            <li>Create a new command with the response:
+                <div class="code-block">$(customapi https://quoteqt.webframp.com/api/quote?channel=$(channel))</div>
+            </li>
+        </ol>
+
         <h3>Matchup Tips</h3>
         <p>Want civ-specific tips? Add a matchup command:</p>
         <div class="code-block">!commands add !tip $(urlfetch https://quoteqt.webframp.com/api/matchup?$(querystring))</div>
@@ -116,6 +124,14 @@
             <li>Create a new command with response type "URL fetch"</li>
             <li>Set the URL to:
                 <div class="code-block">https://quoteqt.webframp.com/api/quote</div>
+            </li>
+        </ol>
+
+        <h3>StreamElements Setup</h3>
+        <ol>
+            <li>Go to your StreamElements dashboard → Chat commands → Custom commands</li>
+            <li>Create a new command with the response:
+                <div class="code-block">$(customapi https://quoteqt.webframp.com/api/quote?channel=$(channel))</div>
             </li>
         </ol>
 
