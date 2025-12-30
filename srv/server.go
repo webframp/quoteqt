@@ -1345,10 +1345,21 @@ var templateFuncs = template.FuncMap{
 
 func (s *Server) loadTemplates() error {
 	s.templates = make(map[string]*template.Template)
-	templateFiles := []string{"index.html", "quotes.html", "quotes_public.html", "civs.html", "suggestions.html", "suggest.html", "admin_owners.html", "help.html"}
+
+	// Auto-discover all HTML templates except partials (nav.html)
+	pattern := filepath.Join(s.TemplatesDir, "*.html")
+	files, err := filepath.Glob(pattern)
+	if err != nil {
+		return fmt.Errorf("glob templates: %w", err)
+	}
+
 	navPath := filepath.Join(s.TemplatesDir, "nav.html")
-	for _, name := range templateFiles {
-		path := filepath.Join(s.TemplatesDir, name)
+	for _, path := range files {
+		name := filepath.Base(path)
+		// Skip partials (templates that start with underscore or are nav.html)
+		if name == "nav.html" || strings.HasPrefix(name, "_") {
+			continue
+		}
 		tmpl, err := template.New(name).Funcs(templateFuncs).ParseFiles(path, navPath)
 		if err != nil {
 			return fmt.Errorf("parse template %q: %w", name, err)
@@ -1771,8 +1782,8 @@ func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["suggestions.html"].Execute(w, data); err != nil {
-		slog.Error("execute template", "error", err)
+	if err := s.renderTemplate(w, "suggestions.html", data); err != nil {
+		slog.Warn("render template", "url", r.URL.Path, "error", err)
 	}
 }
 
@@ -2009,8 +2020,8 @@ func (s *Server) HandleListChannelOwners(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["admin_owners.html"].Execute(w, data); err != nil {
-		slog.Error("execute template", "error", err)
+	if err := s.renderTemplate(w, "admin_owners.html", data); err != nil {
+		slog.Warn("render template", "url", r.URL.Path, "error", err)
 	}
 }
 
@@ -2136,8 +2147,8 @@ func (s *Server) HandleHelp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["help.html"].Execute(w, data); err != nil {
-		slog.Error("execute template", "error", err)
+	if err := s.renderTemplate(w, "help.html", data); err != nil {
+		slog.Warn("render template", "url", r.URL.Path, "error", err)
 	}
 }
 
@@ -2171,7 +2182,7 @@ func (s *Server) HandleSuggestForm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["suggest.html"].Execute(w, data); err != nil {
-		slog.Error("execute template", "error", err)
+	if err := s.renderTemplate(w, "suggest.html", data); err != nil {
+		slog.Warn("render template", "url", r.URL.Path, "error", err)
 	}
 }
