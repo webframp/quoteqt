@@ -1,6 +1,6 @@
 -- name: CreateSuggestion :exec
-INSERT INTO quote_suggestions (text, author, civilization, opponent_civ, channel, submitted_by_ip, submitted_at)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO quote_suggestions (text, author, civilization, opponent_civ, channel, submitted_by_ip, submitted_by_user, submitted_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: ListPendingSuggestions :many
 SELECT * FROM quote_suggestions

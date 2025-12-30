@@ -149,3 +149,25 @@ func AddBotAttributes(r *http.Request) {
 func AddNightbotAttributes(r *http.Request) {
 	AddBotAttributes(r)
 }
+
+// GetBotUser extracts the username from bot headers.
+// Returns the display name if available, otherwise the name.
+// Returns empty string if no bot user info found.
+func GetBotUser(r *http.Request) string {
+	// Check Nightbot user header
+	if user := ParseNightbotUser(r.Header.Get("Nightbot-User")); user != nil {
+		if user.DisplayName != "" {
+			return user.DisplayName
+		}
+		if user.Name != "" {
+			return user.Name
+		}
+	}
+
+	// Check Moobot user header
+	if userName := r.Header.Get("Moobot-user-name"); userName != "" {
+		return userName
+	}
+
+	return ""
+}

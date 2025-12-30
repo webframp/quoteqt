@@ -84,18 +84,19 @@ func (q *Queries) CountRecentSuggestionsByIP(ctx context.Context, arg CountRecen
 }
 
 const createSuggestion = `-- name: CreateSuggestion :exec
-INSERT INTO quote_suggestions (text, author, civilization, opponent_civ, channel, submitted_by_ip, submitted_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO quote_suggestions (text, author, civilization, opponent_civ, channel, submitted_by_ip, submitted_by_user, submitted_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateSuggestionParams struct {
-	Text          string    `json:"text"`
-	Author        *string   `json:"author"`
-	Civilization  *string   `json:"civilization"`
-	OpponentCiv   *string   `json:"opponent_civ"`
-	Channel       string    `json:"channel"`
-	SubmittedByIp string    `json:"submitted_by_ip"`
-	SubmittedAt   time.Time `json:"submitted_at"`
+	Text            string    `json:"text"`
+	Author          *string   `json:"author"`
+	Civilization    *string   `json:"civilization"`
+	OpponentCiv     *string   `json:"opponent_civ"`
+	Channel         string    `json:"channel"`
+	SubmittedByIp   string    `json:"submitted_by_ip"`
+	SubmittedByUser *string   `json:"submitted_by_user"`
+	SubmittedAt     time.Time `json:"submitted_at"`
 }
 
 func (q *Queries) CreateSuggestion(ctx context.Context, arg CreateSuggestionParams) error {
@@ -106,6 +107,7 @@ func (q *Queries) CreateSuggestion(ctx context.Context, arg CreateSuggestionPara
 		arg.OpponentCiv,
 		arg.Channel,
 		arg.SubmittedByIp,
+		arg.SubmittedByUser,
 		arg.SubmittedAt,
 	)
 	return err
@@ -121,7 +123,7 @@ func (q *Queries) DeleteSuggestion(ctx context.Context, id int64) error {
 }
 
 const getSuggestionByID = `-- name: GetSuggestionByID :one
-SELECT id, text, author, civilization, opponent_civ, channel, submitted_by_ip, submitted_at, status, reviewed_by, reviewed_at FROM quote_suggestions WHERE id = ?
+SELECT id, text, author, civilization, opponent_civ, channel, submitted_by_ip, submitted_at, status, reviewed_by, reviewed_at, submitted_by_user FROM quote_suggestions WHERE id = ?
 `
 
 func (q *Queries) GetSuggestionByID(ctx context.Context, id int64) (QuoteSuggestion, error) {
@@ -139,12 +141,13 @@ func (q *Queries) GetSuggestionByID(ctx context.Context, id int64) (QuoteSuggest
 		&i.Status,
 		&i.ReviewedBy,
 		&i.ReviewedAt,
+		&i.SubmittedByUser,
 	)
 	return i, err
 }
 
 const listPendingSuggestions = `-- name: ListPendingSuggestions :many
-SELECT id, text, author, civilization, opponent_civ, channel, submitted_by_ip, submitted_at, status, reviewed_by, reviewed_at FROM quote_suggestions
+SELECT id, text, author, civilization, opponent_civ, channel, submitted_by_ip, submitted_at, status, reviewed_by, reviewed_at, submitted_by_user FROM quote_suggestions
 WHERE status = 'pending'
 ORDER BY submitted_at DESC
 `
@@ -170,6 +173,7 @@ func (q *Queries) ListPendingSuggestions(ctx context.Context) ([]QuoteSuggestion
 			&i.Status,
 			&i.ReviewedBy,
 			&i.ReviewedAt,
+			&i.SubmittedByUser,
 		); err != nil {
 			return nil, err
 		}
@@ -185,7 +189,7 @@ func (q *Queries) ListPendingSuggestions(ctx context.Context) ([]QuoteSuggestion
 }
 
 const listPendingSuggestionsByChannel = `-- name: ListPendingSuggestionsByChannel :many
-SELECT id, text, author, civilization, opponent_civ, channel, submitted_by_ip, submitted_at, status, reviewed_by, reviewed_at FROM quote_suggestions
+SELECT id, text, author, civilization, opponent_civ, channel, submitted_by_ip, submitted_at, status, reviewed_by, reviewed_at, submitted_by_user FROM quote_suggestions
 WHERE channel = ? AND status = 'pending'
 ORDER BY submitted_at DESC
 `
@@ -211,6 +215,7 @@ func (q *Queries) ListPendingSuggestionsByChannel(ctx context.Context, channel s
 			&i.Status,
 			&i.ReviewedBy,
 			&i.ReviewedAt,
+			&i.SubmittedByUser,
 		); err != nil {
 			return nil, err
 		}

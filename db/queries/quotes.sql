@@ -1,6 +1,6 @@
 -- name: CreateQuote :exec
-INSERT INTO quotes (user_id, created_by_email, text, author, civilization, opponent_civ, channel, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO quotes (user_id, created_by_email, text, author, civilization, opponent_civ, channel, requested_by, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: ListQuotesByUser :many
 SELECT * FROM quotes

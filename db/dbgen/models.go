@@ -41,20 +41,22 @@ type Quote struct {
 	OpponentCiv    *string   `json:"opponent_civ"`
 	Channel        *string   `json:"channel"`
 	CreatedByEmail *string   `json:"created_by_email"`
+	RequestedBy    *string   `json:"requested_by"`
 }
 
 type QuoteSuggestion struct {
-	ID            int64      `json:"id"`
-	Text          string     `json:"text"`
-	Author        *string    `json:"author"`
-	Civilization  *string    `json:"civilization"`
-	OpponentCiv   *string    `json:"opponent_civ"`
-	Channel       string     `json:"channel"`
-	SubmittedByIp string     `json:"submitted_by_ip"`
-	SubmittedAt   time.Time  `json:"submitted_at"`
-	Status        string     `json:"status"`
-	ReviewedBy    *string    `json:"reviewed_by"`
-	ReviewedAt    *time.Time `json:"reviewed_at"`
+	ID              int64      `json:"id"`
+	Text            string     `json:"text"`
+	Author          *string    `json:"author"`
+	Civilization    *string    `json:"civilization"`
+	OpponentCiv     *string    `json:"opponent_civ"`
+	Channel         string     `json:"channel"`
+	SubmittedByIp   string     `json:"submitted_by_ip"`
+	SubmittedAt     time.Time  `json:"submitted_at"`
+	Status          string     `json:"status"`
+	ReviewedBy      *string    `json:"reviewed_by"`
+	ReviewedAt      *time.Time `json:"reviewed_at"`
+	SubmittedByUser *string    `json:"submitted_by_user"`
 }
 
 type Visitor struct {

@@ -93,6 +93,7 @@ type QuoteView struct {
 	OpponentCiv  string
 	Channel      string
 	CreatedBy    string
+	RequestedBy  string
 	CreatedAt    string
 }
 
@@ -203,6 +204,9 @@ func quotesToViews(quotes []dbgen.Quote) []QuoteView {
 		}
 		if q.Channel != nil {
 			views[i].Channel = *q.Channel
+		}
+		if q.RequestedBy != nil {
+			views[i].RequestedBy = *q.RequestedBy
 		}
 	}
 	return views
@@ -347,6 +351,7 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 		Civilization:   civPtr,
 		OpponentCiv:    opponentPtr,
 		Channel:        channelPtr,
+		RequestedBy:    nil, // No requester for directly added quotes
 		CreatedAt:      time.Now(),
 	})
 	if err != nil {
@@ -1474,6 +1479,13 @@ type SuggestionResponse struct {
 func (s *Server) HandleSubmitSuggestion(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	// Get submitter info from auth headers (if logged in)
+	submittedByUser := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	var submittedByUserPtr *string
+	if submittedByUser != "" {
+		submittedByUserPtr = &submittedByUser
+	}
+
 	// Get client IP for rate limiting and tracking
 	ip := r.Header.Get("X-Forwarded-For")
 	if ip == "" {
@@ -1550,13 +1562,14 @@ func (s *Server) HandleSubmitSuggestion(w http.ResponseWriter, r *http.Request) 
 	// Create the suggestion
 	now := time.Now()
 	err = q.CreateSuggestion(ctx, dbgen.CreateSuggestionParams{
-		Text:          req.Text,
-		Author:        req.Author,
-		Civilization:  req.Civilization,
-		OpponentCiv:   req.OpponentCiv,
-		Channel:       req.Channel,
-		SubmittedByIp: ip,
-		SubmittedAt:   now,
+		Text:            req.Text,
+		Author:          req.Author,
+		Civilization:    req.Civilization,
+		OpponentCiv:     req.OpponentCiv,
+		Channel:         req.Channel,
+		SubmittedByIp:   ip,
+		SubmittedByUser: submittedByUserPtr,
+		SubmittedAt:     now,
 	})
 	if err != nil {
 		slog.Error("create suggestion", "error", err)
@@ -1603,6 +1616,12 @@ func (s *Server) HandleBotSuggestion(w http.ResponseWriter, r *http.Request) {
 	if channel == "" {
 		http.Error(w, "Could not determine channel. Make sure your bot sends channel headers.", http.StatusBadRequest)
 		return
+	}
+
+	// Get submitter username from bot headers
+	var submittedByUserPtr *string
+	if botUser := GetBotUser(r); botUser != "" {
+		submittedByUserPtr = &botUser
 	}
 
 	// Get quote text from query param
@@ -1662,13 +1681,14 @@ func (s *Server) HandleBotSuggestion(w http.ResponseWriter, r *http.Request) {
 	// Create the suggestion
 	now := time.Now()
 	err = q.CreateSuggestion(ctx, dbgen.CreateSuggestionParams{
-		Text:          text,
-		Author:        authorPtr,
-		Civilization:  nil,
-		OpponentCiv:   nil,
-		Channel:       channel,
-		SubmittedByIp: ip,
-		SubmittedAt:   now,
+		Text:            text,
+		Author:          authorPtr,
+		Civilization:    nil,
+		OpponentCiv:     nil,
+		Channel:         channel,
+		SubmittedByIp:   ip,
+		SubmittedByUser: submittedByUserPtr,
+		SubmittedAt:     now,
 	})
 	if err != nil {
 		slog.Error("create suggestion", "error", err)
@@ -1813,6 +1833,7 @@ func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request)
 		Civilization:   suggestion.Civilization,
 		OpponentCiv:    suggestion.OpponentCiv,
 		Channel:        &suggestion.Channel,
+		RequestedBy:    suggestion.SubmittedByUser,
 		CreatedAt:      now,
 	})
 	if err != nil {

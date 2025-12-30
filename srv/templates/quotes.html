@@ -302,7 +302,7 @@
                         {{if .Channel}}
                             <span class="quote-channel">[#{{.Channel}}]</span>
                         {{end}}
-                        <div class="quote-meta">Added by {{.CreatedBy}} {{.CreatedAt}}</div>
+                        <div class="quote-meta">Added by {{.CreatedBy}} {{.CreatedAt}}{{if .RequestedBy}}, requested by {{.RequestedBy}}{{end}}</div>
                         <div class="quote-actions">
                             <button type="button" class="btn btn-small" onclick="toggleEdit({{.ID}})">Edit</button>
                             <form method="POST" action="/quotes/{{.ID}}/delete" style="display:inline;">
