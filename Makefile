@@ -3,7 +3,7 @@
 # Build variables
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT_SHA ?= $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
-LDFLAGS := -X srv.exe.dev/srv.Version=$(VERSION) -X srv.exe.dev/srv.CommitSHA=$(COMMIT_SHA)
+LDFLAGS := -X github.com/webframp/quoteqt/srv.Version=$(VERSION) -X github.com/webframp/quoteqt/srv.CommitSHA=$(COMMIT_SHA)
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o bin/srv ./cmd/srv

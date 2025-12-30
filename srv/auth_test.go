@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"srv.exe.dev/db/dbgen"
+	"github.com/webframp/quoteqt/db/dbgen"
 )
 
 func setupTestServer(t *testing.T, adminEmails []string) *Server {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"srv.exe.dev/db/dbgen"
+	"github.com/webframp/quoteqt/db/dbgen"
 )
 
 func TestServerSetupAndHandlers(t *testing.T) {

@@ -1,4 +1,4 @@
-module srv.exe.dev
+module github.com/webframp/quoteqt
 
 go 1.25.5
 

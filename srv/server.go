@@ -19,8 +19,8 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"srv.exe.dev/db"
-	"srv.exe.dev/db/dbgen"
+	"github.com/webframp/quoteqt/db"
+	"github.com/webframp/quoteqt/db/dbgen"
 )
 
 type Server struct {

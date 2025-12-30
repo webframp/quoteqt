@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/honeycombio/otel-config-go/otelconfig"
-	"srv.exe.dev/srv"
+	"github.com/webframp/quoteqt/srv"
 )
 
 var flagListenAddr = flag.String("listen", ":8000", "address to listen on")
