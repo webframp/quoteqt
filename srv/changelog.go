@@ -8,25 +8,22 @@ type ChangelogEntry struct {
 }
 
 // Changelog contains all changelog entries, newest first.
+// Only include user-facing changes, not internal refactors.
 var Changelog = []ChangelogEntry{
 	{
 		Date:    "2024-12-30",
 		Version: "",
 		Changes: []string{
-			"Add configurable rate limits via environment variables",
-			"Refactor to use errors.Is() for error comparisons",
-			"Extract auth helper functions for cleaner code",
-			"Add consistent security event logging",
-			"Replace hardcoded colors with CSS variables",
+			"Added changelog page",
 		},
 	},
 	{
 		Date:    "2024-12-29",
 		Version: "",
 		Changes: []string{
-			"Add matchup tips feature for civ vs civ advice",
-			"Improve API documentation with Swagger UI",
-			"Add channel-based quote filtering",
+			"Added matchup tips - get advice for specific civ vs civ matchups via /api/matchup",
+			"Added interactive API documentation at /api/",
+			"Quotes can now be filtered by channel",
 		},
 	},
 	{
@@ -34,10 +31,9 @@ var Changelog = []ChangelogEntry{
 		Version: "",
 		Changes: []string{
 			"Initial release",
-			"Quote management with civilization filtering",
-			"Nightbot and Moobot integration",
-			"Quote suggestions system",
-			"Channel owner permissions",
+			"Random quotes with optional civilization filtering",
+			"Nightbot and Moobot integration for Twitch chat",
+			"Community quote suggestions",
 		},
 	},
 }
