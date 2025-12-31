@@ -30,6 +30,8 @@ API endpoints support content negotiation via the `Accept` header:
 |----------|-------------|
 | `GET /browse` | Browse all quotes (HTML) |
 | `GET /suggest` | Submit a quote suggestion (HTML form) |
+| `GET /help` | Help and documentation page |
+| `GET /changelog` | Recent changes and updates |
 | `GET /api/quote` | Random quote |
 | `GET /api/quote/{id}` | Get specific quote by ID |
 | `GET /api/quote?civ=hre` | Random quote filtered by civ shortname |
@@ -236,11 +238,16 @@ The application is instrumented with OpenTelemetry and sends traces to Honeycomb
 
 ### Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `ADMIN_EMAILS` | Comma-separated list of admin emails (full access) |
-| `HONEYCOMB_API_KEY` | API key for Honeycomb (enables tracing) |
-| `OTEL_SERVICE_NAME` | Service name in traces (default: `quoteqt`) |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ADMIN_EMAILS` | | Comma-separated list of admin emails (full access) |
+| `HONEYCOMB_API_KEY` | | API key for Honeycomb (enables tracing) |
+| `DB_PATH` | `db.sqlite3` | Path to SQLite database file |
+| `API_RATE_LIMIT` | `30` | API requests allowed per interval |
+| `API_RATE_INTERVAL` | `1m` | Rate limit window (Go duration) |
+| `API_RATE_BURST` | `10` | Max burst capacity for API requests |
+| `SUGGESTION_RATE_LIMIT` | `15` | Suggestions allowed per interval per IP/channel |
+| `SUGGESTION_RATE_INTERVAL` | `1h` | Suggestion rate limit window (Go duration) |
 
 ### Traced Operations
 

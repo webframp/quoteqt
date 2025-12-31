@@ -18,8 +18,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.APIRateBurst != 10 {
 		t.Errorf("expected APIRateBurst 10, got %d", cfg.APIRateBurst)
 	}
-	if cfg.SuggestionRateLimit != 5 {
-		t.Errorf("expected SuggestionRateLimit 5, got %d", cfg.SuggestionRateLimit)
+	if cfg.SuggestionRateLimit != 15 {
+		t.Errorf("expected SuggestionRateLimit 15, got %d", cfg.SuggestionRateLimit)
 	}
 	if cfg.SuggestionRateInterval != time.Hour {
 		t.Errorf("expected SuggestionRateInterval 1h, got %v", cfg.SuggestionRateInterval)
