@@ -383,3 +383,178 @@ func TestHandleMatchup(t *testing.T) {
 		}
 	})
 }
+
+func TestHandleAddQuote(t *testing.T) {
+	t.Run("redirects to login when not authenticated", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/quotes", strings.NewReader("text=test+quote"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+
+		server.HandleAddQuote(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 redirect, got %d", w.Code)
+		}
+		loc := w.Header().Get("Location")
+		if !strings.Contains(loc, "login") {
+			t.Errorf("expected redirect to login, got: %s", loc)
+		}
+	})
+
+	t.Run("returns 403 when user cannot manage channel", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/quotes", strings.NewReader("text=test+quote&channel=somechannel"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "user123")
+		req.Header.Set("X-ExeDev-Email", "notowner@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleAddQuote(w, req)
+
+		if w.Code != http.StatusForbidden {
+			t.Errorf("expected 403, got %d", w.Code)
+		}
+	})
+
+	t.Run("admin can add quote to any channel", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/quotes", strings.NewReader("text=Admin+added+quote&channel=anychannel"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleAddQuote(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 redirect, got %d", w.Code)
+		}
+		loc := w.Header().Get("Location")
+		if !strings.Contains(loc, "success") {
+			t.Errorf("expected redirect with success, got: %s", loc)
+		}
+	})
+
+	t.Run("channel owner can add quote to their channel", func(t *testing.T) {
+		server := testServer(t)
+		// Add channel owner
+		q := dbgen.New(server.DB)
+		err := q.AddChannelOwner(context.Background(), dbgen.AddChannelOwnerParams{
+			Channel:   "mychannel",
+			UserEmail: "owner@test.com",
+		})
+		if err != nil {
+			t.Fatalf("failed to add channel owner: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/quotes", strings.NewReader("text=Owner+quote&channel=mychannel"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "owner123")
+		req.Header.Set("X-ExeDev-Email", "owner@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleAddQuote(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 redirect, got %d", w.Code)
+		}
+		loc := w.Header().Get("Location")
+		if !strings.Contains(loc, "success") {
+			t.Errorf("expected redirect with success, got: %s", loc)
+		}
+	})
+
+	t.Run("non-admin cannot add global quote (no channel)", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/quotes", strings.NewReader("text=Global+quote"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "anyuser")
+		req.Header.Set("X-ExeDev-Email", "anyone@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleAddQuote(w, req)
+
+		// Non-admins cannot add global quotes (empty channel)
+		if w.Code != http.StatusForbidden {
+			t.Errorf("expected 403 forbidden, got %d", w.Code)
+		}
+	})
+
+	t.Run("admin can add global quote (no channel)", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/quotes", strings.NewReader("text=Global+quote+by+admin"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleAddQuote(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 redirect, got %d", w.Code)
+		}
+		loc := w.Header().Get("Location")
+		if !strings.Contains(loc, "success") {
+			t.Errorf("expected redirect with success, got: %s", loc)
+		}
+	})
+
+	t.Run("validates empty text", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/quotes", strings.NewReader("text="))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleAddQuote(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 redirect, got %d", w.Code)
+		}
+		loc := w.Header().Get("Location")
+		if !strings.Contains(loc, "error") {
+			t.Errorf("expected redirect with error, got: %s", loc)
+		}
+	})
+
+	t.Run("stores all fields correctly", func(t *testing.T) {
+		server := testServer(t)
+		formData := "text=Full+quote&author=TestAuthor&civilization=English&opponent_civ=French"
+		req := httptest.NewRequest(http.MethodPost, "/quotes", strings.NewReader(formData))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleAddQuote(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 redirect, got %d", w.Code)
+		}
+
+		// Verify quote was stored
+		q := dbgen.New(server.DB)
+		quotes, err := q.ListAllQuotes(context.Background())
+		if err != nil {
+			t.Fatalf("failed to list quotes: %v", err)
+		}
+		if len(quotes) == 0 {
+			t.Fatal("expected at least one quote")
+		}
+		quote := quotes[0]
+		if quote.Text != "Full quote" {
+			t.Errorf("expected text 'Full quote', got %s", quote.Text)
+		}
+		if quote.Author == nil || *quote.Author != "TestAuthor" {
+			t.Errorf("expected author 'TestAuthor', got %v", quote.Author)
+		}
+		if quote.Civilization == nil || *quote.Civilization != "English" {
+			t.Errorf("expected civilization 'English', got %v", quote.Civilization)
+		}
+		if quote.OpponentCiv == nil || *quote.OpponentCiv != "French" {
+			t.Errorf("expected opponent_civ 'French', got %v", quote.OpponentCiv)
+		}
+	})
+}
