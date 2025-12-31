@@ -36,8 +36,8 @@ func DefaultConfig() Config {
 		APIRateInterval: time.Minute,
 		APIRateBurst:    10,
 
-		// Suggestions: 5 per hour
-		SuggestionRateLimit:    5,
+		// Suggestions: 15 per hour
+		SuggestionRateLimit:    15,
 		SuggestionRateInterval: time.Hour,
 	}
 }
