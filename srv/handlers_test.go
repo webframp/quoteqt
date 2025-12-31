@@ -2,12 +2,16 @@ package srv
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/webframp/quoteqt/db/dbgen"
 )
@@ -555,6 +559,694 @@ func TestHandleAddQuote(t *testing.T) {
 		}
 		if quote.OpponentCiv == nil || *quote.OpponentCiv != "French" {
 			t.Errorf("expected opponent_civ 'French', got %v", quote.OpponentCiv)
+		}
+	})
+}
+
+func TestHandleDeleteQuote(t *testing.T) {
+	t.Run("returns 401 when not authenticated", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/quotes/1/delete", nil)
+		req.SetPathValue("id", "1")
+		w := httptest.NewRecorder()
+
+		server.HandleDeleteQuote(w, req)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("expected 401, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 400 for invalid ID", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/quotes/abc/delete", nil)
+		req.SetPathValue("id", "abc")
+		req.Header.Set("X-ExeDev-UserID", "user123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleDeleteQuote(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 404 for non-existent quote", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/quotes/99999/delete", nil)
+		req.SetPathValue("id", "99999")
+		req.Header.Set("X-ExeDev-UserID", "user123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleDeleteQuote(w, req)
+
+		if w.Code != http.StatusNotFound {
+			t.Errorf("expected 404, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 403 when user cannot manage channel", func(t *testing.T) {
+		server := testServer(t)
+		channel := "somechannel"
+		addTestQuote(t, server, "Quote to delete", nil, &channel)
+
+		// Get the quote ID
+		q := dbgen.New(server.DB)
+		quotes, _ := q.ListAllQuotes(context.Background())
+		quoteID := quotes[0].ID
+
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/quotes/%d/delete", quoteID), nil)
+		req.SetPathValue("id", fmt.Sprintf("%d", quoteID))
+		req.Header.Set("X-ExeDev-UserID", "user123")
+		req.Header.Set("X-ExeDev-Email", "notowner@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleDeleteQuote(w, req)
+
+		if w.Code != http.StatusForbidden {
+			t.Errorf("expected 403, got %d", w.Code)
+		}
+	})
+
+	t.Run("admin can delete any quote", func(t *testing.T) {
+		server := testServer(t)
+		channel := "anychannel"
+		addTestQuote(t, server, "Admin delete test", nil, &channel)
+
+		q := dbgen.New(server.DB)
+		quotes, _ := q.ListAllQuotes(context.Background())
+		quoteID := quotes[0].ID
+
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/quotes/%d/delete", quoteID), nil)
+		req.SetPathValue("id", fmt.Sprintf("%d", quoteID))
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleDeleteQuote(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 redirect, got %d", w.Code)
+		}
+
+		// Verify quote was deleted
+		_, err := q.GetQuoteByID(context.Background(), quoteID)
+		if !errors.Is(err, sql.ErrNoRows) {
+			t.Errorf("expected quote to be deleted, got err: %v", err)
+		}
+	})
+
+	t.Run("channel owner can delete quote from their channel", func(t *testing.T) {
+		server := testServer(t)
+		channel := "ownerchannel"
+		addTestQuote(t, server, "Owner delete test", nil, &channel)
+
+		// Add channel owner
+		q := dbgen.New(server.DB)
+		_ = q.AddChannelOwner(context.Background(), dbgen.AddChannelOwnerParams{
+			Channel:   channel,
+			UserEmail: "owner@test.com",
+		})
+
+		quotes, _ := q.ListAllQuotes(context.Background())
+		quoteID := quotes[0].ID
+
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/quotes/%d/delete", quoteID), nil)
+		req.SetPathValue("id", fmt.Sprintf("%d", quoteID))
+		req.Header.Set("X-ExeDev-UserID", "owner123")
+		req.Header.Set("X-ExeDev-Email", "owner@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleDeleteQuote(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 redirect, got %d", w.Code)
+		}
+	})
+}
+
+func TestHandleSubmitSuggestion(t *testing.T) {
+	t.Run("returns 400 for invalid JSON", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/api/suggestions", strings.NewReader("not json"))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		server.HandleSubmitSuggestion(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 400 when text is empty", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/api/suggestions", strings.NewReader(`{"text":"","channel":"test"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		server.HandleSubmitSuggestion(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "Text is required") {
+			t.Errorf("expected 'Text is required', got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("returns 400 when channel is empty", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/api/suggestions", strings.NewReader(`{"text":"test quote","channel":""}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		server.HandleSubmitSuggestion(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "Channel is required") {
+			t.Errorf("expected 'Channel is required', got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("returns 400 when text too long", func(t *testing.T) {
+		server := testServer(t)
+		longText := strings.Repeat("a", 501)
+		body := fmt.Sprintf(`{"text":"%s","channel":"test"}`, longText)
+		req := httptest.NewRequest(http.MethodPost, "/api/suggestions", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		server.HandleSubmitSuggestion(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "too long") {
+			t.Errorf("expected 'too long' error, got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("creates suggestion successfully", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/api/suggestions", strings.NewReader(`{"text":"Great quote!","channel":"testchannel"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		server.HandleSubmitSuggestion(w, req)
+
+		if w.Code != http.StatusCreated {
+			t.Errorf("expected 201, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "Suggestion submitted") {
+			t.Errorf("expected success message, got: %s", w.Body.String())
+		}
+
+		// Verify suggestion was created
+		q := dbgen.New(server.DB)
+		suggestions, err := q.ListPendingSuggestions(context.Background())
+		if err != nil {
+			t.Fatalf("failed to list suggestions: %v", err)
+		}
+		if len(suggestions) != 1 {
+			t.Fatalf("expected 1 suggestion, got %d", len(suggestions))
+		}
+		if suggestions[0].Text != "Great quote!" {
+			t.Errorf("expected text 'Great quote!', got %s", suggestions[0].Text)
+		}
+	})
+
+	t.Run("returns JSON response", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/api/suggestions", strings.NewReader(`{"text":"JSON test","channel":"ch"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		server.HandleSubmitSuggestion(w, req)
+
+		ct := w.Header().Get("Content-Type")
+		if !strings.Contains(ct, "application/json") {
+			t.Errorf("expected application/json, got %s", ct)
+		}
+	})
+
+	t.Run("tracks submitter email when authenticated", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/api/suggestions", strings.NewReader(`{"text":"Auth quote","channel":"ch"}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-ExeDev-Email", "submitter@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleSubmitSuggestion(w, req)
+
+		if w.Code != http.StatusCreated {
+			t.Errorf("expected 201, got %d", w.Code)
+		}
+
+		// Verify submitter was recorded
+		q := dbgen.New(server.DB)
+		suggestions, _ := q.ListPendingSuggestions(context.Background())
+		if len(suggestions) == 0 {
+			t.Fatal("expected suggestion")
+		}
+		if suggestions[0].SubmittedByUser == nil || *suggestions[0].SubmittedByUser != "submitter@test.com" {
+			t.Errorf("expected submitter email, got %v", suggestions[0].SubmittedByUser)
+		}
+	})
+}
+
+// addTestSuggestion adds a suggestion to the test database
+func addTestSuggestion(t *testing.T, s *Server, text, channel string) int64 {
+	t.Helper()
+	q := dbgen.New(s.DB)
+	err := q.CreateSuggestion(context.Background(), dbgen.CreateSuggestionParams{
+		Text:          text,
+		Channel:       channel,
+		SubmittedByIp: "127.0.0.1",
+		SubmittedAt:   time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("failed to create suggestion: %v", err)
+	}
+	// Get the ID
+	suggestions, _ := q.ListPendingSuggestions(context.Background())
+	for _, s := range suggestions {
+		if s.Text == text {
+			return s.ID
+		}
+	}
+	t.Fatal("suggestion not found")
+	return 0
+}
+
+func TestHandleApproveSuggestion(t *testing.T) {
+	t.Run("returns 401 when not authenticated", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/suggestions/1/approve", nil)
+		req.SetPathValue("id", "1")
+		w := httptest.NewRecorder()
+
+		server.HandleApproveSuggestion(w, req)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("expected 401, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 400 for invalid ID", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/suggestions/abc/approve", nil)
+		req.SetPathValue("id", "abc")
+		req.Header.Set("X-ExeDev-UserID", "user123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleApproveSuggestion(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 404 for non-existent suggestion", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/suggestions/99999/approve", nil)
+		req.SetPathValue("id", "99999")
+		req.Header.Set("X-ExeDev-UserID", "user123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleApproveSuggestion(w, req)
+
+		if w.Code != http.StatusNotFound {
+			t.Errorf("expected 404, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 403 when user cannot manage channel", func(t *testing.T) {
+		server := testServer(t)
+		sugID := addTestSuggestion(t, server, "Suggestion to approve", "somechannel")
+
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/suggestions/%d/approve", sugID), nil)
+		req.SetPathValue("id", fmt.Sprintf("%d", sugID))
+		req.Header.Set("X-ExeDev-UserID", "user123")
+		req.Header.Set("X-ExeDev-Email", "notowner@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleApproveSuggestion(w, req)
+
+		if w.Code != http.StatusForbidden {
+			t.Errorf("expected 403, got %d", w.Code)
+		}
+	})
+
+	t.Run("admin can approve suggestion and creates quote", func(t *testing.T) {
+		server := testServer(t)
+		sugID := addTestSuggestion(t, server, "Admin approved suggestion", "testchannel")
+
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/suggestions/%d/approve", sugID), nil)
+		req.SetPathValue("id", fmt.Sprintf("%d", sugID))
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleApproveSuggestion(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 redirect, got %d", w.Code)
+		}
+
+		// Verify quote was created
+		q := dbgen.New(server.DB)
+		quotes, _ := q.ListAllQuotes(context.Background())
+		found := false
+		for _, quote := range quotes {
+			if quote.Text == "Admin approved suggestion" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("expected quote to be created from suggestion")
+		}
+	})
+
+	t.Run("channel owner can approve suggestion for their channel", func(t *testing.T) {
+		server := testServer(t)
+		channel := "ownerchannel"
+		sugID := addTestSuggestion(t, server, "Owner approved", channel)
+
+		// Add channel owner
+		q := dbgen.New(server.DB)
+		_ = q.AddChannelOwner(context.Background(), dbgen.AddChannelOwnerParams{
+			Channel:   channel,
+			UserEmail: "owner@test.com",
+		})
+
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/suggestions/%d/approve", sugID), nil)
+		req.SetPathValue("id", fmt.Sprintf("%d", sugID))
+		req.Header.Set("X-ExeDev-UserID", "owner123")
+		req.Header.Set("X-ExeDev-Email", "owner@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleApproveSuggestion(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 redirect, got %d", w.Code)
+		}
+	})
+}
+
+func TestHandleBotSuggestion(t *testing.T) {
+	t.Run("returns 400 when no channel header", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodGet, "/api/suggest?text=test+quote", nil)
+		w := httptest.NewRecorder()
+
+		server.HandleBotSuggestion(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "channel") {
+			t.Errorf("expected channel error, got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("returns 400 when no text", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodGet, "/api/suggest", nil)
+		req.Header.Set("Nightbot-Channel", "name=testchannel&displayName=Test&provider=twitch&providerId=123")
+		w := httptest.NewRecorder()
+
+		server.HandleBotSuggestion(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "Usage") {
+			t.Errorf("expected usage message, got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("returns 400 when text too short", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodGet, "/api/suggest?text=ab", nil)
+		req.Header.Set("Nightbot-Channel", "name=testchannel&displayName=Test&provider=twitch&providerId=123")
+		w := httptest.NewRecorder()
+
+		server.HandleBotSuggestion(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "too short") {
+			t.Errorf("expected 'too short', got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("creates suggestion with Nightbot header", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodGet, "/api/suggest?text=Bot+suggested+quote", nil)
+		req.Header.Set("Nightbot-Channel", "name=botchannel&displayName=BotChannel&provider=twitch&providerId=123")
+		w := httptest.NewRecorder()
+
+		server.HandleBotSuggestion(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "submitted") {
+			t.Errorf("expected success message, got: %s", w.Body.String())
+		}
+
+		// Verify suggestion was created with correct channel
+		q := dbgen.New(server.DB)
+		suggestions, _ := q.ListPendingSuggestionsByChannel(context.Background(), "botchannel")
+		if len(suggestions) != 1 {
+			t.Fatalf("expected 1 suggestion, got %d", len(suggestions))
+		}
+		if suggestions[0].Text != "Bot suggested quote" {
+			t.Errorf("expected 'Bot suggested quote', got %s", suggestions[0].Text)
+		}
+	})
+
+	t.Run("creates suggestion with channel query param", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodGet, "/api/suggest?text=Query+param+quote&channel=querychannel", nil)
+		w := httptest.NewRecorder()
+
+		server.HandleBotSuggestion(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+	})
+}
+
+func TestHandleGetQuote(t *testing.T) {
+	t.Run("returns 400 for invalid ID", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodGet, "/api/quote/abc", nil)
+		req.SetPathValue("id", "abc")
+		w := httptest.NewRecorder()
+
+		server.HandleGetQuote(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 404 for non-existent quote", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodGet, "/api/quote/99999", nil)
+		req.SetPathValue("id", "99999")
+		w := httptest.NewRecorder()
+
+		server.HandleGetQuote(w, req)
+
+		if w.Code != http.StatusNotFound {
+			t.Errorf("expected 404, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns quote by ID", func(t *testing.T) {
+		server := testServer(t)
+		addTestQuote(t, server, "Quote by ID test", nil, nil)
+
+		q := dbgen.New(server.DB)
+		quotes, _ := q.ListAllQuotes(context.Background())
+		quoteID := quotes[0].ID
+
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/quote/%d", quoteID), nil)
+		req.SetPathValue("id", fmt.Sprintf("%d", quoteID))
+		w := httptest.NewRecorder()
+
+		server.HandleGetQuote(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "Quote by ID test") {
+			t.Errorf("expected quote text, got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("returns JSON when Accept header requests it", func(t *testing.T) {
+		server := testServer(t)
+		addTestQuote(t, server, "JSON ID test", nil, nil)
+
+		q := dbgen.New(server.DB)
+		quotes, _ := q.ListAllQuotes(context.Background())
+		quoteID := quotes[0].ID
+
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/quote/%d", quoteID), nil)
+		req.SetPathValue("id", fmt.Sprintf("%d", quoteID))
+		req.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+
+		server.HandleGetQuote(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+		ct := w.Header().Get("Content-Type")
+		if !strings.Contains(ct, "application/json") {
+			t.Errorf("expected application/json, got %s", ct)
+		}
+	})
+}
+
+func TestHandleEditQuote(t *testing.T) {
+	t.Run("redirects to login when not authenticated", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/quotes/1/edit", strings.NewReader("text=edited"))
+		req.SetPathValue("id", "1")
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+
+		server.HandleEditQuote(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303, got %d", w.Code)
+		}
+		loc := w.Header().Get("Location")
+		if !strings.Contains(loc, "login") {
+			t.Errorf("expected redirect to login, got: %s", loc)
+		}
+	})
+
+	t.Run("returns 404 for non-existent quote", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/quotes/99999/edit", strings.NewReader("text=edited"))
+		req.SetPathValue("id", "99999")
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleEditQuote(w, req)
+
+		if w.Code != http.StatusNotFound {
+			t.Errorf("expected 404, got %d", w.Code)
+		}
+	})
+
+	t.Run("admin can edit any quote", func(t *testing.T) {
+		server := testServer(t)
+		channel := "editchannel"
+		addTestQuote(t, server, "Original text", nil, &channel)
+
+		q := dbgen.New(server.DB)
+		quotes, _ := q.ListAllQuotes(context.Background())
+		quoteID := quotes[0].ID
+
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/quotes/%d/edit", quoteID), 
+			strings.NewReader("text=Edited+text&channel=editchannel"))
+		req.SetPathValue("id", fmt.Sprintf("%d", quoteID))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleEditQuote(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303, got %d", w.Code)
+		}
+
+		// Verify quote was updated
+		updated, _ := q.GetQuoteByID(context.Background(), quoteID)
+		if updated.Text != "Edited text" {
+			t.Errorf("expected 'Edited text', got %s", updated.Text)
+		}
+	})
+
+	t.Run("returns 403 when user cannot manage channel", func(t *testing.T) {
+		server := testServer(t)
+		channel := "otherchannel"
+		addTestQuote(t, server, "Protected quote", nil, &channel)
+
+		q := dbgen.New(server.DB)
+		quotes, _ := q.ListAllQuotes(context.Background())
+		quoteID := quotes[0].ID
+
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/quotes/%d/edit", quoteID), 
+			strings.NewReader("text=Hacked"))
+		req.SetPathValue("id", fmt.Sprintf("%d", quoteID))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "user123")
+		req.Header.Set("X-ExeDev-Email", "hacker@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleEditQuote(w, req)
+
+		if w.Code != http.StatusForbidden {
+			t.Errorf("expected 403, got %d", w.Code)
+		}
+	})
+}
+
+func TestHandleListAllQuotes(t *testing.T) {
+	t.Run("returns empty array when no quotes", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodGet, "/api/quotes", nil)
+		w := httptest.NewRecorder()
+
+		server.HandleListAllQuotes(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+		if w.Body.String() != "[]\n" {
+			t.Errorf("expected empty array, got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("returns JSON array of quotes", func(t *testing.T) {
+		server := testServer(t)
+		addTestQuote(t, server, "Quote 1", nil, nil)
+		addTestQuote(t, server, "Quote 2", nil, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/quotes", nil)
+		w := httptest.NewRecorder()
+
+		server.HandleListAllQuotes(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+		ct := w.Header().Get("Content-Type")
+		if !strings.Contains(ct, "application/json") {
+			t.Errorf("expected application/json, got %s", ct)
+		}
+		if !strings.Contains(w.Body.String(), "Quote 1") || !strings.Contains(w.Body.String(), "Quote 2") {
+			t.Errorf("expected both quotes, got: %s", w.Body.String())
 		}
 	})
 }
