@@ -218,3 +218,168 @@ func TestHandleRandomQuote(t *testing.T) {
 		}
 	})
 }
+
+// addTestMatchupQuote adds a matchup quote to the test database
+func addTestMatchupQuote(t *testing.T, s *Server, text string, civ, opponentCiv string, channel *string) {
+	t.Helper()
+	q := dbgen.New(s.DB)
+	err := q.CreateQuote(context.Background(), dbgen.CreateQuoteParams{
+		Text:         text,
+		Civilization: &civ,
+		OpponentCiv:  &opponentCiv,
+		Channel:      channel,
+	})
+	if err != nil {
+		t.Fatalf("failed to create matchup quote: %v", err)
+	}
+}
+
+func TestHandleMatchup(t *testing.T) {
+	t.Run("returns 400 when missing civ param", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodGet, "/api/matchup?vs=french", nil)
+		w := httptest.NewRecorder()
+
+		server.HandleMatchup(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "Usage:") {
+			t.Errorf("expected usage message, got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("returns 400 when missing vs param", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodGet, "/api/matchup?civ=hre", nil)
+		w := httptest.NewRecorder()
+
+		server.HandleMatchup(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 400 when no params", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodGet, "/api/matchup", nil)
+		w := httptest.NewRecorder()
+
+		server.HandleMatchup(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 200 with message when no matchup tips", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodGet, "/api/matchup?civ=hre&vs=french", nil)
+		w := httptest.NewRecorder()
+
+		server.HandleMatchup(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "No tips") {
+			t.Errorf("expected 'No tips' message, got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("returns matchup tip when available", func(t *testing.T) {
+		server := testServer(t)
+		addTestMatchupQuote(t, server, "HRE vs French tip", "Holy Roman Empire", "French", nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/matchup?civ=Holy+Roman+Empire&vs=French", nil)
+		w := httptest.NewRecorder()
+
+		server.HandleMatchup(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "HRE vs French tip") {
+			t.Errorf("expected matchup tip, got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("resolves civ shortnames", func(t *testing.T) {
+		server := testServer(t)
+		// Civs already exist from migrations
+		addTestMatchupQuote(t, server, "Shortname matchup tip", "Holy Roman Empire", "French", nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/matchup?civ=hre&vs=french", nil)
+		w := httptest.NewRecorder()
+
+		server.HandleMatchup(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "Shortname matchup tip") {
+			t.Errorf("expected matchup tip, got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("supports Nightbot querystring format", func(t *testing.T) {
+		server := testServer(t)
+		addTestMatchupQuote(t, server, "Nightbot format tip", "Holy Roman Empire", "French", nil)
+
+		// Nightbot sends: /api/matchup?hre french (space-separated)
+		req := httptest.NewRequest(http.MethodGet, "/api/matchup?hre%20french", nil)
+		w := httptest.NewRecorder()
+
+		server.HandleMatchup(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "Nightbot format tip") {
+			t.Errorf("expected matchup tip, got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("filters by channel", func(t *testing.T) {
+		server := testServer(t)
+		channel := "teststreamer"
+		addTestMatchupQuote(t, server, "Channel specific tip", "Holy Roman Empire", "French", &channel)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/matchup?civ=hre&vs=french", nil)
+		req.Header.Set("Nightbot-Channel", "name=teststreamer&displayName=TestStreamer&provider=twitch&providerId=123")
+		w := httptest.NewRecorder()
+
+		server.HandleMatchup(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "Channel specific tip") {
+			t.Errorf("expected channel tip, got: %s", w.Body.String())
+		}
+	})
+
+	t.Run("returns JSON when Accept header requests it", func(t *testing.T) {
+		server := testServer(t)
+		addTestMatchupQuote(t, server, "JSON matchup tip", "Holy Roman Empire", "French", nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/matchup?civ=hre&vs=french", nil)
+		req.Header.Set("Accept", "application/json")
+		w := httptest.NewRecorder()
+
+		server.HandleMatchup(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+		ct := w.Header().Get("Content-Type")
+		if !strings.Contains(ct, "application/json") {
+			t.Errorf("expected application/json, got %s", ct)
+		}
+		if !strings.Contains(w.Body.String(), `"opponent_civ"`) {
+			t.Errorf("expected JSON with opponent_civ field, got: %s", w.Body.String())
+		}
+	})
+}
