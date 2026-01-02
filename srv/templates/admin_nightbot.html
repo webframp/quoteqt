@@ -48,7 +48,24 @@
         }
         .card > *:first-child { margin-top: 0; }
         .card > *:last-child { margin-bottom: 0; }
-        .card ul { padding-left: 1.5rem; }
+        .card ol, .card ul { padding-left: 1.5rem; }
+        .token-form { margin-top: 1rem; }
+        .token-form .form-group { margin-bottom: 1rem; }
+        .token-form label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        .token-form input[type="text"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: monospace;
+        }
+        .token-form input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-soft);
+        }
     </style>
 </head>
 <body>
@@ -64,29 +81,43 @@
         <div class="message error">{{.Error}}</div>
     {{end}}
 
-    <div class="card status-card {{if .NightbotConnected}}status-connected{{else}}status-disconnected{{end}}">
-        <h2>Connection Status</h2>
-        {{if .NightbotConnected}}
-            <p><i data-lucide="check-circle"></i> Connected to Nightbot as <span class="channel-name">{{.NightbotChannel}}</span></p>
+    <div class="card status-card {{if .HasToken}}status-connected{{else}}status-disconnected{{end}}">
+        <h2>Access Token</h2>
+        {{if .HasToken}}
+            <p><i data-lucide="check-circle"></i> Token configured for <span class="channel-name">{{.NightbotChannel}}</span></p>
             <div class="actions">
                 <a href="/admin/nightbot/export" class="btn btn-primary"><i data-lucide="download"></i> Export Commands</a>
                 <form action="/admin/nightbot/disconnect" method="POST" style="display: inline;">
-                    <button type="submit" class="btn btn-secondary"><i data-lucide="unplug"></i> Disconnect</button>
+                    <button type="submit" class="btn btn-secondary"><i data-lucide="trash-2"></i> Remove Token</button>
                 </form>
             </div>
         {{else}}
-            <p><i data-lucide="alert-circle"></i> Not connected to Nightbot</p>
-            {{if .ConnectURL}}
-                <div class="actions">
-                    <a href="{{.ConnectURL}}" class="btn btn-primary"><i data-lucide="plug"></i> Connect to Nightbot</a>
-                </div>
-            {{else}}
-                <p class="warning-text">Nightbot OAuth credentials not configured. Set NIGHTBOT_CLIENT_ID and NIGHTBOT_CLIENT_SECRET environment variables.</p>
-            {{end}}
+            <p><i data-lucide="alert-circle"></i> No access token configured</p>
         {{end}}
     </div>
 
-    {{if .NightbotConnected}}
+    <div class="card">
+        <h2><i data-lucide="key"></i> {{if .HasToken}}Update{{else}}Add{{end}} Access Token</h2>
+        <p>To get your Nightbot access token:</p>
+        <ol>
+            <li>Go to <a href="https://nightbot.tv/dashboard" target="_blank">nightbot.tv/dashboard</a> and log in</li>
+            <li>Open browser Developer Tools (F12) → Network tab</li>
+            <li>Refresh the page or click on any menu item</li>
+            <li>Find any request to <code>api.nightbot.tv</code></li>
+            <li>Look in Request Headers for <code>Authorization: Bearer ...</code></li>
+            <li>Copy the token (everything after "Bearer ")</li>
+        </ol>
+        <form action="/admin/nightbot/token" method="POST" class="token-form">
+            <div class="form-group">
+                <label for="access_token">Access Token</label>
+                <input type="text" id="access_token" name="access_token" placeholder="Paste your token here" required>
+            </div>
+            <button type="submit" class="btn btn-primary"><i data-lucide="save"></i> Save Token</button>
+        </form>
+        <p class="warning-text">Note: Tokens expire after ~30 days. You'll need to get a new one when it expires.</p>
+    </div>
+
+    {{if .HasToken}}
     <div class="card">
         <h2><i data-lucide="upload"></i> Import Commands</h2>
         <p>Upload a previously exported backup file to restore commands.</p>
