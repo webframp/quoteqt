@@ -51,6 +51,10 @@ func DefaultConfig() Config {
 func ConfigFromEnv() Config {
 	cfg := DefaultConfig()
 
+	if v := os.Getenv("HOSTNAME"); v != "" {
+		cfg.Hostname = v
+	}
+
 	if v := os.Getenv("DB_PATH"); v != "" {
 		cfg.DBPath = v
 	}
