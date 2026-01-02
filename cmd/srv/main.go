@@ -58,7 +58,10 @@ func run() error {
 
 	// Load config from environment with defaults
 	cfg := srv.ConfigFromEnv()
-	cfg.Hostname = hostname
+	// Only use os.Hostname() if HOSTNAME env var not set
+	if cfg.Hostname == "localhost" {
+		cfg.Hostname = hostname
+	}
 
 	// Parse admin emails from environment variable (comma-separated)
 	if adminEnv := os.Getenv("ADMIN_EMAILS"); adminEnv != "" {
