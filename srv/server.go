@@ -1462,10 +1462,7 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("POST /admin/owners/delete", s.HandleRemoveChannelOwner)
 	// Nightbot backup/restore
 	mux.HandleFunc("GET /admin/nightbot", s.HandleNightbotAdmin)
-	mux.HandleFunc("POST /admin/nightbot/token", s.HandleNightbotSaveToken)
-	mux.HandleFunc("GET /admin/nightbot/export", s.HandleNightbotExport)
-	mux.HandleFunc("POST /admin/nightbot/import", s.HandleNightbotImport)
-	mux.HandleFunc("POST /admin/nightbot/disconnect", s.HandleNightbotDisconnect)
+	mux.HandleFunc("POST /admin/nightbot/validate", s.HandleNightbotValidate)
 	mux.Handle("/static/", http.StripPrefix("/static/", StaticFileServer(s.StaticDir)))
 
 	// API routes with rate limiting (including docs)
