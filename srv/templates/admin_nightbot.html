@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <title>Nightbot Backup - Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/theme.css?v=8">
+    <style>
+        body { max-width: 800px; margin: 0 auto; padding: 2rem; }
+        .status-card { margin-bottom: 2rem; }
+        .status-connected { border-left: 4px solid var(--success); }
+        .status-disconnected { border-left: 4px solid var(--text-secondary); }
+        .channel-name { color: var(--accent); font-weight: 600; }
+        .actions { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; }
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        .file-name {
+            margin-left: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        .import-form {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .warning-text {
+            color: var(--danger);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        .card > *:first-child { margin-top: 0; }
+        .card > *:last-child { margin-bottom: 0; }
+    </style>
+</head>
+<body>
+    {{template "nav" .}}
+
+    <h1><i data-lucide="bot"></i> Nightbot Backup</h1>
+    <p class="subtitle">Backup and restore your Nightbot custom commands</p>
+
+    {{if .Success}}
+        <div class="message success">{{.Success}}</div>
+    {{end}}
+    {{if .Error}}
+        <div class="message error">{{.Error}}</div>
+    {{end}}
+
+    <div class="card status-card {{if .NightbotConnected}}status-connected{{else}}status-disconnected{{end}}">
+        <h2>Connection Status</h2>
+        {{if .NightbotConnected}}
+            <p><i data-lucide="check-circle"></i> Connected to Nightbot as <span class="channel-name">{{.NightbotChannel}}</span></p>
+            <div class="actions">
+                <a href="/admin/nightbot/export" class="btn btn-primary"><i data-lucide="download"></i> Export Commands</a>
+                <form action="/admin/nightbot/disconnect" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-secondary"><i data-lucide="unplug"></i> Disconnect</button>
+                </form>
+            </div>
+        {{else}}
+            <p><i data-lucide="alert-circle"></i> Not connected to Nightbot</p>
+            {{if .ConnectURL}}
+                <div class="actions">
+                    <a href="{{.ConnectURL}}" class="btn btn-primary"><i data-lucide="plug"></i> Connect to Nightbot</a>
+                </div>
+            {{else}}
+                <p class="warning-text">Nightbot OAuth credentials not configured. Set NIGHTBOT_CLIENT_ID and NIGHTBOT_CLIENT_SECRET environment variables.</p>
+            {{end}}
+        {{end}}
+    </div>
+
+    {{if .NightbotConnected}}
+    <div class="card">
+        <h2><i data-lucide="upload"></i> Import Commands</h2>
+        <p>Upload a previously exported backup file to restore commands.</p>
+        <form action="/admin/nightbot/import" method="POST" enctype="multipart/form-data" class="import-form">
+            <div class="file-input-wrapper">
+                <button type="button" class="btn btn-secondary"><i data-lucide="file"></i> Choose File</button>
+                <input type="file" name="backup" accept=".json" required onchange="updateFileName(this)">
+            </div>
+            <span class="file-name" id="file-name">No file chosen</span>
+            <button type="submit" class="btn btn-primary"><i data-lucide="upload"></i> Import</button>
+        </form>
+        <p class="warning-text">Note: Existing commands with the same name will be skipped (not overwritten).</p>
+    </div>
+    {{end}}
+
+    <div class="card">
+        <h2><i data-lucide="info"></i> About</h2>
+        <p>This tool allows you to:</p>
+        <ul>
+            <li><strong>Export</strong> - Download all your custom Nightbot commands as a JSON file</li>
+            <li><strong>Import</strong> - Restore commands from a previously exported backup</li>
+        </ul>
+        <p>Useful for:</p>
+        <ul>
+            <li>Backing up commands before making major changes</li>
+            <li>Migrating commands to a new channel</li>
+            <li>Sharing command setups between channels</li>
+        </ul>
+    </div>
+
+    <script>
+        function updateFileName(input) {
+            const fileName = input.files[0]?.name || 'No file chosen';
+            document.getElementById('file-name').textContent = fileName;
+        }
+    </script>
+    <script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js" integrity="sha384-8nT3SpButyvenpAdKYPJzXdSz3zidMGduMoaMvwjKnAWVv238n6P1mhveiJJQWrV" crossorigin="anonymous"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>
