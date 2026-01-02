@@ -48,50 +48,7 @@
         }
         .card > *:first-child { margin-top: 0; }
         .card > *:last-child { margin-bottom: 0; }
-        .card ol, .card ul { padding-left: 1.5rem; }
-        .token-form { margin-top: 1rem; }
-        .token-form .form-group { margin-bottom: 1rem; }
-        .token-form label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
-        .token-form input[type="text"] {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            font-family: monospace;
-        }
-        .token-form input[type="text"]:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 2px var(--accent-soft);
-        }
-        .bookmarklet {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-            background: var(--accent);
-            color: white;
-            padding: 0.4rem 0.75rem;
-            border-radius: var(--radius-sm);
-            text-decoration: none;
-            font-weight: 500;
-            cursor: grab;
-        }
-        .bookmarklet:hover {
-            background: var(--accent-hover);
-        }
-        .manual-instructions {
-            margin-top: 1rem;
-            color: var(--text-secondary);
-        }
-        .manual-instructions summary {
-            cursor: pointer;
-            color: var(--text-secondary);
-        }
-        .manual-instructions ol {
-            margin-top: 0.5rem;
-        }
+        .card ul { padding-left: 1.5rem; }
     </style>
 </head>
 <body>
@@ -107,47 +64,57 @@
         <div class="message error">{{.Error}}</div>
     {{end}}
 
-
-
-    <div class="card">
-        <h2><i data-lucide="download"></i> Export Commands (Bookmarklet)</h2>
-        <p>Since Nightbot doesn't allow third-party API access, use this bookmarklet to export your commands directly:</p>
-        <ol>
-            <li>Drag this to your bookmarks bar: <a href="javascript:(function(){if(!location.hostname.includes('nightbot.tv')){alert('Please run this on nightbot.tv/commands');return}var cmds=[];document.querySelectorAll('tr[class*=CommandRow]').forEach(function(r){var name=r.querySelector('td:first-child')?.textContent?.trim();var msg=r.querySelector('td:nth-child(2)')?.textContent?.trim();if(name&&msg)cmds.push({name:name,message:msg,coolDown:5,userLevel:'everyone'})});if(cmds.length===0){alert('No commands found. Make sure you are on the Commands page and it has loaded.');return}var backup={exportedAt:new Date().toISOString(),channel:'nightbot-export',commandCount:cmds.length,commands:cmds};var blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='nightbot-commands-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);alert('Exported '+cmds.length+' commands!')})();" class="bookmarklet" onclick="alert('Drag this to your bookmarks bar!'); return false;"><i data-lucide="bookmark"></i> Export Nightbot Commands</a></li>
-            <li>Go to <a href="https://nightbot.tv/commands" target="_blank">nightbot.tv/commands</a> and log in</li>
-            <li>Click the bookmarklet - it will download a JSON file</li>
-            <li>Upload that file below to import into another channel</li>
-        </ol>
-        <p class="warning-text">Note: The bookmarklet extracts basic command info (name, message). Cooldown and user level default to 5s and "everyone".</p>
+    <div class="card status-card {{if .NightbotConnected}}status-connected{{else}}status-disconnected{{end}}">
+        <h2>Connection Status</h2>
+        {{if .NightbotConnected}}
+            <p><i data-lucide="check-circle"></i> Connected to Nightbot as <span class="channel-name">{{.NightbotChannel}}</span></p>
+            <div class="actions">
+                <a href="/admin/nightbot/export" class="btn btn-primary"><i data-lucide="download"></i> Export Commands</a>
+                <form action="/admin/nightbot/disconnect" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-secondary"><i data-lucide="unplug"></i> Disconnect</button>
+                </form>
+            </div>
+        {{else}}
+            <p><i data-lucide="alert-circle"></i> Not connected to Nightbot</p>
+            {{if .ConnectURL}}
+                <div class="actions">
+                    <a href="{{.ConnectURL}}" class="btn btn-primary"><i data-lucide="plug"></i> Connect to Nightbot</a>
+                </div>
+            {{else}}
+                <p class="warning-text">Nightbot OAuth credentials not configured. Set NIGHTBOT_CLIENT_ID and NIGHTBOT_CLIENT_SECRET environment variables.</p>
+            {{end}}
+        {{end}}
     </div>
 
+    {{if .NightbotConnected}}
     <div class="card">
         <h2><i data-lucide="upload"></i> Import Commands</h2>
-        <p>To import commands into Nightbot, you'll need to use the Nightbot dashboard directly. This tool helps you manage backup files.</p>
-        <form action="/admin/nightbot/validate" method="POST" enctype="multipart/form-data" class="import-form">
+        <p>Upload a previously exported backup file to restore commands.</p>
+        <form action="/admin/nightbot/import" method="POST" enctype="multipart/form-data" class="import-form">
             <div class="file-input-wrapper">
-                <button type="button" class="btn btn-secondary"><i data-lucide="file"></i> Choose Backup File</button>
+                <button type="button" class="btn btn-secondary"><i data-lucide="file"></i> Choose File</button>
                 <input type="file" name="backup" accept=".json" required onchange="updateFileName(this)">
             </div>
             <span class="file-name" id="file-name">No file chosen</span>
-            <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Validate &amp; View</button>
+            <button type="submit" class="btn btn-primary"><i data-lucide="upload"></i> Import</button>
         </form>
+        <p class="warning-text">Note: Existing commands with the same name will be skipped (not overwritten).</p>
     </div>
+    {{end}}
 
     <div class="card">
         <h2><i data-lucide="info"></i> About</h2>
-        <p>This tool helps you backup and manage Nightbot commands:</p>
+        <p>This tool allows you to:</p>
         <ul>
-            <li><strong>Export</strong> - Use the bookmarklet above to download commands from Nightbot</li>
-            <li><strong>Validate</strong> - Check backup files for errors before manual import</li>
+            <li><strong>Export</strong> - Download all your custom Nightbot commands as a JSON file</li>
+            <li><strong>Import</strong> - Restore commands from a previously exported backup</li>
         </ul>
         <p>Useful for:</p>
         <ul>
             <li>Backing up commands before making major changes</li>
+            <li>Migrating commands to a new channel</li>
             <li>Sharing command setups between channels</li>
-            <li>Keeping an offline record of your commands</li>
         </ul>
-        <p class="warning-text">Note: Due to Nightbot API limitations, automatic import is not available. Commands must be added manually through the Nightbot dashboard.</p>
     </div>
 
     <script>

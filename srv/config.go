@@ -23,6 +23,10 @@ type Config struct {
 	// Suggestion Rate Limiting
 	SuggestionRateLimit    int           // suggestions per interval per IP/channel
 	SuggestionRateInterval time.Duration // interval for suggestion rate limit
+
+	// Nightbot OAuth
+	NightbotClientID     string
+	NightbotClientSecret string
 }
 
 // DefaultConfig returns a Config with sensible defaults.
@@ -80,6 +84,9 @@ func ConfigFromEnv() Config {
 			cfg.SuggestionRateInterval = d
 		}
 	}
+
+	cfg.NightbotClientID = os.Getenv("NIGHTBOT_CLIENT_ID")
+	cfg.NightbotClientSecret = os.Getenv("NIGHTBOT_CLIENT_SECRET")
 
 	return cfg
 }
