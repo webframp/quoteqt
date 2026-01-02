@@ -4,6 +4,16 @@ This is an AoE4 Quote Database application built for exe.dev.
 
 See README.md for full documentation.
 
+## CONTRACT.md vs AGENT.md
+
+| File | Purpose | Agent can edit? |
+|------|---------|----------------|
+| `CONTRACT.md` | Hard rules that must not be violated | **No** |
+| `AGENT.md` | Conventions and patterns for how to work | Yes |
+
+**Read CONTRACT.md first.** It defines inviolable rules around database safety,
+API stability, and security. Violations must be escalated, not worked around.
+
 ## Tech Stack
 
 - **Go 1.25+** - Backend server
