@@ -66,6 +66,32 @@
             border-color: var(--accent);
             box-shadow: 0 0 0 2px var(--accent-soft);
         }
+        .bookmarklet {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: var(--accent);
+            color: white;
+            padding: 0.4rem 0.75rem;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            font-weight: 500;
+            cursor: grab;
+        }
+        .bookmarklet:hover {
+            background: var(--accent-hover);
+        }
+        .manual-instructions {
+            margin-top: 1rem;
+            color: var(--text-secondary);
+        }
+        .manual-instructions summary {
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+        .manual-instructions ol {
+            margin-top: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -101,12 +127,20 @@
         <p>To get your Nightbot access token:</p>
         <ol>
             <li>Go to <a href="https://nightbot.tv/dashboard" target="_blank">nightbot.tv/dashboard</a> and log in</li>
-            <li>Open browser Developer Tools (F12) → Network tab</li>
-            <li>Refresh the page or click on any menu item</li>
-            <li>Find any request to <code>api.nightbot.tv</code></li>
-            <li>Look in Request Headers for <code>Authorization: Bearer ...</code></li>
-            <li>Copy the token (everything after "Bearer ")</li>
+            <li>Drag this bookmarklet to your bookmarks bar: <a href="javascript:(function(){try{var a=JSON.parse(localStorage.getItem('AUTHENTICATION_STORE')),t=a?.state?.accessToken;if(t){navigator.clipboard.writeText(t).then(function(){alert('Nightbot token copied to clipboard!')}).catch(function(){prompt('Copy this token:',t)})}else{alert('No Nightbot token found. Make sure you are logged in.')}}catch(e){alert('Error: '+e.message)}})();" class="bookmarklet" onclick="alert('Drag this to your bookmarks bar!'); return false;"><i data-lucide="bookmark"></i> Get Nightbot Token</a></li>
+            <li>Click the bookmarklet while on the Nightbot dashboard</li>
+            <li>Paste the token below</li>
         </ol>
+        <details class="manual-instructions">
+            <summary>Manual method (if bookmarklet doesn't work)</summary>
+            <ol>
+                <li>Open browser Developer Tools (F12) → Network tab</li>
+                <li>Refresh the page or click on any menu item</li>
+                <li>Find any request to <code>api.nightbot.tv</code></li>
+                <li>Look in Request Headers for <code>Authorization: Bearer ...</code></li>
+                <li>Copy the token (everything after "Bearer ")</li>
+            </ol>
+        </details>
         <form action="/admin/nightbot/token" method="POST" class="token-form">
             <div class="form-group">
                 <label for="access_token">Access Token</label>
