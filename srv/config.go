@@ -27,6 +27,7 @@ type Config struct {
 	// Nightbot OAuth
 	NightbotClientID     string
 	NightbotClientSecret string
+	NightbotImportToken  string // API token for Tampermonkey imports
 }
 
 // DefaultConfig returns a Config with sensible defaults.
@@ -91,6 +92,7 @@ func ConfigFromEnv() Config {
 
 	cfg.NightbotClientID = os.Getenv("NIGHTBOT_CLIENT_ID")
 	cfg.NightbotClientSecret = os.Getenv("NIGHTBOT_CLIENT_SECRET")
+	cfg.NightbotImportToken = os.Getenv("NIGHTBOT_IMPORT_TOKEN")
 
 	return cfg
 }

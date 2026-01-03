@@ -1239,15 +1239,18 @@ func (s *Server) HandleNightbotSnapshotRestore(w http.ResponseWriter, r *http.Re
 // HandleNightbotImportSnapshot imports a snapshot from Tampermonkey export
 func (s *Server) HandleNightbotImportSnapshot(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	
+	// Allow auth via either exe.dev headers OR import token
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
-
-	if userEmail == "" {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
-		return
-	}
-
-	if !s.isAdmin(userEmail) {
-		http.Error(w, "Admin access required", http.StatusForbidden)
+	authToken := r.Header.Get("X-Import-Token")
+	
+	var authenticatedAs string
+	if userEmail != "" && s.isAdmin(userEmail) {
+		authenticatedAs = userEmail
+	} else if s.Config.NightbotImportToken != "" && authToken == s.Config.NightbotImportToken {
+		authenticatedAs = "api-token"
+	} else {
+		http.Error(w, "Authentication required. Use exe.dev login or X-Import-Token header.", http.StatusUnauthorized)
 		return
 	}
 
@@ -1303,7 +1306,7 @@ func (s *Server) HandleNightbotImportSnapshot(w http.ResponseWriter, r *http.Req
 	_, err = s.DB.ExecContext(ctx,
 		`INSERT INTO nightbot_snapshots (channel_name, snapshot_at, command_count, commands_json, created_by, note)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
-		channelName, snapshotAt, len(backup.Commands), string(commandsJSON), userEmail, "Imported via Tampermonkey")
+		channelName, snapshotAt, len(backup.Commands), string(commandsJSON), authenticatedAs, "Imported via Tampermonkey")
 	if err != nil {
 		slog.Error("import snapshot: insert", "error", err)
 		http.Error(w, "Failed to save snapshot", http.StatusInternalServerError)
@@ -1314,7 +1317,7 @@ func (s *Server) HandleNightbotImportSnapshot(w http.ResponseWriter, r *http.Req
 		"channel", channelName,
 		"commands", len(backup.Commands),
 		"exportedAt", snapshotAt,
-		"user", userEmail)
+		"authenticatedAs", authenticatedAs)
 
 	// Return JSON response for Tampermonkey script
 	w.Header().Set("Content-Type", "application/json")
