@@ -71,6 +71,13 @@
     <h1><i data-lucide="history"></i> Snapshots: {{.ChannelName}}</h1>
     <p class="subtitle">Saved command snapshots for this channel</p>
 
+    {{if .Success}}
+        <div class="message success">{{.Success}}</div>
+    {{end}}
+    {{if .Error}}
+        <div class="message error">{{.Error}}</div>
+    {{end}}
+
     <div class="card">
         {{if .Snapshots}}
             <ul class="snapshot-list">
@@ -83,7 +90,11 @@
                     </div>
                     <div class="snapshot-actions">
                         <a href="/admin/nightbot/snapshot/diff?id={{.ID}}" class="btn btn-small btn-secondary"><i data-lucide="git-compare"></i> Compare</a>
-                        <a href="/admin/nightbot/snapshot/download?id={{.ID}}" class="btn btn-small btn-primary"><i data-lucide="download"></i> Download</a>
+                        <a href="/admin/nightbot/snapshot/download?id={{.ID}}" class="btn btn-small btn-secondary"><i data-lucide="download"></i> Download</a>
+                        <form action="/admin/nightbot/snapshot/restore" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to restore this snapshot?\n\nThis will make Nightbot match this snapshot exactly:\n• Commands not in the snapshot will be DELETED\n• Modified commands will be reverted\n• Missing commands will be created');">
+                            <input type="hidden" name="id" value="{{.ID}}">
+                            <button type="submit" class="btn btn-small btn-danger"><i data-lucide="rotate-ccw"></i> Restore</button>
+                        </form>
                     </div>
                 </li>
                 {{end}}

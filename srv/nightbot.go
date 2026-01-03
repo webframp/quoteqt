@@ -566,6 +566,54 @@ func (s *Server) createNightbotCommand(ctx context.Context, accessToken string, 
 	return nil
 }
 
+func (s *Server) updateNightbotCommand(ctx context.Context, accessToken string, id string, cmd NightbotCommand) error {
+	data := url.Values{}
+	data.Set("message", cmd.Message)
+	data.Set("coolDown", fmt.Sprintf("%d", cmd.CoolDown))
+	data.Set("userLevel", cmd.UserLevel)
+
+	req, err := http.NewRequestWithContext(ctx, "PUT", nightbotAPIBase+"/commands/"+id, strings.NewReader(data.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("%s - %s", resp.Status, string(body))
+	}
+
+	return nil
+}
+
+func (s *Server) deleteNightbotCommand(ctx context.Context, accessToken string, id string) error {
+	req, err := http.NewRequestWithContext(ctx, "DELETE", nightbotAPIBase+"/commands/"+id, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("%s - %s", resp.Status, string(body))
+	}
+
+	return nil
+}
+
 // HandleNightbotDisconnect removes the stored Nightbot token for a channel
 func (s *Server) HandleNightbotDisconnect(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -709,6 +757,8 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 	data := struct {
 		ChannelName     string
 		Snapshots       []dbgen.NightbotSnapshot
+		Success         string
+		Error           string
 		IsAuthenticated bool
 		IsAdmin         bool
 		IsPublicPage    bool
@@ -716,6 +766,8 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 	}{
 		ChannelName:     channelName,
 		Snapshots:       snapshots,
+		Success:         r.URL.Query().Get("success"),
+		Error:           r.URL.Query().Get("error"),
 		IsAuthenticated: true,
 		IsAdmin:         true, // Only admins can access this page
 		IsPublicPage:    false,
@@ -984,4 +1036,122 @@ func (s *Server) HandleNightbotSnapshotDiff(w http.ResponseWriter, r *http.Reque
 		slog.Error("render diff template", "error", err)
 		http.Error(w, "Failed to render page", http.StatusInternalServerError)
 	}
+}
+
+// HandleNightbotSnapshotRestore restores a snapshot to Nightbot (full restore)
+func (s *Server) HandleNightbotSnapshotRestore(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+
+	if userEmail == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.FormValue("id")
+	if idStr == "" {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Missing snapshot ID"), http.StatusSeeOther)
+		return
+	}
+
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Invalid snapshot ID"), http.StatusSeeOther)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	snapshot, err := q.GetNightbotSnapshot(ctx, id)
+	if err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Snapshot not found"), http.StatusSeeOther)
+		return
+	}
+
+	// Get valid token for this channel
+	accessToken, err := s.getValidNightbotToken(ctx, userEmail, snapshot.ChannelName)
+	if err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Not connected to channel: "+snapshot.ChannelName), http.StatusSeeOther)
+		return
+	}
+
+	// Parse snapshot commands
+	var snapshotCommands []NightbotCommand
+	if err := json.Unmarshal([]byte(snapshot.CommandsJson), &snapshotCommands); err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Failed to parse snapshot"), http.StatusSeeOther)
+		return
+	}
+
+	// Fetch current commands from Nightbot
+	currentCommands, err := s.getNightbotCommands(ctx, accessToken)
+	if err != nil {
+		slog.Error("fetch nightbot commands for restore", "error", err)
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Failed to fetch current commands"), http.StatusSeeOther)
+		return
+	}
+
+	// Build maps for comparison
+	snapshotMap := make(map[string]NightbotCommand)
+	for _, cmd := range snapshotCommands {
+		snapshotMap[cmd.Name] = cmd
+	}
+	currentMap := make(map[string]NightbotCommand)
+	for _, cmd := range currentCommands {
+		currentMap[cmd.Name] = cmd
+	}
+
+	var created, updated, deleted, errors int
+
+	// Delete commands that exist in current but not in snapshot
+	for name, curCmd := range currentMap {
+		if _, exists := snapshotMap[name]; !exists {
+			if err := s.deleteNightbotCommand(ctx, accessToken, curCmd.ID); err != nil {
+				slog.Warn("delete command during restore", "name", name, "error", err)
+				errors++
+			} else {
+				deleted++
+			}
+		}
+	}
+
+	// Create or update commands from snapshot
+	for name, snapCmd := range snapshotMap {
+		if curCmd, exists := currentMap[name]; exists {
+			// Update if different
+			if snapCmd.Message != curCmd.Message || snapCmd.CoolDown != curCmd.CoolDown || snapCmd.UserLevel != curCmd.UserLevel {
+				if err := s.updateNightbotCommand(ctx, accessToken, curCmd.ID, snapCmd); err != nil {
+					slog.Warn("update command during restore", "name", name, "error", err)
+					errors++
+				} else {
+					updated++
+				}
+			}
+		} else {
+			// Create new command
+			if err := s.createNightbotCommand(ctx, accessToken, snapCmd); err != nil {
+				slog.Warn("create command during restore", "name", name, "error", err)
+				errors++
+			} else {
+				created++
+			}
+		}
+	}
+
+	msg := fmt.Sprintf("Restored snapshot: %d created, %d updated, %d deleted", created, updated, deleted)
+	if errors > 0 {
+		msg += fmt.Sprintf(", %d errors", errors)
+	}
+
+	slog.Info("snapshot restored", "channel", snapshot.ChannelName, "snapshot_id", id, "created", created, "updated", updated, "deleted", deleted, "errors", errors, "user", userEmail)
+
+	http.Redirect(w, r, "/admin/nightbot/snapshots?channel="+url.QueryEscape(snapshot.ChannelName)+"&success="+url.QueryEscape(msg), http.StatusSeeOther)
 }
