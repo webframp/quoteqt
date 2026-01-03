@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -783,4 +784,180 @@ func (s *Server) HandleNightbotSnapshotDownload(w http.ResponseWriter, r *http.R
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	enc.Encode(backup)
+}
+
+// CommandDiff represents the diff status of a command
+type CommandDiff struct {
+	Name       string
+	Status     string // "added", "removed", "modified", "unchanged"
+	OldMessage string
+	NewMessage string
+	OldCoolDown int
+	NewCoolDown int
+	OldUserLevel string
+	NewUserLevel string
+}
+
+// HandleNightbotSnapshotDiff shows diff between snapshot and current config
+func (s *Server) HandleNightbotSnapshotDiff(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+
+	if userEmail == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Missing snapshot ID"), http.StatusSeeOther)
+		return
+	}
+
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Invalid snapshot ID"), http.StatusSeeOther)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	snapshot, err := q.GetNightbotSnapshot(ctx, id)
+	if err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Snapshot not found"), http.StatusSeeOther)
+		return
+	}
+
+	// Get valid token for this channel
+	accessToken, err := s.getValidNightbotToken(ctx, userEmail, snapshot.ChannelName)
+	if err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Not connected to channel: "+snapshot.ChannelName), http.StatusSeeOther)
+		return
+	}
+
+	// Fetch current commands from Nightbot
+	currentCommands, err := s.getNightbotCommands(ctx, accessToken)
+	if err != nil {
+		slog.Error("fetch nightbot commands for diff", "error", err)
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Failed to fetch current commands"), http.StatusSeeOther)
+		return
+	}
+
+	// Parse snapshot commands
+	var snapshotCommands []NightbotCommand
+	if err := json.Unmarshal([]byte(snapshot.CommandsJson), &snapshotCommands); err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Failed to parse snapshot"), http.StatusSeeOther)
+		return
+	}
+
+	// Build maps for comparison
+	snapshotMap := make(map[string]NightbotCommand)
+	for _, cmd := range snapshotCommands {
+		snapshotMap[cmd.Name] = cmd
+	}
+	currentMap := make(map[string]NightbotCommand)
+	for _, cmd := range currentCommands {
+		currentMap[cmd.Name] = cmd
+	}
+
+	// Generate diff
+	var diffs []CommandDiff
+	var added, removed, modified, unchanged int
+
+	// Check for removed and modified commands (in snapshot but changed/missing in current)
+	for name, snapCmd := range snapshotMap {
+		if curCmd, exists := currentMap[name]; exists {
+			if snapCmd.Message != curCmd.Message || snapCmd.CoolDown != curCmd.CoolDown || snapCmd.UserLevel != curCmd.UserLevel {
+				diffs = append(diffs, CommandDiff{
+					Name:         name,
+					Status:       "modified",
+					OldMessage:   snapCmd.Message,
+					NewMessage:   curCmd.Message,
+					OldCoolDown:  snapCmd.CoolDown,
+					NewCoolDown:  curCmd.CoolDown,
+					OldUserLevel: snapCmd.UserLevel,
+					NewUserLevel: curCmd.UserLevel,
+				})
+				modified++
+			} else {
+				unchanged++
+			}
+		} else {
+			diffs = append(diffs, CommandDiff{
+				Name:         name,
+				Status:       "removed",
+				OldMessage:   snapCmd.Message,
+				OldCoolDown:  snapCmd.CoolDown,
+				OldUserLevel: snapCmd.UserLevel,
+			})
+			removed++
+		}
+	}
+
+	// Check for added commands (in current but not in snapshot)
+	for name, curCmd := range currentMap {
+		if _, exists := snapshotMap[name]; !exists {
+			diffs = append(diffs, CommandDiff{
+				Name:         name,
+				Status:       "added",
+				NewMessage:   curCmd.Message,
+				NewCoolDown:  curCmd.CoolDown,
+				NewUserLevel: curCmd.UserLevel,
+			})
+			added++
+		}
+	}
+
+	// Sort diffs: removed first, then modified, then added
+	sort.Slice(diffs, func(i, j int) bool {
+		order := map[string]int{"removed": 0, "modified": 1, "added": 2}
+		if order[diffs[i].Status] != order[diffs[j].Status] {
+			return order[diffs[i].Status] < order[diffs[j].Status]
+		}
+		return diffs[i].Name < diffs[j].Name
+	})
+
+	data := struct {
+		ChannelName      string
+		SnapshotAt       string
+		SnapshotID       int64
+		SnapshotCount    int
+		CurrentCount     int
+		Diffs            []CommandDiff
+		Added            int
+		Removed          int
+		Modified         int
+		Unchanged        int
+		HasChanges       bool
+		IsAuthenticated  bool
+		IsAdmin          bool
+		IsPublicPage     bool
+		LogoutURL        string
+	}{
+		ChannelName:      snapshot.ChannelName,
+		SnapshotAt:       snapshot.SnapshotAt.Format("Jan 2, 2006 3:04 PM"),
+		SnapshotID:       snapshot.ID,
+		SnapshotCount:    len(snapshotCommands),
+		CurrentCount:     len(currentCommands),
+		Diffs:            diffs,
+		Added:            added,
+		Removed:          removed,
+		Modified:         modified,
+		Unchanged:        unchanged,
+		HasChanges:       added > 0 || removed > 0 || modified > 0,
+		IsAuthenticated:  true,
+		IsAdmin:          true,
+		IsPublicPage:     false,
+		LogoutURL:        "/__exe.dev/logout",
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.renderTemplate(w, "admin_nightbot_diff.html", data); err != nil {
+		slog.Error("render diff template", "error", err)
+		http.Error(w, "Failed to render page", http.StatusInternalServerError)
+	}
 }

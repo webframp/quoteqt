@@ -82,6 +82,7 @@
                         {{if .Note}}<span class="snapshot-note">"{{.Note}}"</span>{{end}}
                     </div>
                     <div class="snapshot-actions">
+                        <a href="/admin/nightbot/snapshot/diff?id={{.ID}}" class="btn btn-small btn-secondary"><i data-lucide="git-compare"></i> Compare</a>
                         <a href="/admin/nightbot/snapshot/download?id={{.ID}}" class="btn btn-small btn-primary"><i data-lucide="download"></i> Download</a>
                     </div>
                 </li>
