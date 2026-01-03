@@ -10,12 +10,48 @@ import (
 	"time"
 )
 
+const createNightbotSnapshot = `-- name: CreateNightbotSnapshot :one
+INSERT INTO nightbot_snapshots (channel_name, command_count, commands_json, created_by, note)
+VALUES (?, ?, ?, ?, ?)
+RETURNING id
+`
+
+type CreateNightbotSnapshotParams struct {
+	ChannelName  string  `json:"channel_name"`
+	CommandCount int64   `json:"command_count"`
+	CommandsJson string  `json:"commands_json"`
+	CreatedBy    string  `json:"created_by"`
+	Note         *string `json:"note"`
+}
+
+func (q *Queries) CreateNightbotSnapshot(ctx context.Context, arg CreateNightbotSnapshotParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, createNightbotSnapshot,
+		arg.ChannelName,
+		arg.CommandCount,
+		arg.CommandsJson,
+		arg.CreatedBy,
+		arg.Note,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const deleteAllNightbotTokens = `-- name: DeleteAllNightbotTokens :exec
 DELETE FROM nightbot_tokens WHERE user_email = ?
 `
 
 func (q *Queries) DeleteAllNightbotTokens(ctx context.Context, userEmail string) error {
 	_, err := q.db.ExecContext(ctx, deleteAllNightbotTokens, userEmail)
+	return err
+}
+
+const deleteNightbotSnapshot = `-- name: DeleteNightbotSnapshot :exec
+DELETE FROM nightbot_snapshots WHERE id = ?
+`
+
+func (q *Queries) DeleteNightbotSnapshot(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteNightbotSnapshot, id)
 	return err
 }
 
@@ -31,6 +67,65 @@ type DeleteNightbotTokenParams struct {
 func (q *Queries) DeleteNightbotToken(ctx context.Context, arg DeleteNightbotTokenParams) error {
 	_, err := q.db.ExecContext(ctx, deleteNightbotToken, arg.UserEmail, arg.ChannelName)
 	return err
+}
+
+const getNightbotSnapshot = `-- name: GetNightbotSnapshot :one
+SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note FROM nightbot_snapshots WHERE id = ?
+`
+
+func (q *Queries) GetNightbotSnapshot(ctx context.Context, id int64) (NightbotSnapshot, error) {
+	row := q.db.QueryRowContext(ctx, getNightbotSnapshot, id)
+	var i NightbotSnapshot
+	err := row.Scan(
+		&i.ID,
+		&i.ChannelName,
+		&i.SnapshotAt,
+		&i.CommandCount,
+		&i.CommandsJson,
+		&i.CreatedBy,
+		&i.Note,
+	)
+	return i, err
+}
+
+const getNightbotSnapshots = `-- name: GetNightbotSnapshots :many
+SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note FROM nightbot_snapshots WHERE channel_name = ? ORDER BY snapshot_at DESC LIMIT ?
+`
+
+type GetNightbotSnapshotsParams struct {
+	ChannelName string `json:"channel_name"`
+	Limit       int64  `json:"limit"`
+}
+
+func (q *Queries) GetNightbotSnapshots(ctx context.Context, arg GetNightbotSnapshotsParams) ([]NightbotSnapshot, error) {
+	rows, err := q.db.QueryContext(ctx, getNightbotSnapshots, arg.ChannelName, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []NightbotSnapshot{}
+	for rows.Next() {
+		var i NightbotSnapshot
+		if err := rows.Scan(
+			&i.ID,
+			&i.ChannelName,
+			&i.SnapshotAt,
+			&i.CommandCount,
+			&i.CommandsJson,
+			&i.CreatedBy,
+			&i.Note,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getNightbotToken = `-- name: GetNightbotToken :one

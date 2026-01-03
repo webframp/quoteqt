@@ -19,3 +19,17 @@ DELETE FROM nightbot_tokens WHERE user_email = ? AND channel_name = ?;
 
 -- name: DeleteAllNightbotTokens :exec
 DELETE FROM nightbot_tokens WHERE user_email = ?;
+
+-- name: CreateNightbotSnapshot :one
+INSERT INTO nightbot_snapshots (channel_name, command_count, commands_json, created_by, note)
+VALUES (?, ?, ?, ?, ?)
+RETURNING id;
+
+-- name: GetNightbotSnapshots :many
+SELECT * FROM nightbot_snapshots WHERE channel_name = ? ORDER BY snapshot_at DESC LIMIT ?;
+
+-- name: GetNightbotSnapshot :one
+SELECT * FROM nightbot_snapshots WHERE id = ?;
+
+-- name: DeleteNightbotSnapshot :exec
+DELETE FROM nightbot_snapshots WHERE id = ?;

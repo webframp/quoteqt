@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <title>Snapshots - {{.ChannelName}} - Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/theme.css?v=8">
+    <style>
+        body { max-width: 900px; margin: 0 auto; padding: 2rem; }
+        .snapshot-list { list-style: none; padding: 0; margin: 0; }
+        .snapshot-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.5rem;
+        }
+        .snapshot-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .snapshot-date {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .snapshot-meta {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .snapshot-note {
+            font-style: italic;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+        .snapshot-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    {{template "nav" .}}
+
+    <a href="/admin/nightbot" class="back-link"><i data-lucide="arrow-left"></i> Back to Nightbot</a>
+
+    <h1><i data-lucide="history"></i> Snapshots: {{.ChannelName}}</h1>
+    <p class="subtitle">Saved command snapshots for this channel</p>
+
+    <div class="card">
+        {{if .Snapshots}}
+            <ul class="snapshot-list">
+                {{range .Snapshots}}
+                <li class="snapshot-item">
+                    <div class="snapshot-info">
+                        <span class="snapshot-date">{{.SnapshotAt.Format "Jan 2, 2006 3:04 PM"}}</span>
+                        <span class="snapshot-meta">{{.CommandCount}} commands • saved by {{.CreatedBy}}</span>
+                        {{if .Note}}<span class="snapshot-note">"{{.Note}}"</span>{{end}}
+                    </div>
+                    <div class="snapshot-actions">
+                        <a href="/admin/nightbot/snapshot/download?id={{.ID}}" class="btn btn-small btn-primary"><i data-lucide="download"></i> Download</a>
+                    </div>
+                </li>
+                {{end}}
+            </ul>
+        {{else}}
+            <div class="empty-state">
+                <i data-lucide="inbox" style="width: 48px; height: 48px; margin-bottom: 1rem;"></i>
+                <p>No snapshots saved yet</p>
+                <p>Go back and click "Save" on a channel to create a snapshot</p>
+            </div>
+        {{end}}
+    </div>
+
+    <script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js" integrity="sha384-8nT3SpButyvenpAdKYPJzXdSz3zidMGduMoaMvwjKnAWVv238n6P1mhveiJJQWrV" crossorigin="anonymous"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

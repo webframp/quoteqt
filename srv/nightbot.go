@@ -603,3 +603,172 @@ func toStringPtr(s string) *string {
 	}
 	return &s
 }
+
+// HandleNightbotSaveSnapshot saves current commands as a snapshot
+func (s *Server) HandleNightbotSaveSnapshot(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+
+	if userEmail == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	channelName := r.FormValue("channel")
+	if channelName == "" {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Channel parameter required"), http.StatusSeeOther)
+		return
+	}
+
+	note := r.FormValue("note")
+
+	// Get valid token for this channel
+	accessToken, err := s.getValidNightbotToken(ctx, userEmail, channelName)
+	if err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Not connected to channel: "+channelName), http.StatusSeeOther)
+		return
+	}
+
+	// Fetch current commands from Nightbot
+	commands, err := s.getNightbotCommands(ctx, accessToken)
+	if err != nil {
+		slog.Error("fetch nightbot commands for snapshot", "error", err, "channel", channelName)
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Failed to fetch commands: "+err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	// Serialize commands to JSON
+	commandsJSON, err := json.Marshal(commands)
+	if err != nil {
+		slog.Error("marshal commands for snapshot", "error", err)
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Failed to save snapshot"), http.StatusSeeOther)
+		return
+	}
+
+	// Save snapshot
+	q := dbgen.New(s.DB)
+	_, err = q.CreateNightbotSnapshot(ctx, dbgen.CreateNightbotSnapshotParams{
+		ChannelName:  channelName,
+		CommandCount: int64(len(commands)),
+		CommandsJson: string(commandsJSON),
+		CreatedBy:    userEmail,
+		Note:         toStringPtr(note),
+	})
+	if err != nil {
+		slog.Error("save nightbot snapshot", "error", err)
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Failed to save snapshot"), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/admin/nightbot?success="+url.QueryEscape(fmt.Sprintf("Saved snapshot with %d commands", len(commands))), http.StatusSeeOther)
+}
+
+// HandleNightbotSnapshots shows saved snapshots for a channel
+func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+
+	if userEmail == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	channelName := r.URL.Query().Get("channel")
+	if channelName == "" {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Channel parameter required"), http.StatusSeeOther)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	snapshots, err := q.GetNightbotSnapshots(ctx, dbgen.GetNightbotSnapshotsParams{
+		ChannelName: channelName,
+		Limit:       50,
+	})
+	if err != nil {
+		slog.Error("get nightbot snapshots", "error", err)
+		snapshots = nil
+	}
+
+	data := struct {
+		ChannelName string
+		Snapshots   []dbgen.NightbotSnapshot
+	}{
+		ChannelName: channelName,
+		Snapshots:   snapshots,
+	}
+
+	s.renderTemplate(w, "admin_nightbot_snapshots.html", data)
+}
+
+// HandleNightbotSnapshotDownload downloads a snapshot as JSON
+func (s *Server) HandleNightbotSnapshotDownload(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+
+	if userEmail == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		http.Error(w, "Missing snapshot ID", http.StatusBadRequest)
+		return
+	}
+
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	snapshot, err := q.GetNightbotSnapshot(ctx, id)
+	if err != nil {
+		http.Error(w, "Snapshot not found", http.StatusNotFound)
+		return
+	}
+
+	// Parse stored commands
+	var commands []NightbotCommand
+	if err := json.Unmarshal([]byte(snapshot.CommandsJson), &commands); err != nil {
+		http.Error(w, "Failed to parse snapshot", http.StatusInternalServerError)
+		return
+	}
+
+	// Build backup format
+	backup := NightbotBackup{
+		ExportedAt:   snapshot.SnapshotAt.Format(time.RFC3339),
+		Channel:      snapshot.ChannelName,
+		CommandCount: len(commands),
+		Commands:     commands,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="nightbot-snapshot-%s-%s.json"`,
+		snapshot.ChannelName, snapshot.SnapshotAt.Format("2006-01-02-150405")))
+
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	enc.Encode(backup)
+}

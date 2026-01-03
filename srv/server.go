@@ -1466,6 +1466,9 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("GET /admin/nightbot/export", s.HandleNightbotExport)
 	mux.HandleFunc("POST /admin/nightbot/import", s.HandleNightbotImport)
 	mux.HandleFunc("POST /admin/nightbot/disconnect", s.HandleNightbotDisconnect)
+	mux.HandleFunc("POST /admin/nightbot/snapshot", s.HandleNightbotSaveSnapshot)
+	mux.HandleFunc("GET /admin/nightbot/snapshots", s.HandleNightbotSnapshots)
+	mux.HandleFunc("GET /admin/nightbot/snapshot/download", s.HandleNightbotSnapshotDownload)
 	mux.Handle("/static/", http.StripPrefix("/static/", StaticFileServer(s.StaticDir)))
 
 	// API routes with rate limiting (including docs)

@@ -112,6 +112,11 @@
                 <li class="channel-item">
                     <span class="channel-name"><i data-lucide="tv"></i> {{.DisplayName}}</span>
                     <div class="channel-actions">
+                        <form action="/admin/nightbot/snapshot" method="POST" style="display: inline;">
+                            <input type="hidden" name="channel" value="{{.Name}}">
+                            <button type="submit" class="btn btn-small btn-success"><i data-lucide="save"></i> Save</button>
+                        </form>
+                        <a href="/admin/nightbot/snapshots?channel={{.Name}}" class="btn btn-small btn-secondary"><i data-lucide="history"></i> History</a>
                         <a href="/admin/nightbot/export?channel={{.Name}}" class="btn btn-small btn-primary"><i data-lucide="download"></i> Export</a>
                         <form action="/admin/nightbot/disconnect?channel={{.Name}}" method="POST" style="display: inline;">
                             <button type="submit" class="btn btn-small btn-secondary"><i data-lucide="unplug"></i> Disconnect</button>
