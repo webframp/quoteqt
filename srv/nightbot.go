@@ -705,15 +705,26 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 	}
 
 	data := struct {
-		ChannelName string
-		Snapshots   []dbgen.NightbotSnapshot
+		ChannelName     string
+		Snapshots       []dbgen.NightbotSnapshot
+		IsAuthenticated bool
+		IsAdmin         bool
+		IsPublicPage    bool
+		LogoutURL       string
 	}{
-		ChannelName: channelName,
-		Snapshots:   snapshots,
+		ChannelName:     channelName,
+		Snapshots:       snapshots,
+		IsAuthenticated: true,
+		IsAdmin:         true, // Only admins can access this page
+		IsPublicPage:    false,
+		LogoutURL:       "/__exe.dev/logout",
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	s.renderTemplate(w, "admin_nightbot_snapshots.html", data)
+	if err := s.renderTemplate(w, "admin_nightbot_snapshots.html", data); err != nil {
+		slog.Error("render snapshots template", "error", err)
+		http.Error(w, "Failed to render page", http.StatusInternalServerError)
+	}
 }
 
 // HandleNightbotSnapshotDownload downloads a snapshot as JSON
