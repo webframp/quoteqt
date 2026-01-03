@@ -70,7 +70,7 @@ func (q *Queries) DeleteNightbotToken(ctx context.Context, arg DeleteNightbotTok
 }
 
 const getNightbotSnapshot = `-- name: GetNightbotSnapshot :one
-SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note FROM nightbot_snapshots WHERE id = ?
+SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note, last_diff_added, last_diff_removed, last_diff_modified, last_diff_at FROM nightbot_snapshots WHERE id = ?
 `
 
 func (q *Queries) GetNightbotSnapshot(ctx context.Context, id int64) (NightbotSnapshot, error) {
@@ -84,12 +84,16 @@ func (q *Queries) GetNightbotSnapshot(ctx context.Context, id int64) (NightbotSn
 		&i.CommandsJson,
 		&i.CreatedBy,
 		&i.Note,
+		&i.LastDiffAdded,
+		&i.LastDiffRemoved,
+		&i.LastDiffModified,
+		&i.LastDiffAt,
 	)
 	return i, err
 }
 
 const getNightbotSnapshots = `-- name: GetNightbotSnapshots :many
-SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note FROM nightbot_snapshots WHERE channel_name = ? ORDER BY snapshot_at DESC LIMIT ?
+SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note, last_diff_added, last_diff_removed, last_diff_modified, last_diff_at FROM nightbot_snapshots WHERE channel_name = ? ORDER BY snapshot_at DESC LIMIT ?
 `
 
 type GetNightbotSnapshotsParams struct {
@@ -114,6 +118,10 @@ func (q *Queries) GetNightbotSnapshots(ctx context.Context, arg GetNightbotSnaps
 			&i.CommandsJson,
 			&i.CreatedBy,
 			&i.Note,
+			&i.LastDiffAdded,
+			&i.LastDiffRemoved,
+			&i.LastDiffModified,
+			&i.LastDiffAt,
 		); err != nil {
 			return nil, err
 		}
@@ -189,6 +197,29 @@ func (q *Queries) GetNightbotTokensByUser(ctx context.Context, userEmail string)
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateSnapshotDiffCache = `-- name: UpdateSnapshotDiffCache :exec
+UPDATE nightbot_snapshots
+SET last_diff_added = ?, last_diff_removed = ?, last_diff_modified = ?, last_diff_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`
+
+type UpdateSnapshotDiffCacheParams struct {
+	LastDiffAdded    *int64 `json:"last_diff_added"`
+	LastDiffRemoved  *int64 `json:"last_diff_removed"`
+	LastDiffModified *int64 `json:"last_diff_modified"`
+	ID               int64  `json:"id"`
+}
+
+func (q *Queries) UpdateSnapshotDiffCache(ctx context.Context, arg UpdateSnapshotDiffCacheParams) error {
+	_, err := q.db.ExecContext(ctx, updateSnapshotDiffCache,
+		arg.LastDiffAdded,
+		arg.LastDiffRemoved,
+		arg.LastDiffModified,
+		arg.ID,
+	)
+	return err
 }
 
 const upsertNightbotToken = `-- name: UpsertNightbotToken :exec

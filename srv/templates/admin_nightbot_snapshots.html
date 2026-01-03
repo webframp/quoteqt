@@ -35,6 +35,14 @@
             font-size: 0.85rem;
             color: var(--text-secondary);
         }
+        .snapshot-diff {
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+        }
+        .snapshot-diff .diff-added { color: var(--success); }
+        .snapshot-diff .diff-removed { color: var(--danger); }
+        .snapshot-diff .diff-modified { color: var(--accent); }
+        .snapshot-diff .diff-time { color: var(--text-secondary); }
         .snapshot-note {
             font-style: italic;
             color: var(--text-secondary);
@@ -86,6 +94,15 @@
                     <div class="snapshot-info">
                         <span class="snapshot-date">{{.SnapshotAt.Format "Jan 2, 2006 3:04 PM"}}</span>
                         <span class="snapshot-meta">{{.CommandCount}} commands • saved by {{.CreatedBy}}</span>
+                        {{if .LastDiffAt}}
+                        <span class="snapshot-diff">
+                            vs current: 
+                            <span class="diff-added">+{{if .LastDiffAdded}}{{.LastDiffAdded}}{{else}}0{{end}}</span>
+                            <span class="diff-removed">-{{if .LastDiffRemoved}}{{.LastDiffRemoved}}{{else}}0{{end}}</span>
+                            <span class="diff-modified">~{{if .LastDiffModified}}{{.LastDiffModified}}{{else}}0{{end}}</span>
+                            <span class="diff-time">({{.LastDiffAt.Format "Jan 2 3:04 PM"}})</span>
+                        </span>
+                        {{end}}
                         {{if .Note}}<span class="snapshot-note">"{{.Note}}"</span>{{end}}
                     </div>
                     <div class="snapshot-actions">

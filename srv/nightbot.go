@@ -654,6 +654,11 @@ func toStringPtr(s string) *string {
 	return &s
 }
 
+// int64Ptr converts an int64 to *int64
+func int64Ptr(i int64) *int64 {
+	return &i
+}
+
 // HandleNightbotSaveSnapshot saves current commands as a snapshot
 func (s *Server) HandleNightbotSaveSnapshot(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -996,6 +1001,16 @@ func (s *Server) HandleNightbotSnapshotDiff(w http.ResponseWriter, r *http.Reque
 		}
 		return diffs[i].Name < diffs[j].Name
 	})
+
+	// Cache the diff results for display in snapshots list
+	if err := q.UpdateSnapshotDiffCache(ctx, dbgen.UpdateSnapshotDiffCacheParams{
+		LastDiffAdded:    int64Ptr(int64(added)),
+		LastDiffRemoved:  int64Ptr(int64(removed)),
+		LastDiffModified: int64Ptr(int64(modified)),
+		ID:               snapshot.ID,
+	}); err != nil {
+		slog.Warn("update snapshot diff cache", "error", err)
+	}
 
 	data := struct {
 		ChannelName      string

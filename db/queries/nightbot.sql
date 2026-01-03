@@ -33,3 +33,8 @@ SELECT * FROM nightbot_snapshots WHERE id = ?;
 
 -- name: DeleteNightbotSnapshot :exec
 DELETE FROM nightbot_snapshots WHERE id = ?;
+
+-- name: UpdateSnapshotDiffCache :exec
+UPDATE nightbot_snapshots
+SET last_diff_added = ?, last_diff_removed = ?, last_diff_modified = ?, last_diff_at = CURRENT_TIMESTAMP
+WHERE id = ?;

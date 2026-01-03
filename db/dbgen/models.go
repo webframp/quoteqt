@@ -32,13 +32,17 @@ type Migration struct {
 }
 
 type NightbotSnapshot struct {
-	ID           int64     `json:"id"`
-	ChannelName  string    `json:"channel_name"`
-	SnapshotAt   time.Time `json:"snapshot_at"`
-	CommandCount int64     `json:"command_count"`
-	CommandsJson string    `json:"commands_json"`
-	CreatedBy    string    `json:"created_by"`
-	Note         *string   `json:"note"`
+	ID               int64      `json:"id"`
+	ChannelName      string     `json:"channel_name"`
+	SnapshotAt       time.Time  `json:"snapshot_at"`
+	CommandCount     int64      `json:"command_count"`
+	CommandsJson     string     `json:"commands_json"`
+	CreatedBy        string     `json:"created_by"`
+	Note             *string    `json:"note"`
+	LastDiffAdded    *int64     `json:"last_diff_added"`
+	LastDiffRemoved  *int64     `json:"last_diff_removed"`
+	LastDiffModified *int64     `json:"last_diff_modified"`
+	LastDiffAt       *time.Time `json:"last_diff_at"`
 }
 
 type NightbotToken struct {
