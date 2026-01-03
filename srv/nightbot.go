@@ -185,6 +185,20 @@ func (s *Server) HandleNightbotCallback(w http.ResponseWriter, r *http.Request) 
 		slog.Warn("get nightbot channel", "error", err)
 	}
 
+	// Also try /me endpoint to see user info
+	if meResp, err := s.getNightbotMe(ctx, tokenResp.AccessToken); err == nil {
+		slog.Info("nightbot /me response", "user", meResp)
+	} else {
+		slog.Warn("nightbot /me failed", "error", err)
+	}
+
+	// Log what we got from Nightbot
+	if channel != nil {
+		slog.Info("nightbot channel info", "name", channel.Name, "displayName", channel.DisplayName, "provider", channel.Provider, "id", channel.ID)
+	} else {
+		slog.Warn("nightbot channel info is nil")
+	}
+
 	// Store token - require channel info
 	if channel == nil || channel.Name == "" {
 		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Failed to get channel info"), http.StatusSeeOther)
@@ -281,6 +295,32 @@ func (s *Server) refreshNightbotToken(ctx context.Context, refreshToken string) 
 	}
 
 	return &tokenResp, nil
+}
+
+func (s *Server) getNightbotMe(ctx context.Context, accessToken string) (map[string]any, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", nightbotAPIBase+"/me", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("get /me failed: %s - %s", resp.Status, string(body))
+	}
+
+	var result map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 func (s *Server) getNightbotChannel(ctx context.Context, accessToken string) (*nightbotChannelResponse, error) {
