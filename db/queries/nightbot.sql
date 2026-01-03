@@ -38,3 +38,9 @@ DELETE FROM nightbot_snapshots WHERE id = ?;
 UPDATE nightbot_snapshots
 SET last_diff_added = ?, last_diff_removed = ?, last_diff_modified = ?, last_diff_at = CURRENT_TIMESTAMP
 WHERE id = ?;
+
+-- name: GetImportedOnlyChannels :many
+-- Returns channels that have snapshots but no OAuth tokens (imported via Tampermonkey)
+SELECT DISTINCT channel_name FROM nightbot_snapshots
+WHERE channel_name NOT IN (SELECT channel_name FROM nightbot_tokens)
+ORDER BY channel_name;

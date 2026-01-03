@@ -79,6 +79,13 @@
     <h1><i data-lucide="history"></i> Snapshots: {{.ChannelName}}</h1>
     <p class="subtitle">Saved command snapshots for this channel</p>
 
+    {{if not .HasAPI}}
+    <div class="message info" style="background: var(--accent-soft); border-left: 4px solid var(--accent);">
+        <i data-lucide="info" style="width: 16px; height: 16px; vertical-align: middle;"></i>
+        This channel was imported via Tampermonkey. Compare and Restore require OAuth connection.
+    </div>
+    {{end}}
+
     {{if .Success}}
         <div class="message success">{{.Success}}</div>
     {{end}}
@@ -106,12 +113,16 @@
                         {{if .Note}}<span class="snapshot-note">"{{.Note}}"</span>{{end}}
                     </div>
                     <div class="snapshot-actions">
+                        {{if $.HasAPI}}
                         <a href="/admin/nightbot/snapshot/diff?id={{.ID}}" class="btn btn-small btn-secondary"><i data-lucide="git-compare"></i> Compare</a>
+                        {{end}}
                         <a href="/admin/nightbot/snapshot/download?id={{.ID}}" class="btn btn-small btn-secondary"><i data-lucide="download"></i> Download</a>
+                        {{if $.HasAPI}}
                         <form action="/admin/nightbot/snapshot/restore" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to restore this snapshot?\n\nThis will make Nightbot match this snapshot exactly:\n• Commands not in the snapshot will be DELETED\n• Modified commands will be reverted\n• Missing commands will be created');">
                             <input type="hidden" name="id" value="{{.ID}}">
                             <button type="submit" class="btn btn-small btn-danger"><i data-lucide="rotate-ccw"></i> Restore</button>
                         </form>
+                        {{end}}
                     </div>
                 </li>
                 {{end}}

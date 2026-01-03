@@ -73,6 +73,17 @@
             display: flex;
             gap: 0.5rem;
         }
+        .badge {
+            font-size: 0.65rem;
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .badge-imported {
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
         .form-group {
             margin-bottom: 1rem;
         }
@@ -110,17 +121,24 @@
             <ul class="channel-list">
                 {{range .Channels}}
                 <li class="channel-item">
-                    <span class="channel-name"><i data-lucide="tv"></i> {{.DisplayName}}</span>
+                    <span class="channel-name">
+                        <i data-lucide="tv"></i> {{.DisplayName}}
+                        {{if not .HasAPI}}<span class="badge badge-imported" title="Imported via Tampermonkey - no API access">imported</span>{{end}}
+                    </span>
                     <div class="channel-actions">
+                        {{if .HasAPI}}
                         <form action="/admin/nightbot/snapshot" method="POST" style="display: inline;">
                             <input type="hidden" name="channel" value="{{.Name}}">
                             <button type="submit" class="btn btn-small btn-success"><i data-lucide="save"></i> Save</button>
                         </form>
+                        {{end}}
                         <a href="/admin/nightbot/snapshots?channel={{.Name}}" class="btn btn-small btn-secondary"><i data-lucide="history"></i> History</a>
+                        {{if .HasAPI}}
                         <a href="/admin/nightbot/export?channel={{.Name}}" class="btn btn-small btn-primary"><i data-lucide="download"></i> Export</a>
                         <form action="/admin/nightbot/disconnect?channel={{.Name}}" method="POST" style="display: inline;">
                             <button type="submit" class="btn btn-small btn-secondary"><i data-lucide="unplug"></i> Disconnect</button>
                         </form>
+                        {{end}}
                     </div>
                 </li>
                 {{end}}

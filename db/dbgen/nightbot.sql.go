@@ -69,6 +69,36 @@ func (q *Queries) DeleteNightbotToken(ctx context.Context, arg DeleteNightbotTok
 	return err
 }
 
+const getImportedOnlyChannels = `-- name: GetImportedOnlyChannels :many
+SELECT DISTINCT channel_name FROM nightbot_snapshots
+WHERE channel_name NOT IN (SELECT channel_name FROM nightbot_tokens)
+ORDER BY channel_name
+`
+
+// Returns channels that have snapshots but no OAuth tokens (imported via Tampermonkey)
+func (q *Queries) GetImportedOnlyChannels(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getImportedOnlyChannels)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var channel_name string
+		if err := rows.Scan(&channel_name); err != nil {
+			return nil, err
+		}
+		items = append(items, channel_name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getNightbotSnapshot = `-- name: GetNightbotSnapshot :one
 SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note, last_diff_added, last_diff_removed, last_diff_modified, last_diff_at FROM nightbot_snapshots WHERE id = ?
 `

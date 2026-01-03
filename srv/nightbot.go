@@ -90,6 +90,7 @@ func (s *Server) HandleNightbotAdmin(w http.ResponseWriter, r *http.Request) {
 	type ChannelInfo struct {
 		Name        string
 		DisplayName string
+		HasAPI      bool // true if OAuth connected, false if imported-only
 	}
 	var channels []ChannelInfo
 	for _, t := range tokens {
@@ -100,7 +101,22 @@ func (s *Server) HandleNightbotAdmin(w http.ResponseWriter, r *http.Request) {
 		channels = append(channels, ChannelInfo{
 			Name:        t.ChannelName,
 			DisplayName: displayName,
+			HasAPI:      true,
 		})
+	}
+
+	// Get imported-only channels (have snapshots but no OAuth tokens)
+	importedChannels, err := q.GetImportedOnlyChannels(ctx)
+	if err != nil {
+		slog.Warn("get imported channels", "error", err)
+	} else {
+		for _, name := range importedChannels {
+			channels = append(channels, ChannelInfo{
+				Name:        name,
+				DisplayName: name,
+				HasAPI:      false,
+			})
+		}
 	}
 
 	data := struct {
@@ -799,9 +815,17 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 		snapshots = nil
 	}
 
+	// Check if channel has OAuth tokens (API access)
+	_, tokenErr := q.GetNightbotToken(ctx, dbgen.GetNightbotTokenParams{
+		UserEmail:   userEmail,
+		ChannelName: channelName,
+	})
+	hasAPI := tokenErr == nil
+
 	data := struct {
 		ChannelName     string
 		Snapshots       []dbgen.NightbotSnapshot
+		HasAPI          bool
 		Success         string
 		Error           string
 		IsAuthenticated bool
@@ -811,6 +835,7 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 	}{
 		ChannelName:     channelName,
 		Snapshots:       snapshots,
+		HasAPI:          hasAPI,
 		Success:         r.URL.Query().Get("success"),
 		Error:           r.URL.Query().Get("error"),
 		IsAuthenticated: true,
@@ -1209,4 +1234,97 @@ func (s *Server) HandleNightbotSnapshotRestore(w http.ResponseWriter, r *http.Re
 	slog.Info("snapshot restored", "channel", snapshot.ChannelName, "snapshot_id", id, "created", created, "updated", updated, "deleted", deleted, "errors", errors, "user", userEmail)
 
 	http.Redirect(w, r, "/admin/nightbot/snapshots?channel="+url.QueryEscape(snapshot.ChannelName)+"&success="+url.QueryEscape(msg), http.StatusSeeOther)
+}
+
+// HandleNightbotImportSnapshot imports a snapshot from Tampermonkey export
+func (s *Server) HandleNightbotImportSnapshot(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+
+	if userEmail == "" {
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var backup NightbotBackup
+	if err := json.NewDecoder(r.Body).Decode(&backup); err != nil {
+		slog.Warn("import snapshot: invalid JSON", "error", err)
+		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validate required fields
+	if backup.Channel == "" {
+		http.Error(w, "Missing channel name", http.StatusBadRequest)
+		return
+	}
+	if len(backup.Commands) == 0 {
+		http.Error(w, "No commands in backup", http.StatusBadRequest)
+		return
+	}
+
+	// Parse exportedAt timestamp, fallback to now
+	var snapshotAt time.Time
+	if backup.ExportedAt != "" {
+		parsed, err := time.Parse(time.RFC3339, backup.ExportedAt)
+		if err != nil {
+			slog.Warn("import snapshot: invalid exportedAt, using current time", "exportedAt", backup.ExportedAt, "error", err)
+			snapshotAt = time.Now()
+		} else {
+			snapshotAt = parsed
+		}
+	} else {
+		snapshotAt = time.Now()
+	}
+
+	// Normalize channel name to lowercase for consistency
+	channelName := strings.ToLower(strings.TrimSpace(backup.Channel))
+
+	// Serialize commands to JSON for storage
+	commandsJSON, err := json.Marshal(backup.Commands)
+	if err != nil {
+		slog.Error("import snapshot: marshal commands", "error", err)
+		http.Error(w, "Failed to process commands", http.StatusInternalServerError)
+		return
+	}
+
+	// Create snapshot with custom timestamp
+	q := dbgen.New(s.DB)
+	_, err = s.DB.ExecContext(ctx,
+		`INSERT INTO nightbot_snapshots (channel_name, snapshot_at, command_count, commands_json, created_by, note)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		channelName, snapshotAt, len(backup.Commands), string(commandsJSON), userEmail, "Imported via Tampermonkey")
+	if err != nil {
+		slog.Error("import snapshot: insert", "error", err)
+		http.Error(w, "Failed to save snapshot", http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("snapshot imported",
+		"channel", channelName,
+		"commands", len(backup.Commands),
+		"exportedAt", snapshotAt,
+		"user", userEmail)
+
+	// Return JSON response for Tampermonkey script
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"channel": channelName,
+		"commands": len(backup.Commands),
+		"snapshotAt": snapshotAt.Format(time.RFC3339),
+	})
+
+	// Suppress unused variable warning
+	_ = q
 }

@@ -88,8 +88,9 @@ func ValidateDLC(dlc string) error {
 	return ValidateLength("DLC", dlc, MaxDLCLen)
 }
 
-// MaxRequestBodySize is the maximum allowed request body size (64KB)
-const MaxRequestBodySize = 64 * 1024
+// MaxRequestBodySize is the maximum allowed request body size (5MB)
+// Needs to be large enough for Nightbot command imports
+const MaxRequestBodySize = 5 * 1024 * 1024
 
 // LimitRequestBody wraps a handler to limit request body size
 func LimitRequestBody(next http.Handler) http.Handler {
