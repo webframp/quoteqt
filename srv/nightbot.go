@@ -712,6 +712,7 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 		Snapshots:   snapshots,
 	}
 
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	s.renderTemplate(w, "admin_nightbot_snapshots.html", data)
 }
 
