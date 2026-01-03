@@ -24,11 +24,24 @@
     const originalFetch = window.fetch;
     window.fetch = function(url, options) {
         if (options?.headers) {
-            const auth = options.headers['Authorization'] || options.headers['authorization'];
+            let auth = null;
+            let channel = null;
+            
+            // Handle Headers object
+            if (options.headers instanceof Headers) {
+                auth = options.headers.get('Authorization');
+                channel = options.headers.get('Nightbot-Channel');
+            } 
+            // Handle plain object
+            else if (typeof options.headers === 'object') {
+                auth = options.headers['Authorization'] || options.headers['authorization'];
+                channel = options.headers['Nightbot-Channel'] || options.headers['nightbot-channel'];
+            }
+            
             if (auth && auth.startsWith('Session ')) {
                 capturedAuth = auth;
+                console.log('[QuoteQT] Captured auth');
             }
-            const channel = options.headers['Nightbot-Channel'] || options.headers['nightbot-channel'];
             if (channel) {
                 capturedChannel = channel;
                 console.log('[QuoteQT] Captured channel:', channel);
