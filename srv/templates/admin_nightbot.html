@@ -100,6 +100,22 @@
             background: var(--bg-secondary);
             color: var(--text-primary);
         }
+        .token-display {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            padding: 0.75rem;
+            border-radius: var(--radius-sm);
+            margin-top: 0.5rem;
+        }
+        .token-display code {
+            flex: 1;
+            font-family: monospace;
+            font-size: 0.85rem;
+            word-break: break-all;
+            color: var(--accent);
+        }
     </style>
 </head>
 <body>
@@ -183,6 +199,23 @@
     </div>
     {{end}}
 
+    {{if .ImportToken}}
+    <div class="card">
+        <h2><i data-lucide="key"></i> Tampermonkey Import</h2>
+        <p>Use this token with the <a href="https://github.com/webframp/quoteqt/blob/main/docs/tampermonkey-nightbot-exporter.js" target="_blank">Tampermonkey script</a> to import commands from channels you manage (but don't own).</p>
+        <div class="token-display">
+            <code id="import-token">{{.ImportToken}}</code>
+            <button type="button" class="btn btn-small btn-secondary" onclick="copyToken()" title="Copy to clipboard">
+                <i data-lucide="copy"></i>
+            </button>
+        </div>
+        <p class="help-text" style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+            <i data-lucide="alert-triangle" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+            Keep this token secret. Anyone with it can import snapshots.
+        </p>
+    </div>
+    {{end}}
+
     <div class="card">
         <h2><i data-lucide="info"></i> About</h2>
         <p>This tool allows you to:</p>
@@ -202,6 +235,19 @@
         function updateFileName(input) {
             const fileName = input.files[0]?.name || 'No file chosen';
             document.getElementById('file-name').textContent = fileName;
+        }
+        function copyToken() {
+            const token = document.getElementById('import-token').textContent;
+            navigator.clipboard.writeText(token).then(() => {
+                const btn = event.target.closest('button');
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<i data-lucide="check"></i>';
+                lucide.createIcons();
+                setTimeout(() => {
+                    btn.innerHTML = originalHTML;
+                    lucide.createIcons();
+                }, 2000);
+            });
         }
     </script>
     <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">

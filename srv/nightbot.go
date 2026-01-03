@@ -130,6 +130,7 @@ func (s *Server) HandleNightbotAdmin(w http.ResponseWriter, r *http.Request) {
 		Error           string
 		Channels        []ChannelInfo
 		ConnectURL      string
+		ImportToken     string
 	}{
 		Hostname:        s.Hostname,
 		UserEmail:       userEmail,
@@ -141,6 +142,7 @@ func (s *Server) HandleNightbotAdmin(w http.ResponseWriter, r *http.Request) {
 		Error:           r.URL.Query().Get("error"),
 		Channels:        channels,
 		ConnectURL:      s.nightbotAuthURL(),
+		ImportToken:     s.Config.NightbotImportToken,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
