@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <title>Compare Snapshots - {{.ChannelName}} - Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/theme.css?v=8">
+    <style>
+        body { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .back-link:hover { text-decoration: underline; }
+        .compare-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .snapshot-label {
+            flex: 1;
+            min-width: 200px;
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            background: var(--bg-secondary);
+        }
+        .snapshot-label .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }
+        .snapshot-label .date {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .snapshot-label .meta {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+        .arrow {
+            color: var(--accent);
+            font-size: 1.5rem;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .summary-item {
+            text-align: center;
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            background: var(--bg-secondary);
+        }
+        .summary-item .count {
+            font-size: 2rem;
+            font-weight: 700;
+            display: block;
+        }
+        .summary-item .label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .summary-item.added .count { color: var(--success); }
+        .summary-item.removed .count { color: var(--danger); }
+        .summary-item.modified .count { color: var(--accent); }
+        .summary-item.unchanged .count { color: var(--text-secondary); }
+        .summary-item.total .count { color: var(--text-primary); }
+        
+        .diff-list { list-style: none; padding: 0; margin: 0; }
+        .diff-item {
+            margin-bottom: 1.5rem;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .diff-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+        .diff-name {
+            font-weight: 600;
+            font-family: monospace;
+            font-size: 1rem;
+        }
+        .diff-status {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            font-weight: 600;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+        .diff-status.added { background: var(--success); color: white; }
+        .diff-status.removed { background: var(--danger); color: white; }
+        .diff-status.modified { background: var(--accent); color: white; }
+        
+        /* Git-style diff output */
+        .diff-content {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            overflow-x: auto;
+            background: var(--bg-primary);
+        }
+        .diff-line {
+            padding: 0 1rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .diff-line.header {
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+        .diff-line.meta {
+            color: var(--accent);
+            background: var(--accent-soft);
+        }
+        .diff-line.added {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+        }
+        .diff-line.removed {
+            background: rgba(239, 68, 68, 0.15);
+            color: #dc2626;
+        }
+        [data-theme="light"] .diff-line.added {
+            background: rgba(34, 197, 94, 0.2);
+            color: #15803d;
+        }
+        [data-theme="light"] .diff-line.removed {
+            background: rgba(239, 68, 68, 0.2);
+            color: #b91c1c;
+        }
+        .diff-line.context {
+            color: var(--text-secondary);
+        }
+        
+        .no-changes {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+        .no-changes i {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 1rem;
+            color: var(--success);
+        }
+    </style>
+</head>
+<body>
+    {{template "nav" .}}
+
+    <a href="/admin/nightbot/snapshots?channel={{.ChannelName}}" class="back-link"><i data-lucide="arrow-left"></i> Back to Snapshots</a>
+
+    <h1><i data-lucide="git-compare"></i> Compare Snapshots</h1>
+
+    <div class="compare-header">
+        <div class="snapshot-label">
+            <div class="label">Older</div>
+            <div class="date">{{.FromSnapshot.SnapshotAt.Format "Jan 2, 2006 3:04 PM"}}</div>
+            <div class="meta">{{.FromCount}} commands • by {{.FromSnapshot.CreatedBy}}</div>
+        </div>
+        <span class="arrow"><i data-lucide="arrow-right"></i></span>
+        <div class="snapshot-label">
+            <div class="label">Newer</div>
+            <div class="date">{{.ToSnapshot.SnapshotAt.Format "Jan 2, 2006 3:04 PM"}}</div>
+            <div class="meta">{{.ToCount}} commands • by {{.ToSnapshot.CreatedBy}}</div>
+        </div>
+    </div>
+
+    <div class="summary-grid">
+        <div class="summary-item total">
+            <span class="count">{{.FromCount}}</span>
+            <span class="label">In Older</span>
+        </div>
+        <div class="summary-item total">
+            <span class="count">{{.ToCount}}</span>
+            <span class="label">In Newer</span>
+        </div>
+        <div class="summary-item added">
+            <span class="count">{{.Added}}</span>
+            <span class="label">Added</span>
+        </div>
+        <div class="summary-item removed">
+            <span class="count">{{.Removed}}</span>
+            <span class="label">Removed</span>
+        </div>
+        <div class="summary-item modified">
+            <span class="count">{{.Modified}}</span>
+            <span class="label">Modified</span>
+        </div>
+        <div class="summary-item unchanged">
+            <span class="count">{{.Unchanged}}</span>
+            <span class="label">Unchanged</span>
+        </div>
+    </div>
+
+    <div class="card">
+        {{if .HasChanges}}
+            <ul class="diff-list">
+                {{range .Diffs}}
+                <li class="diff-item">
+                    <div class="diff-header">
+                        <span class="diff-name">{{.Name}}</span>
+                        <span class="diff-status {{.Status}}">{{.Status}}</span>
+                    </div>
+                    <div class="diff-content"></div>
+                </li>
+                {{end}}
+            </ul>
+        {{else}}
+            <div class="no-changes">
+                <i data-lucide="check-circle"></i>
+                <p><strong>No changes detected</strong></p>
+                <p>These two snapshots are identical.</p>
+            </div>
+        {{end}}
+    </div>
+
+    <script>
+        // Diff data from server
+        const diffs = [
+            {{range .Diffs}}
+            { name: {{.Name}}, diff: {{.UnifiedDiff}} },
+            {{end}}
+        ];
+
+        // Render diff with syntax highlighting
+        function renderDiff(container, diffText) {
+            if (!diffText) {
+                container.innerHTML = '<div class="diff-line context">(no diff content)</div>';
+                return;
+            }
+            const lines = diffText.split('\n');
+            let html = '';
+            for (const line of lines) {
+                let className = 'context';
+                if (line.startsWith('---') || line.startsWith('+++')) {
+                    className = 'header';
+                } else if (line.startsWith('@@')) {
+                    className = 'meta';
+                } else if (line.startsWith('+')) {
+                    className = 'added';
+                } else if (line.startsWith('-')) {
+                    className = 'removed';
+                }
+                // Escape HTML
+                const escaped = line
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                html += `<div class="diff-line ${className}">${escaped || ' '}</div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        // Render all diffs
+        const containers = document.querySelectorAll('.diff-content');
+        diffs.forEach((d, i) => {
+            if (containers[i]) {
+                renderDiff(containers[i], d.diff);
+            }
+        });
+    </script>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <span id="theme-icon"><i data-lucide="sun"></i></span>
+    </button>
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const next = current === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateIcon(next);
+        }
+        function updateIcon(theme) {
+            document.getElementById('theme-icon').innerHTML = theme === 'light' 
+                ? '<i data-lucide="moon"></i>'
+                : '<i data-lucide="sun"></i>';
+            lucide.createIcons();
+        }
+        (function() {
+            const saved = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+            updateIcon(saved);
+        })();
+    </script>
+    <script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js" integrity="sha384-8nT3SpButyvenpAdKYPJzXdSz3zidMGduMoaMvwjKnAWVv238n6P1mhveiJJQWrV" crossorigin="anonymous"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

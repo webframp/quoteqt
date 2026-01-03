@@ -1120,6 +1120,203 @@ func (s *Server) HandleNightbotSnapshotDiff(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// HandleNightbotSnapshotCompare compares two snapshots against each other
+func (s *Server) HandleNightbotSnapshotCompare(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+
+	if userEmail == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	fromIDStr := r.URL.Query().Get("from")
+	toIDStr := r.URL.Query().Get("to")
+	if fromIDStr == "" || toIDStr == "" {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Missing snapshot IDs"), http.StatusSeeOther)
+		return
+	}
+
+	var fromID, toID int64
+	if _, err := fmt.Sscanf(fromIDStr, "%d", &fromID); err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Invalid from snapshot ID"), http.StatusSeeOther)
+		return
+	}
+	if _, err := fmt.Sscanf(toIDStr, "%d", &toID); err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Invalid to snapshot ID"), http.StatusSeeOther)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	fromSnapshot, err := q.GetNightbotSnapshot(ctx, fromID)
+	if err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("From snapshot not found"), http.StatusSeeOther)
+		return
+	}
+
+	toSnapshot, err := q.GetNightbotSnapshot(ctx, toID)
+	if err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("To snapshot not found"), http.StatusSeeOther)
+		return
+	}
+
+	// Verify both snapshots are for the same channel
+	if fromSnapshot.ChannelName != toSnapshot.ChannelName {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Snapshots are from different channels"), http.StatusSeeOther)
+		return
+	}
+
+	// Parse commands from both snapshots
+	var fromCommands, toCommands []NightbotCommand
+	if err := json.Unmarshal([]byte(fromSnapshot.CommandsJson), &fromCommands); err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Failed to parse from snapshot"), http.StatusSeeOther)
+		return
+	}
+	if err := json.Unmarshal([]byte(toSnapshot.CommandsJson), &toCommands); err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Failed to parse to snapshot"), http.StatusSeeOther)
+		return
+	}
+
+	// Build maps for comparison
+	fromMap := make(map[string]NightbotCommand)
+	for _, cmd := range fromCommands {
+		fromMap[cmd.Name] = cmd
+	}
+	toMap := make(map[string]NightbotCommand)
+	for _, cmd := range toCommands {
+		toMap[cmd.Name] = cmd
+	}
+
+	// Generate diff
+	var diffs []CommandDiff
+	var added, removed, modified, unchanged int
+
+	// Helper to format command as text for diffing
+	formatCmd := func(cmd NightbotCommand) string {
+		return fmt.Sprintf("message: %s\ncooldown: %d\nuserlevel: %s", cmd.Message, cmd.CoolDown, cmd.UserLevel)
+	}
+
+	// Helper to generate unified diff
+	genDiff := func(oldText, newText, oldName, newName string) string {
+		diff := difflib.UnifiedDiff{
+			A:        difflib.SplitLines(oldText),
+			B:        difflib.SplitLines(newText),
+			FromFile: oldName,
+			ToFile:   newName,
+			Context:  3,
+		}
+		result, _ := difflib.GetUnifiedDiffString(diff)
+		return result
+	}
+
+	// Check for removed and modified commands (in "from" but changed/missing in "to")
+	for name, fromCmd := range fromMap {
+		if toCmd, exists := toMap[name]; exists {
+			if fromCmd.Message != toCmd.Message || fromCmd.CoolDown != toCmd.CoolDown || fromCmd.UserLevel != toCmd.UserLevel {
+				unifiedDiff := genDiff(
+					formatCmd(fromCmd),
+					formatCmd(toCmd),
+					"older/"+name,
+					"newer/"+name,
+				)
+				diffs = append(diffs, CommandDiff{
+					Name:        name,
+					Status:      "modified",
+					UnifiedDiff: unifiedDiff,
+				})
+				modified++
+			} else {
+				unchanged++
+			}
+		} else {
+			unifiedDiff := genDiff(
+				formatCmd(fromCmd),
+				"",
+				"older/"+name,
+				"/dev/null",
+			)
+			diffs = append(diffs, CommandDiff{
+				Name:        name,
+				Status:      "removed",
+				UnifiedDiff: unifiedDiff,
+			})
+			removed++
+		}
+	}
+
+	// Check for added commands (in "to" but not in "from")
+	for name, toCmd := range toMap {
+		if _, exists := fromMap[name]; !exists {
+			unifiedDiff := genDiff(
+				"",
+				formatCmd(toCmd),
+				"/dev/null",
+				"newer/"+name,
+			)
+			diffs = append(diffs, CommandDiff{
+				Name:        name,
+				Status:      "added",
+				UnifiedDiff: unifiedDiff,
+			})
+			added++
+		}
+	}
+
+	// Sort diffs: removed first, then modified, then added
+	sort.Slice(diffs, func(i, j int) bool {
+		order := map[string]int{"removed": 0, "modified": 1, "added": 2}
+		if order[diffs[i].Status] != order[diffs[j].Status] {
+			return order[diffs[i].Status] < order[diffs[j].Status]
+		}
+		return diffs[i].Name < diffs[j].Name
+	})
+
+	data := struct {
+		ChannelName     string
+		FromSnapshot    dbgen.NightbotSnapshot
+		ToSnapshot      dbgen.NightbotSnapshot
+		FromCount       int
+		ToCount         int
+		Diffs           []CommandDiff
+		Added           int
+		Removed         int
+		Modified        int
+		Unchanged       int
+		HasChanges      bool
+		IsAuthenticated bool
+		IsAdmin         bool
+		IsPublicPage    bool
+		LogoutURL       string
+	}{
+		ChannelName:     fromSnapshot.ChannelName,
+		FromSnapshot:    fromSnapshot,
+		ToSnapshot:      toSnapshot,
+		FromCount:       len(fromCommands),
+		ToCount:         len(toCommands),
+		Diffs:           diffs,
+		Added:           added,
+		Removed:         removed,
+		Modified:        modified,
+		Unchanged:       unchanged,
+		HasChanges:      added > 0 || removed > 0 || modified > 0,
+		IsAuthenticated: true,
+		IsAdmin:         true,
+		IsPublicPage:    false,
+		LogoutURL:       "/__exe.dev/logout",
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.renderTemplate(w, "admin_nightbot_compare.html", data); err != nil {
+		slog.Error("render compare template", "error", err)
+		http.Error(w, "Failed to render page", http.StatusInternalServerError)
+	}
+}
+
 // HandleNightbotSnapshotRestore restores a snapshot to Nightbot (full restore)
 func (s *Server) HandleNightbotSnapshotRestore(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
