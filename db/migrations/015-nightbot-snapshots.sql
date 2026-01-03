@@ -11,3 +11,7 @@ CREATE TABLE nightbot_snapshots (
 
 CREATE INDEX idx_nightbot_snapshots_channel ON nightbot_snapshots(channel_name);
 CREATE INDEX idx_nightbot_snapshots_at ON nightbot_snapshots(snapshot_at DESC);
+
+-- Record execution of this migration
+INSERT OR IGNORE INTO migrations (migration_number, migration_name)
+VALUES (015, '015-nightbot-snapshots');

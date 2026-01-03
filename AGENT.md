@@ -68,6 +68,14 @@ if userID == "" {
 - Migrations in `db/migrations/` run automatically on startup
 - After modifying `db/queries/*.sql`, regenerate with `cd db && go generate`
 
+**Migration files must self-register!** Each migration must end with:
+```sql
+-- Record execution of this migration
+INSERT OR IGNORE INTO migrations (migration_number, migration_name)
+VALUES (NNN, 'NNN-migration-name');
+```
+Without this, the migration will re-run on every restart and likely fail.
+
 ### API Documentation
 
 - API docs are auto-generated using [swaggo/swag](https://github.com/swaggo/swag)

@@ -26,3 +26,7 @@ ALTER TABLE nightbot_tokens_new RENAME TO nightbot_tokens;
 
 -- Recreate index
 CREATE INDEX idx_nightbot_tokens_email ON nightbot_tokens(user_email);
+
+-- Record execution of this migration
+INSERT OR IGNORE INTO migrations (migration_number, migration_name)
+VALUES (014, '014-nightbot-multi-channel');
