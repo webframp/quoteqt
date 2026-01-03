@@ -77,45 +77,52 @@ func (s *Server) HandleNightbotAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user has connected Nightbot
+	// Get all connected channels for this user
 	q := dbgen.New(s.DB)
-	token, err := q.GetNightbotToken(ctx, userEmail)
-	var connected bool
-	var channelName string
-	if err == nil {
-		connected = true
-		if token.ChannelDisplayName != nil {
-			channelName = *token.ChannelDisplayName
+	tokens, err := q.GetNightbotTokensByUser(ctx, userEmail)
+	if err != nil {
+		slog.Warn("get nightbot tokens", "error", err)
+		tokens = nil
+	}
+
+	type ChannelInfo struct {
+		Name        string
+		DisplayName string
+	}
+	var channels []ChannelInfo
+	for _, t := range tokens {
+		displayName := t.ChannelName
+		if t.ChannelDisplayName != nil && *t.ChannelDisplayName != "" {
+			displayName = *t.ChannelDisplayName
 		}
-		if channelName == "" && token.ChannelName != nil {
-			channelName = *token.ChannelName
-		}
+		channels = append(channels, ChannelInfo{
+			Name:        t.ChannelName,
+			DisplayName: displayName,
+		})
 	}
 
 	data := struct {
-		Hostname         string
-		UserEmail        string
-		LogoutURL        string
-		IsAdmin          bool
-		IsAuthenticated  bool
-		IsPublicPage     bool
-		Success          string
-		Error            string
-		NightbotConnected bool
-		NightbotChannel  string
-		ConnectURL       string
+		Hostname        string
+		UserEmail       string
+		LogoutURL       string
+		IsAdmin         bool
+		IsAuthenticated bool
+		IsPublicPage    bool
+		Success         string
+		Error           string
+		Channels        []ChannelInfo
+		ConnectURL      string
 	}{
-		Hostname:         s.Hostname,
-		UserEmail:        userEmail,
-		LogoutURL:        "/__exe.dev/logout",
-		IsAdmin:          true,
-		IsAuthenticated:  true,
-		IsPublicPage:     false,
-		Success:          r.URL.Query().Get("success"),
-		Error:            r.URL.Query().Get("error"),
-		NightbotConnected: connected,
-		NightbotChannel:  channelName,
-		ConnectURL:       s.nightbotAuthURL(),
+		Hostname:        s.Hostname,
+		UserEmail:       userEmail,
+		LogoutURL:       "/__exe.dev/logout",
+		IsAdmin:         true,
+		IsAuthenticated: true,
+		IsPublicPage:    false,
+		Success:         r.URL.Query().Get("success"),
+		Error:           r.URL.Query().Get("error"),
+		Channels:        channels,
+		ConnectURL:      s.nightbotAuthURL(),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -176,23 +183,22 @@ func (s *Server) HandleNightbotCallback(w http.ResponseWriter, r *http.Request) 
 		slog.Warn("get nightbot channel", "error", err)
 	}
 
-	// Store token
+	// Store token - require channel info
+	if channel == nil || channel.Name == "" {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Failed to get channel info"), http.StatusSeeOther)
+		return
+	}
+
 	q := dbgen.New(s.DB)
 	expiresAt := time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
-	
-	var channelName, channelDisplayName string
-	if channel != nil {
-		channelName = channel.Name
-		channelDisplayName = channel.DisplayName
-	}
 
 	err = q.UpsertNightbotToken(ctx, dbgen.UpsertNightbotTokenParams{
 		UserEmail:          userEmail,
+		ChannelName:        channel.Name,
+		ChannelDisplayName: toStringPtr(channel.DisplayName),
 		AccessToken:        tokenResp.AccessToken,
 		RefreshToken:       tokenResp.RefreshToken,
 		ExpiresAt:          expiresAt,
-		ChannelName:        toStringPtr(channelName),
-		ChannelDisplayName: toStringPtr(channelDisplayName),
 	})
 	if err != nil {
 		slog.Error("store nightbot token", "error", err)
@@ -303,11 +309,14 @@ func (s *Server) getNightbotChannel(ctx context.Context, accessToken string) (*n
 }
 
 // getValidNightbotToken returns a valid access token, refreshing if needed
-func (s *Server) getValidNightbotToken(ctx context.Context, userEmail string) (string, error) {
+func (s *Server) getValidNightbotToken(ctx context.Context, userEmail, channelName string) (string, error) {
 	q := dbgen.New(s.DB)
-	token, err := q.GetNightbotToken(ctx, userEmail)
+	token, err := q.GetNightbotToken(ctx, dbgen.GetNightbotTokenParams{
+		UserEmail:   userEmail,
+		ChannelName: channelName,
+	})
 	if err != nil {
-		return "", fmt.Errorf("no nightbot token found")
+		return "", fmt.Errorf("no nightbot token found for channel %s", channelName)
 	}
 
 	// Check if token is expired or about to expire (within 5 minutes)
@@ -325,11 +334,11 @@ func (s *Server) getValidNightbotToken(ctx context.Context, userEmail string) (s
 	expiresAt := time.Now().Add(time.Duration(newToken.ExpiresIn) * time.Second)
 	err = q.UpsertNightbotToken(ctx, dbgen.UpsertNightbotTokenParams{
 		UserEmail:          userEmail,
+		ChannelName:        token.ChannelName,
+		ChannelDisplayName: token.ChannelDisplayName,
 		AccessToken:        newToken.AccessToken,
 		RefreshToken:       newToken.RefreshToken,
 		ExpiresAt:          expiresAt,
-		ChannelName:        token.ChannelName,
-		ChannelDisplayName: token.ChannelDisplayName,
 	})
 	if err != nil {
 		slog.Warn("failed to store refreshed token", "error", err)
@@ -353,9 +362,15 @@ func (s *Server) HandleNightbotExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessToken, err := s.getValidNightbotToken(ctx, userEmail)
+	channelName := r.URL.Query().Get("channel")
+	if channelName == "" {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Channel parameter required"), http.StatusSeeOther)
+		return
+	}
+
+	accessToken, err := s.getValidNightbotToken(ctx, userEmail, channelName)
 	if err != nil {
-		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Not connected to Nightbot"), http.StatusSeeOther)
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Not connected to channel: "+channelName), http.StatusSeeOther)
 		return
 	}
 
@@ -373,25 +388,22 @@ func (s *Server) HandleNightbotExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build backup
-	channelName := "unknown"
-	if channel != nil {
-		channelName = channel.DisplayName
-		if channelName == "" {
-			channelName = channel.Name
-		}
+	// Build backup - use display name if available
+	displayName := channelName
+	if channel != nil && channel.DisplayName != "" {
+		displayName = channel.DisplayName
 	}
 
 	backup := NightbotBackup{
 		ExportedAt:   time.Now().UTC().Format(time.RFC3339),
-		Channel:      channelName,
+		Channel:      displayName,
 		CommandCount: len(commands),
 		Commands:     commands,
 	}
 
 	// Return as JSON download
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="nightbot-commands-%s-%s.json"`, channelName, time.Now().Format("2006-01-02")))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="nightbot-commands-%s-%s.json"`, displayName, time.Now().Format("2006-01-02")))
 
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
@@ -456,15 +468,21 @@ func (s *Server) HandleNightbotImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessToken, err := s.getValidNightbotToken(ctx, userEmail)
-	if err != nil {
-		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Not connected to Nightbot"), http.StatusSeeOther)
+	// Parse multipart form first to get channel
+	if err := r.ParseMultipartForm(10 << 20); err != nil { // 10MB max
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Failed to parse upload"), http.StatusSeeOther)
 		return
 	}
 
-	// Parse multipart form
-	if err := r.ParseMultipartForm(10 << 20); err != nil { // 10MB max
-		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Failed to parse upload"), http.StatusSeeOther)
+	channelName := r.FormValue("channel")
+	if channelName == "" {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Channel is required"), http.StatusSeeOther)
+		return
+	}
+
+	accessToken, err := s.getValidNightbotToken(ctx, userEmail, channelName)
+	if err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Not connected to channel: "+channelName), http.StatusSeeOther)
 		return
 	}
 
@@ -546,7 +564,7 @@ func (s *Server) createNightbotCommand(ctx context.Context, accessToken string, 
 	return nil
 }
 
-// HandleNightbotDisconnect removes the stored Nightbot token
+// HandleNightbotDisconnect removes the stored Nightbot token for a channel
 func (s *Server) HandleNightbotDisconnect(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
@@ -561,12 +579,21 @@ func (s *Server) HandleNightbotDisconnect(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	channelName := r.URL.Query().Get("channel")
+	if channelName == "" {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Channel parameter required"), http.StatusSeeOther)
+		return
+	}
+
 	q := dbgen.New(s.DB)
-	if err := q.DeleteNightbotToken(ctx, userEmail); err != nil {
+	if err := q.DeleteNightbotToken(ctx, dbgen.DeleteNightbotTokenParams{
+		UserEmail:   userEmail,
+		ChannelName: channelName,
+	}); err != nil {
 		slog.Error("delete nightbot token", "error", err)
 	}
 
-	http.Redirect(w, r, "/admin/nightbot?success="+url.QueryEscape("Disconnected from Nightbot"), http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/nightbot?success="+url.QueryEscape("Disconnected "+channelName), http.StatusSeeOther)
 }
 
 // toStringPtr converts a string to *string (nil if empty)

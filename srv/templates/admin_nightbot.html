@@ -49,6 +49,46 @@
         .card > *:first-child { margin-top: 0; }
         .card > *:last-child { margin-bottom: 0; }
         .card ul { padding-left: 1.5rem; }
+        .channel-list {
+            list-style: none;
+            padding: 0 !important;
+            margin: 0;
+        }
+        .channel-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.5rem;
+        }
+        .channel-item .channel-name {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+        }
+        .channel-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
     </style>
 </head>
 <body>
@@ -64,33 +104,47 @@
         <div class="message error">{{.Error}}</div>
     {{end}}
 
-    <div class="card status-card {{if .NightbotConnected}}status-connected{{else}}status-disconnected{{end}}">
-        <h2>Connection Status</h2>
-        {{if .NightbotConnected}}
-            <p><i data-lucide="check-circle"></i> Connected to Nightbot as <span class="channel-name">{{.NightbotChannel}}</span></p>
-            <div class="actions">
-                <a href="/admin/nightbot/export" class="btn btn-primary"><i data-lucide="download"></i> Export Commands</a>
-                <form action="/admin/nightbot/disconnect" method="POST" style="display: inline;">
-                    <button type="submit" class="btn btn-secondary"><i data-lucide="unplug"></i> Disconnect</button>
-                </form>
+    <div class="card">
+        <h2><i data-lucide="plug"></i> Connected Channels</h2>
+        {{if .Channels}}
+            <ul class="channel-list">
+                {{range .Channels}}
+                <li class="channel-item">
+                    <span class="channel-name"><i data-lucide="tv"></i> {{.DisplayName}}</span>
+                    <div class="channel-actions">
+                        <a href="/admin/nightbot/export?channel={{.Name}}" class="btn btn-small btn-primary"><i data-lucide="download"></i> Export</a>
+                        <form action="/admin/nightbot/disconnect?channel={{.Name}}" method="POST" style="display: inline;">
+                            <button type="submit" class="btn btn-small btn-secondary"><i data-lucide="unplug"></i> Disconnect</button>
+                        </form>
+                    </div>
+                </li>
+                {{end}}
+            </ul>
+        {{else}}
+            <p><i data-lucide="alert-circle"></i> No channels connected</p>
+        {{end}}
+        {{if .ConnectURL}}
+            <div class="actions" style="margin-top: 1rem;">
+                <a href="{{.ConnectURL}}" class="btn btn-primary"><i data-lucide="plus"></i> Connect a Channel</a>
             </div>
         {{else}}
-            <p><i data-lucide="alert-circle"></i> Not connected to Nightbot</p>
-            {{if .ConnectURL}}
-                <div class="actions">
-                    <a href="{{.ConnectURL}}" class="btn btn-primary"><i data-lucide="plug"></i> Connect to Nightbot</a>
-                </div>
-            {{else}}
-                <p class="warning-text">Nightbot OAuth credentials not configured. Set NIGHTBOT_CLIENT_ID and NIGHTBOT_CLIENT_SECRET environment variables.</p>
-            {{end}}
+            <p class="warning-text">Nightbot OAuth credentials not configured. Set NIGHTBOT_CLIENT_ID and NIGHTBOT_CLIENT_SECRET environment variables.</p>
         {{end}}
     </div>
 
-    {{if .NightbotConnected}}
+    {{if .Channels}}
     <div class="card">
         <h2><i data-lucide="upload"></i> Import Commands</h2>
-        <p>Upload a previously exported backup file to restore commands.</p>
+        <p>Upload a previously exported backup file to restore commands to a channel.</p>
         <form action="/admin/nightbot/import" method="POST" enctype="multipart/form-data" class="import-form">
+            <div class="form-group">
+                <label for="channel">Target Channel</label>
+                <select name="channel" id="channel" required>
+                    {{range .Channels}}
+                    <option value="{{.Name}}">{{.DisplayName}}</option>
+                    {{end}}
+                </select>
+            </div>
             <div class="file-input-wrapper">
                 <button type="button" class="btn btn-secondary"><i data-lucide="file"></i> Choose File</button>
                 <input type="file" name="backup" accept=".json" required onchange="updateFileName(this)">

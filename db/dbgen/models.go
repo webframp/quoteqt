@@ -34,11 +34,11 @@ type Migration struct {
 type NightbotToken struct {
 	ID                 int64     `json:"id"`
 	UserEmail          string    `json:"user_email"`
+	ChannelName        string    `json:"channel_name"`
+	ChannelDisplayName *string   `json:"channel_display_name"`
 	AccessToken        string    `json:"access_token"`
 	RefreshToken       string    `json:"refresh_token"`
 	ExpiresAt          time.Time `json:"expires_at"`
-	ChannelName        *string   `json:"channel_name"`
-	ChannelDisplayName *string   `json:"channel_display_name"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }

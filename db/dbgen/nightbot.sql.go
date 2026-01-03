@@ -10,65 +10,120 @@ import (
 	"time"
 )
 
-const deleteNightbotToken = `-- name: DeleteNightbotToken :exec
+const deleteAllNightbotTokens = `-- name: DeleteAllNightbotTokens :exec
 DELETE FROM nightbot_tokens WHERE user_email = ?
 `
 
-func (q *Queries) DeleteNightbotToken(ctx context.Context, userEmail string) error {
-	_, err := q.db.ExecContext(ctx, deleteNightbotToken, userEmail)
+func (q *Queries) DeleteAllNightbotTokens(ctx context.Context, userEmail string) error {
+	_, err := q.db.ExecContext(ctx, deleteAllNightbotTokens, userEmail)
+	return err
+}
+
+const deleteNightbotToken = `-- name: DeleteNightbotToken :exec
+DELETE FROM nightbot_tokens WHERE user_email = ? AND channel_name = ?
+`
+
+type DeleteNightbotTokenParams struct {
+	UserEmail   string `json:"user_email"`
+	ChannelName string `json:"channel_name"`
+}
+
+func (q *Queries) DeleteNightbotToken(ctx context.Context, arg DeleteNightbotTokenParams) error {
+	_, err := q.db.ExecContext(ctx, deleteNightbotToken, arg.UserEmail, arg.ChannelName)
 	return err
 }
 
 const getNightbotToken = `-- name: GetNightbotToken :one
-SELECT id, user_email, access_token, refresh_token, expires_at, channel_name, channel_display_name, created_at, updated_at FROM nightbot_tokens WHERE user_email = ? LIMIT 1
+SELECT id, user_email, channel_name, channel_display_name, access_token, refresh_token, expires_at, created_at, updated_at FROM nightbot_tokens WHERE user_email = ? AND channel_name = ? LIMIT 1
 `
 
-func (q *Queries) GetNightbotToken(ctx context.Context, userEmail string) (NightbotToken, error) {
-	row := q.db.QueryRowContext(ctx, getNightbotToken, userEmail)
+type GetNightbotTokenParams struct {
+	UserEmail   string `json:"user_email"`
+	ChannelName string `json:"channel_name"`
+}
+
+func (q *Queries) GetNightbotToken(ctx context.Context, arg GetNightbotTokenParams) (NightbotToken, error) {
+	row := q.db.QueryRowContext(ctx, getNightbotToken, arg.UserEmail, arg.ChannelName)
 	var i NightbotToken
 	err := row.Scan(
 		&i.ID,
 		&i.UserEmail,
+		&i.ChannelName,
+		&i.ChannelDisplayName,
 		&i.AccessToken,
 		&i.RefreshToken,
 		&i.ExpiresAt,
-		&i.ChannelName,
-		&i.ChannelDisplayName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
+const getNightbotTokensByUser = `-- name: GetNightbotTokensByUser :many
+SELECT id, user_email, channel_name, channel_display_name, access_token, refresh_token, expires_at, created_at, updated_at FROM nightbot_tokens WHERE user_email = ? ORDER BY channel_display_name
+`
+
+func (q *Queries) GetNightbotTokensByUser(ctx context.Context, userEmail string) ([]NightbotToken, error) {
+	rows, err := q.db.QueryContext(ctx, getNightbotTokensByUser, userEmail)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []NightbotToken{}
+	for rows.Next() {
+		var i NightbotToken
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserEmail,
+			&i.ChannelName,
+			&i.ChannelDisplayName,
+			&i.AccessToken,
+			&i.RefreshToken,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertNightbotToken = `-- name: UpsertNightbotToken :exec
-INSERT INTO nightbot_tokens (user_email, access_token, refresh_token, expires_at, channel_name, channel_display_name, updated_at)
+INSERT INTO nightbot_tokens (user_email, channel_name, channel_display_name, access_token, refresh_token, expires_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-ON CONFLICT(user_email) DO UPDATE SET
+ON CONFLICT(user_email, channel_name) DO UPDATE SET
+    channel_display_name = excluded.channel_display_name,
     access_token = excluded.access_token,
     refresh_token = excluded.refresh_token,
     expires_at = excluded.expires_at,
-    channel_name = excluded.channel_name,
-    channel_display_name = excluded.channel_display_name,
     updated_at = CURRENT_TIMESTAMP
 `
 
 type UpsertNightbotTokenParams struct {
 	UserEmail          string    `json:"user_email"`
+	ChannelName        string    `json:"channel_name"`
+	ChannelDisplayName *string   `json:"channel_display_name"`
 	AccessToken        string    `json:"access_token"`
 	RefreshToken       string    `json:"refresh_token"`
 	ExpiresAt          time.Time `json:"expires_at"`
-	ChannelName        *string   `json:"channel_name"`
-	ChannelDisplayName *string   `json:"channel_display_name"`
 }
 
 func (q *Queries) UpsertNightbotToken(ctx context.Context, arg UpsertNightbotTokenParams) error {
 	_, err := q.db.ExecContext(ctx, upsertNightbotToken,
 		arg.UserEmail,
+		arg.ChannelName,
+		arg.ChannelDisplayName,
 		arg.AccessToken,
 		arg.RefreshToken,
 		arg.ExpiresAt,
-		arg.ChannelName,
-		arg.ChannelDisplayName,
 	)
 	return err
 }
