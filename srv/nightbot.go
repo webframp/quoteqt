@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pmezard/go-difflib/difflib"
 	"github.com/webframp/quoteqt/db/dbgen"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -787,15 +788,11 @@ func (s *Server) HandleNightbotSnapshotDownload(w http.ResponseWriter, r *http.R
 }
 
 // CommandDiff represents the diff status of a command
+// CommandDiff represents the diff status of a command
 type CommandDiff struct {
 	Name       string
-	Status     string // "added", "removed", "modified", "unchanged"
-	OldMessage string
-	NewMessage string
-	OldCoolDown int
-	NewCoolDown int
-	OldUserLevel string
-	NewUserLevel string
+	Status     string // "added", "removed", "modified"
+	UnifiedDiff string // git-style unified diff output
 }
 
 // HandleNightbotSnapshotDiff shows diff between snapshot and current config
@@ -868,31 +865,54 @@ func (s *Server) HandleNightbotSnapshotDiff(w http.ResponseWriter, r *http.Reque
 	var diffs []CommandDiff
 	var added, removed, modified, unchanged int
 
+	// Helper to format command as text for diffing
+	formatCmd := func(cmd NightbotCommand) string {
+		return fmt.Sprintf("message: %s\ncooldown: %d\nuserlevel: %s", cmd.Message, cmd.CoolDown, cmd.UserLevel)
+	}
+
+	// Helper to generate unified diff
+	genDiff := func(oldText, newText, oldName, newName string) string {
+		diff := difflib.UnifiedDiff{
+			A:        difflib.SplitLines(oldText),
+			B:        difflib.SplitLines(newText),
+			FromFile: oldName,
+			ToFile:   newName,
+			Context:  3,
+		}
+		result, _ := difflib.GetUnifiedDiffString(diff)
+		return result
+	}
+
 	// Check for removed and modified commands (in snapshot but changed/missing in current)
 	for name, snapCmd := range snapshotMap {
 		if curCmd, exists := currentMap[name]; exists {
 			if snapCmd.Message != curCmd.Message || snapCmd.CoolDown != curCmd.CoolDown || snapCmd.UserLevel != curCmd.UserLevel {
+				unifiedDiff := genDiff(
+					formatCmd(snapCmd),
+					formatCmd(curCmd),
+					"snapshot/"+name,
+					"current/"+name,
+				)
 				diffs = append(diffs, CommandDiff{
-					Name:         name,
-					Status:       "modified",
-					OldMessage:   snapCmd.Message,
-					NewMessage:   curCmd.Message,
-					OldCoolDown:  snapCmd.CoolDown,
-					NewCoolDown:  curCmd.CoolDown,
-					OldUserLevel: snapCmd.UserLevel,
-					NewUserLevel: curCmd.UserLevel,
+					Name:        name,
+					Status:      "modified",
+					UnifiedDiff: unifiedDiff,
 				})
 				modified++
 			} else {
 				unchanged++
 			}
 		} else {
+			unifiedDiff := genDiff(
+				formatCmd(snapCmd),
+				"",
+				"snapshot/"+name,
+				"/dev/null",
+			)
 			diffs = append(diffs, CommandDiff{
-				Name:         name,
-				Status:       "removed",
-				OldMessage:   snapCmd.Message,
-				OldCoolDown:  snapCmd.CoolDown,
-				OldUserLevel: snapCmd.UserLevel,
+				Name:        name,
+				Status:      "removed",
+				UnifiedDiff: unifiedDiff,
 			})
 			removed++
 		}
@@ -901,12 +921,16 @@ func (s *Server) HandleNightbotSnapshotDiff(w http.ResponseWriter, r *http.Reque
 	// Check for added commands (in current but not in snapshot)
 	for name, curCmd := range currentMap {
 		if _, exists := snapshotMap[name]; !exists {
+			unifiedDiff := genDiff(
+				"",
+				formatCmd(curCmd),
+				"/dev/null",
+				"current/"+name,
+			)
 			diffs = append(diffs, CommandDiff{
-				Name:         name,
-				Status:       "added",
-				NewMessage:   curCmd.Message,
-				NewCoolDown:  curCmd.CoolDown,
-				NewUserLevel: curCmd.UserLevel,
+				Name:        name,
+				Status:      "added",
+				UnifiedDiff: unifiedDiff,
 			})
 			added++
 		}

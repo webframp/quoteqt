@@ -4,6 +4,7 @@ go 1.25.5
 
 require (
 	github.com/honeycombio/otel-config-go v1.17.0
+	github.com/pmezard/go-difflib v1.0.0
 	github.com/swaggo/swag v1.16.6
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.64.0
 	go.opentelemetry.io/otel v1.39.0
