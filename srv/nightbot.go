@@ -51,6 +51,38 @@ type nightbotChannelResponse struct {
 	Provider    string `json:"provider"`
 }
 
+// StartSnapshotCleanup starts a background goroutine that periodically purges
+// soft-deleted snapshots older than 14 days
+func (s *Server) StartSnapshotCleanup(ctx context.Context) {
+	go func() {
+		// Run immediately on startup
+		s.purgeOldDeletedSnapshots()
+
+		// Then run daily
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				s.purgeOldDeletedSnapshots()
+			}
+		}
+	}()
+}
+
+func (s *Server) purgeOldDeletedSnapshots() {
+	ctx := context.Background()
+	q := dbgen.New(s.DB)
+	if err := q.PurgeOldDeletedSnapshots(ctx); err != nil {
+		slog.Error("purge old deleted snapshots", "error", err)
+	} else {
+		slog.Debug("snapshot cleanup complete")
+	}
+}
+
 // nightbotRedirectURI returns the OAuth callback URL
 func (s *Server) nightbotRedirectURI() string {
 	scheme := "https"
@@ -1529,4 +1561,168 @@ func (s *Server) HandleNightbotImportSnapshot(w http.ResponseWriter, r *http.Req
 
 	// Suppress unused variable warning
 	_ = q
+}
+
+// HandleNightbotSnapshotDelete soft-deletes a snapshot (can be restored within 14 days)
+func (s *Server) HandleNightbotSnapshotDelete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+
+	if userEmail == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.FormValue("id")
+	if idStr == "" {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Missing snapshot ID"), http.StatusSeeOther)
+		return
+	}
+
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Invalid snapshot ID"), http.StatusSeeOther)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	snapshot, err := q.GetNightbotSnapshot(ctx, id)
+	if err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Snapshot not found"), http.StatusSeeOther)
+		return
+	}
+
+	if err := q.SoftDeleteNightbotSnapshot(ctx, dbgen.SoftDeleteNightbotSnapshotParams{
+		DeletedBy: &userEmail,
+		ID:        id,
+	}); err != nil {
+		slog.Error("soft delete snapshot", "id", id, "error", err)
+		http.Redirect(w, r, "/admin/nightbot/snapshots?channel="+url.QueryEscape(snapshot.ChannelName)+"&error="+url.QueryEscape("Failed to delete snapshot"), http.StatusSeeOther)
+		return
+	}
+
+	slog.Info("snapshot soft-deleted", "id", id, "channel", snapshot.ChannelName, "by", userEmail)
+	http.Redirect(w, r, "/admin/nightbot/snapshots?channel="+url.QueryEscape(snapshot.ChannelName)+"&success="+url.QueryEscape("Snapshot deleted. It can be restored within 14 days."), http.StatusSeeOther)
+}
+
+// HandleNightbotSnapshotUndelete restores a soft-deleted snapshot
+func (s *Server) HandleNightbotSnapshotUndelete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+
+	if userEmail == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.FormValue("id")
+	if idStr == "" {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Missing snapshot ID"), http.StatusSeeOther)
+		return
+	}
+
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Invalid snapshot ID"), http.StatusSeeOther)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	snapshot, err := q.GetNightbotSnapshot(ctx, id)
+	if err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Snapshot not found"), http.StatusSeeOther)
+		return
+	}
+
+	if err := q.RestoreNightbotSnapshot(ctx, id); err != nil {
+		slog.Error("restore snapshot", "id", id, "error", err)
+		http.Redirect(w, r, "/admin/nightbot/snapshots?channel="+url.QueryEscape(snapshot.ChannelName)+"&deleted=1&error="+url.QueryEscape("Failed to restore snapshot"), http.StatusSeeOther)
+		return
+	}
+
+	slog.Info("snapshot restored", "id", id, "channel", snapshot.ChannelName, "by", userEmail)
+	http.Redirect(w, r, "/admin/nightbot/snapshots?channel="+url.QueryEscape(snapshot.ChannelName)+"&success="+url.QueryEscape("Snapshot restored successfully."), http.StatusSeeOther)
+}
+
+// HandleNightbotDeletedSnapshots shows all deleted snapshots across channels
+func (s *Server) HandleNightbotDeletedSnapshots(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+
+	if userEmail == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+
+	// Check for a specific channel filter
+	channelName := r.URL.Query().Get("channel")
+
+	var snapshots []dbgen.NightbotSnapshot
+	var err error
+	if channelName != "" {
+		snapshots, err = q.GetDeletedNightbotSnapshots(ctx, dbgen.GetDeletedNightbotSnapshotsParams{
+			ChannelName: channelName,
+			Limit:       100,
+		})
+	} else {
+		snapshots, err = q.GetAllDeletedSnapshots(ctx, 100)
+	}
+	if err != nil {
+		slog.Error("get deleted snapshots", "error", err)
+		http.Error(w, "Failed to load deleted snapshots", http.StatusInternalServerError)
+		return
+	}
+
+	data := struct {
+		Snapshots       []dbgen.NightbotSnapshot
+		ChannelName     string
+		Success         string
+		Error           string
+		IsAuthenticated bool
+		IsAdmin         bool
+		IsPublicPage    bool
+		LogoutURL       string
+	}{
+		Snapshots:       snapshots,
+		ChannelName:     channelName,
+		Success:         r.URL.Query().Get("success"),
+		Error:           r.URL.Query().Get("error"),
+		IsAuthenticated: true,
+		IsAdmin:         true,
+		IsPublicPage:    false,
+		LogoutURL:       "/__exe.dev/logout",
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.renderTemplate(w, "admin_nightbot_deleted.html", data); err != nil {
+		slog.Error("render deleted snapshots template", "error", err)
+		http.Error(w, "Failed to render page", http.StatusInternalServerError)
+	}
 }

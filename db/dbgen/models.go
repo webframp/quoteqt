@@ -43,6 +43,8 @@ type NightbotSnapshot struct {
 	LastDiffRemoved  *int64     `json:"last_diff_removed"`
 	LastDiffModified *int64     `json:"last_diff_modified"`
 	LastDiffAt       *time.Time `json:"last_diff_at"`
+	DeletedAt        *time.Time `json:"deleted_at"`
+	DeletedBy        *string    `json:"deleted_by"`
 }
 
 type NightbotToken struct {

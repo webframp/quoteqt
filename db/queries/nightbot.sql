@@ -26,13 +26,29 @@ VALUES (?, ?, ?, ?, ?)
 RETURNING id;
 
 -- name: GetNightbotSnapshots :many
-SELECT * FROM nightbot_snapshots WHERE channel_name = ? ORDER BY snapshot_at DESC LIMIT ?;
+SELECT * FROM nightbot_snapshots WHERE channel_name = ? AND deleted_at IS NULL ORDER BY snapshot_at DESC LIMIT ?;
 
 -- name: GetNightbotSnapshot :one
 SELECT * FROM nightbot_snapshots WHERE id = ?;
 
 -- name: DeleteNightbotSnapshot :exec
 DELETE FROM nightbot_snapshots WHERE id = ?;
+
+-- name: SoftDeleteNightbotSnapshot :exec
+UPDATE nightbot_snapshots SET deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE id = ?;
+
+-- name: RestoreNightbotSnapshot :exec
+UPDATE nightbot_snapshots SET deleted_at = NULL, deleted_by = NULL WHERE id = ?;
+
+-- name: GetDeletedNightbotSnapshots :many
+SELECT * FROM nightbot_snapshots WHERE channel_name = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT ?;
+
+-- name: GetAllDeletedSnapshots :many
+SELECT * FROM nightbot_snapshots WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT ?;
+
+-- name: PurgeOldDeletedSnapshots :exec
+-- Permanently delete snapshots that were soft-deleted more than 14 days ago
+DELETE FROM nightbot_snapshots WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-14 days');
 
 -- name: UpdateSnapshotDiffCache :exec
 UPDATE nightbot_snapshots
@@ -43,4 +59,5 @@ WHERE id = ?;
 -- Returns channels that have snapshots but no OAuth tokens (imported via Tampermonkey)
 SELECT DISTINCT channel_name FROM nightbot_snapshots
 WHERE channel_name NOT IN (SELECT channel_name FROM nightbot_tokens)
+  AND deleted_at IS NULL
 ORDER BY channel_name;

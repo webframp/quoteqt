@@ -69,9 +69,97 @@ func (q *Queries) DeleteNightbotToken(ctx context.Context, arg DeleteNightbotTok
 	return err
 }
 
+const getAllDeletedSnapshots = `-- name: GetAllDeletedSnapshots :many
+SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note, last_diff_added, last_diff_removed, last_diff_modified, last_diff_at, deleted_at, deleted_by FROM nightbot_snapshots WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT ?
+`
+
+func (q *Queries) GetAllDeletedSnapshots(ctx context.Context, limit int64) ([]NightbotSnapshot, error) {
+	rows, err := q.db.QueryContext(ctx, getAllDeletedSnapshots, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []NightbotSnapshot{}
+	for rows.Next() {
+		var i NightbotSnapshot
+		if err := rows.Scan(
+			&i.ID,
+			&i.ChannelName,
+			&i.SnapshotAt,
+			&i.CommandCount,
+			&i.CommandsJson,
+			&i.CreatedBy,
+			&i.Note,
+			&i.LastDiffAdded,
+			&i.LastDiffRemoved,
+			&i.LastDiffModified,
+			&i.LastDiffAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getDeletedNightbotSnapshots = `-- name: GetDeletedNightbotSnapshots :many
+SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note, last_diff_added, last_diff_removed, last_diff_modified, last_diff_at, deleted_at, deleted_by FROM nightbot_snapshots WHERE channel_name = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT ?
+`
+
+type GetDeletedNightbotSnapshotsParams struct {
+	ChannelName string `json:"channel_name"`
+	Limit       int64  `json:"limit"`
+}
+
+func (q *Queries) GetDeletedNightbotSnapshots(ctx context.Context, arg GetDeletedNightbotSnapshotsParams) ([]NightbotSnapshot, error) {
+	rows, err := q.db.QueryContext(ctx, getDeletedNightbotSnapshots, arg.ChannelName, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []NightbotSnapshot{}
+	for rows.Next() {
+		var i NightbotSnapshot
+		if err := rows.Scan(
+			&i.ID,
+			&i.ChannelName,
+			&i.SnapshotAt,
+			&i.CommandCount,
+			&i.CommandsJson,
+			&i.CreatedBy,
+			&i.Note,
+			&i.LastDiffAdded,
+			&i.LastDiffRemoved,
+			&i.LastDiffModified,
+			&i.LastDiffAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getImportedOnlyChannels = `-- name: GetImportedOnlyChannels :many
 SELECT DISTINCT channel_name FROM nightbot_snapshots
 WHERE channel_name NOT IN (SELECT channel_name FROM nightbot_tokens)
+  AND deleted_at IS NULL
 ORDER BY channel_name
 `
 
@@ -100,7 +188,7 @@ func (q *Queries) GetImportedOnlyChannels(ctx context.Context) ([]string, error)
 }
 
 const getNightbotSnapshot = `-- name: GetNightbotSnapshot :one
-SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note, last_diff_added, last_diff_removed, last_diff_modified, last_diff_at FROM nightbot_snapshots WHERE id = ?
+SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note, last_diff_added, last_diff_removed, last_diff_modified, last_diff_at, deleted_at, deleted_by FROM nightbot_snapshots WHERE id = ?
 `
 
 func (q *Queries) GetNightbotSnapshot(ctx context.Context, id int64) (NightbotSnapshot, error) {
@@ -118,12 +206,14 @@ func (q *Queries) GetNightbotSnapshot(ctx context.Context, id int64) (NightbotSn
 		&i.LastDiffRemoved,
 		&i.LastDiffModified,
 		&i.LastDiffAt,
+		&i.DeletedAt,
+		&i.DeletedBy,
 	)
 	return i, err
 }
 
 const getNightbotSnapshots = `-- name: GetNightbotSnapshots :many
-SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note, last_diff_added, last_diff_removed, last_diff_modified, last_diff_at FROM nightbot_snapshots WHERE channel_name = ? ORDER BY snapshot_at DESC LIMIT ?
+SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note, last_diff_added, last_diff_removed, last_diff_modified, last_diff_at, deleted_at, deleted_by FROM nightbot_snapshots WHERE channel_name = ? AND deleted_at IS NULL ORDER BY snapshot_at DESC LIMIT ?
 `
 
 type GetNightbotSnapshotsParams struct {
@@ -152,6 +242,8 @@ func (q *Queries) GetNightbotSnapshots(ctx context.Context, arg GetNightbotSnaps
 			&i.LastDiffRemoved,
 			&i.LastDiffModified,
 			&i.LastDiffAt,
+			&i.DeletedAt,
+			&i.DeletedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -227,6 +319,39 @@ func (q *Queries) GetNightbotTokensByUser(ctx context.Context, userEmail string)
 		return nil, err
 	}
 	return items, nil
+}
+
+const purgeOldDeletedSnapshots = `-- name: PurgeOldDeletedSnapshots :exec
+DELETE FROM nightbot_snapshots WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-14 days')
+`
+
+// Permanently delete snapshots that were soft-deleted more than 14 days ago
+func (q *Queries) PurgeOldDeletedSnapshots(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, purgeOldDeletedSnapshots)
+	return err
+}
+
+const restoreNightbotSnapshot = `-- name: RestoreNightbotSnapshot :exec
+UPDATE nightbot_snapshots SET deleted_at = NULL, deleted_by = NULL WHERE id = ?
+`
+
+func (q *Queries) RestoreNightbotSnapshot(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, restoreNightbotSnapshot, id)
+	return err
+}
+
+const softDeleteNightbotSnapshot = `-- name: SoftDeleteNightbotSnapshot :exec
+UPDATE nightbot_snapshots SET deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE id = ?
+`
+
+type SoftDeleteNightbotSnapshotParams struct {
+	DeletedBy *string `json:"deleted_by"`
+	ID        int64   `json:"id"`
+}
+
+func (q *Queries) SoftDeleteNightbotSnapshot(ctx context.Context, arg SoftDeleteNightbotSnapshotParams) error {
+	_, err := q.db.ExecContext(ctx, softDeleteNightbotSnapshot, arg.DeletedBy, arg.ID)
+	return err
 }
 
 const updateSnapshotDiffCache = `-- name: UpdateSnapshotDiffCache :exec

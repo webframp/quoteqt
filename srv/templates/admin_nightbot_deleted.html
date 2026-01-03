@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <title>Deleted Snapshots - Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/theme.css?v=8">
+    <style>
+        body { max-width: 900px; margin: 0 auto; padding: 2rem; }
+        .snapshot-list { list-style: none; padding: 0; margin: 0; }
+        .snapshot-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.5rem;
+            opacity: 0.8;
+        }
+        .snapshot-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .snapshot-date {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .snapshot-meta {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .snapshot-deleted {
+            font-size: 0.8rem;
+            color: var(--danger);
+            margin-top: 0.25rem;
+        }
+        .snapshot-channel {
+            font-size: 0.85rem;
+            color: var(--accent);
+            margin-top: 0.25rem;
+        }
+        .snapshot-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .warning-banner {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--danger);
+            border-radius: var(--radius-sm);
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-secondary);
+        }
+        .warning-banner strong {
+            color: var(--danger);
+        }
+    </style>
+</head>
+<body>
+    {{template "nav" .}}
+
+    <a href="/admin/nightbot" class="back-link"><i data-lucide="arrow-left"></i> Back to Nightbot</a>
+
+    <h1><i data-lucide="trash-2"></i> Deleted Snapshots{{if .ChannelName}}: {{.ChannelName}}{{end}}</h1>
+    <p class="subtitle">Snapshots that have been deleted can be restored within 14 days</p>
+
+    <div class="warning-banner">
+        <i data-lucide="alert-triangle" style="width: 16px; height: 16px; vertical-align: middle;"></i>
+        <strong>Auto-purge:</strong> Deleted snapshots are permanently removed after 14 days.
+    </div>
+
+    {{if .Success}}
+        <div class="message success">{{.Success}}</div>
+    {{end}}
+    {{if .Error}}
+        <div class="message error">{{.Error}}</div>
+    {{end}}
+
+    <div class="card">
+        {{if .Snapshots}}
+            <ul class="snapshot-list">
+                {{range .Snapshots}}
+                <li class="snapshot-item">
+                    <div class="snapshot-info">
+                        <span class="snapshot-date">{{.SnapshotAt.Format "Jan 2, 2006 3:04 PM"}}</span>
+                        <span class="snapshot-meta">{{.CommandCount}} commands • saved by {{.CreatedBy}}</span>
+                        {{if not $.ChannelName}}
+                        <span class="snapshot-channel">Channel: {{.ChannelName}}</span>
+                        {{end}}
+                        {{if .DeletedAt}}
+                        <span class="snapshot-deleted">
+                            <i data-lucide="trash-2" style="width: 12px; height: 12px; vertical-align: middle;"></i>
+                            Deleted {{.DeletedAt.Time.Format "Jan 2, 2006 3:04 PM"}}{{if .DeletedBy}} by {{.DeletedBy}}{{end}}
+                        </span>
+                        {{end}}
+                    </div>
+                    <div class="snapshot-actions">
+                        <form action="/admin/nightbot/snapshot/undelete" method="POST" style="display: inline;">
+                            <input type="hidden" name="id" value="{{.ID}}">
+                            <button type="submit" class="btn btn-small btn-success"><i data-lucide="rotate-ccw"></i> Restore</button>
+                        </form>
+                        <a href="/admin/nightbot/snapshot/download?id={{.ID}}" class="btn btn-small btn-secondary"><i data-lucide="download"></i> Download</a>
+                    </div>
+                </li>
+                {{end}}
+            </ul>
+        {{else}}
+            <div class="empty-state">
+                <i data-lucide="check-circle" style="width: 48px; height: 48px; margin-bottom: 1rem; color: var(--success);"></i>
+                <p>No deleted snapshots</p>
+                <p>Deleted snapshots will appear here for up to 14 days</p>
+            </div>
+        {{end}}
+    </div>
+
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <span id="theme-icon"><i data-lucide="sun"></i></span>
+    </button>
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const next = current === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateIcon(next);
+        }
+        function updateIcon(theme) {
+            document.getElementById('theme-icon').innerHTML = theme === 'light' 
+                ? '<i data-lucide="moon"></i>'
+                : '<i data-lucide="sun"></i>';
+            lucide.createIcons();
+        }
+        (function() {
+            const saved = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+            updateIcon(saved);
+        })();
+    </script>
+    <script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js" integrity="sha384-8nT3SpButyvenpAdKYPJzXdSz3zidMGduMoaMvwjKnAWVv238n6P1mhveiJJQWrV" crossorigin="anonymous"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

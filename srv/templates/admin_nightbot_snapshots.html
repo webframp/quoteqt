@@ -114,7 +114,10 @@
 <body>
     {{template "nav" .}}
 
-    <a href="/admin/nightbot" class="back-link"><i data-lucide="arrow-left"></i> Back to Nightbot</a>
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+        <a href="/admin/nightbot" class="back-link" style="margin-bottom: 0;"><i data-lucide="arrow-left"></i> Back to Nightbot</a>
+        <a href="/admin/nightbot/deleted?channel={{.ChannelName}}" class="btn btn-small btn-secondary"><i data-lucide="trash-2"></i> View Deleted</a>
+    </div>
 
     <h1><i data-lucide="history"></i> Snapshots: {{.ChannelName}}</h1>
     <p class="subtitle">Saved command snapshots for this channel</p>
@@ -175,6 +178,10 @@
                             <button type="submit" class="btn btn-small btn-danger"><i data-lucide="rotate-ccw"></i> Restore</button>
                         </form>
                         {{end}}
+                        <form action="/admin/nightbot/snapshot/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete this snapshot?\n\nIt can be restored within 14 days from the Deleted Snapshots page.');">
+                            <input type="hidden" name="id" value="{{.ID}}">
+                            <button type="submit" class="btn btn-small btn-secondary" title="Delete snapshot"><i data-lucide="trash-2"></i></button>
+                        </form>
                     </div>
                 </li>
                 {{end}}
