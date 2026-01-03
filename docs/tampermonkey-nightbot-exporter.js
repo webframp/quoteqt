@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         Nightbot Command Exporter for QuoteQT
 // @namespace    http://tampermonkey.net/
-// @version      2.1
+// @version      2.2
 // @description  Export Nightbot commands to QuoteQT
 // @match        https://nightbot.tv/*
 // @grant        GM_xmlhttpRequest
+// @grant        unsafeWindow
 // @connect      quoteqt.webframp.com
 // @run-at       document-start
 // ==/UserScript==
@@ -20,9 +21,11 @@
     let capturedAuth = null;
     let capturedChannel = null;
 
-    // Intercept fetch to capture headers
-    const originalFetch = window.fetch;
-    window.fetch = function(url, options) {
+    // Use unsafeWindow to access the real page's fetch
+    const realWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+    const originalFetch = realWindow.fetch.bind(realWindow);
+    
+    realWindow.fetch = function(url, options) {
         if (options?.headers) {
             let auth = null;
             let channel = null;
@@ -47,15 +50,34 @@
                 console.log('[QuoteQT] Captured channel:', channel);
             }
         }
-        return originalFetch.apply(this, arguments);
+        return originalFetch(url, options);
     };
 
-    window.addEventListener('load', () => {
+    // Store captured values in a way the UI can access
+    function getAuth() { return capturedAuth; }
+    function getChannel() { return capturedChannel; }
+
+    realWindow.addEventListener('load', () => {
         setTimeout(() => {
             // Create button container
             const container = document.createElement('div');
             container.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999;display:flex;gap:8px;';
             document.body.appendChild(container);
+
+            // Status indicator
+            const status = document.createElement('span');
+            status.style.cssText = 'padding:10px;background:#1f2937;color:#9ca3af;border-radius:8px;font-size:12px;';
+            status.textContent = '⏳ Waiting for auth...';
+            container.appendChild(status);
+
+            // Update status periodically
+            const updateStatus = () => {
+                if (capturedAuth) {
+                    status.textContent = capturedChannel ? `✅ ${capturedChannel}` : '✅ Auth ready';
+                    status.style.color = '#22c55e';
+                }
+            };
+            setInterval(updateStatus, 1000);
 
             // Download button
             const downloadBtn = document.createElement('button');
@@ -80,11 +102,11 @@
                     headers['Nightbot-Channel'] = capturedChannel;
                 }
 
-                const resp = await fetch('https://api.nightbot.tv/1/commands', { headers });
+                const resp = await originalFetch('https://api.nightbot.tv/1/commands', { headers });
                 if (!resp.ok) throw new Error('Failed to fetch commands: ' + resp.status);
                 const data = await resp.json();
 
-                const channelResp = await fetch('https://api.nightbot.tv/1/channel', { headers });
+                const channelResp = await originalFetch('https://api.nightbot.tv/1/channel', { headers });
                 const channelData = await channelResp.json();
 
                 return {
