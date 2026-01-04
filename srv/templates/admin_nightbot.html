@@ -121,8 +121,13 @@
 <body>
     {{template "nav" .}}
 
-    <h1><i data-lucide="bot"></i> Nightbot Backup</h1>
-    <p class="subtitle">Backup and restore your Nightbot custom commands</p>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h1 style="margin-bottom: 0.5rem;"><i data-lucide="bot"></i> Nightbot Backup</h1>
+            <p class="subtitle">Backup and restore your Nightbot custom commands</p>
+        </div>
+        <a href="/admin/nightbot/search" class="btn btn-secondary"><i data-lucide="search"></i> Search Commands</a>
+    </div>
 
     {{if .Success}}
         <div class="message success">{{.Success}}</div>

@@ -1726,3 +1726,119 @@ func (s *Server) HandleNightbotDeletedSnapshots(w http.ResponseWriter, r *http.R
 		http.Error(w, "Failed to render page", http.StatusInternalServerError)
 	}
 }
+
+// SearchResult represents a command found in a snapshot
+type SearchResult struct {
+	SnapshotID   int64
+	SnapshotAt   string
+	ChannelName  string
+	CommandName  string
+	CommandMsg   string
+}
+
+// HandleNightbotSearch searches for commands across snapshots
+func (s *Server) HandleNightbotSearch(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+
+	if userEmail == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	channelName := strings.TrimSpace(r.URL.Query().Get("channel"))
+
+	var results []SearchResult
+
+	if query != "" && len(query) >= 2 {
+		q := dbgen.New(s.DB)
+		var snapshots []dbgen.NightbotSnapshot
+		var err error
+
+		if channelName != "" {
+			snapshots, err = q.GetNightbotSnapshots(ctx, dbgen.GetNightbotSnapshotsParams{
+				ChannelName: channelName,
+				Limit:       50,
+			})
+		} else {
+			// Search across all channels - get recent snapshots
+			rows, err2 := s.DB.QueryContext(ctx, 
+				`SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note,
+				        last_diff_added, last_diff_removed, last_diff_modified, last_diff_at, deleted_at, deleted_by
+				 FROM nightbot_snapshots 
+				 WHERE deleted_at IS NULL 
+				 ORDER BY snapshot_at DESC LIMIT 100`)
+			if err2 != nil {
+				err = err2
+			} else {
+				defer rows.Close()
+				for rows.Next() {
+					var snap dbgen.NightbotSnapshot
+					if err := rows.Scan(&snap.ID, &snap.ChannelName, &snap.SnapshotAt, &snap.CommandCount,
+						&snap.CommandsJson, &snap.CreatedBy, &snap.Note,
+						&snap.LastDiffAdded, &snap.LastDiffRemoved, &snap.LastDiffModified, &snap.LastDiffAt,
+						&snap.DeletedAt, &snap.DeletedBy); err != nil {
+						continue
+					}
+					snapshots = append(snapshots, snap)
+				}
+			}
+		}
+
+		if err != nil {
+			slog.Error("search snapshots", "error", err)
+		} else {
+			queryLower := strings.ToLower(query)
+			for _, snap := range snapshots {
+				var commands []NightbotCommand
+				if err := json.Unmarshal([]byte(snap.CommandsJson), &commands); err != nil {
+					continue
+				}
+				for _, cmd := range commands {
+					if strings.Contains(strings.ToLower(cmd.Name), queryLower) ||
+						strings.Contains(strings.ToLower(cmd.Message), queryLower) {
+						results = append(results, SearchResult{
+							SnapshotID:   snap.ID,
+							SnapshotAt:   snap.SnapshotAt.Format("Jan 2, 2006 3:04 PM"),
+							ChannelName:  snap.ChannelName,
+							CommandName:  cmd.Name,
+							CommandMsg:   cmd.Message,
+						})
+					}
+				}
+			}
+		}
+	}
+
+	data := struct {
+		Query           string
+		ChannelName     string
+		Results         []SearchResult
+		ResultCount     int
+		IsAuthenticated bool
+		IsAdmin         bool
+		IsPublicPage    bool
+		LogoutURL       string
+	}{
+		Query:           query,
+		ChannelName:     channelName,
+		Results:         results,
+		ResultCount:     len(results),
+		IsAuthenticated: true,
+		IsAdmin:         true,
+		IsPublicPage:    false,
+		LogoutURL:       "/__exe.dev/logout",
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.renderTemplate(w, "admin_nightbot_search.html", data); err != nil {
+		slog.Error("render search template", "error", err)
+		http.Error(w, "Failed to render page", http.StatusInternalServerError)
+	}
+}
