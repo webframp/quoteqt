@@ -38,8 +38,8 @@ Current coverage: ~36%. Priority areas to improve:
 ### UI/UX Improvements
 
 - [ ] **Snapshot pagination** - Currently limited to 100 snapshots per channel
-- [ ] **Search within snapshots** - Find commands across snapshots
-- [ ] **Export diff as text** - Download diff output for sharing
+- [x] **Search within snapshots** - Find commands across snapshots (/admin/nightbot/search)
+- [x] **Export diff as text** - "Copy for Discord" button on diff pages
 
 ## Low Priority / Future Ideas
 
