@@ -1250,3 +1250,293 @@ func TestHandleListAllQuotes(t *testing.T) {
 		}
 	})
 }
+
+func TestHandleListSuggestions(t *testing.T) {
+	t.Run("redirects when not authenticated", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodGet, "/suggestions", nil)
+		w := httptest.NewRecorder()
+
+		server.HandleListSuggestions(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 403 for non-admin non-owner", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodGet, "/suggestions", nil)
+		req.Header.Set("X-ExeDev-UserID", "user123")
+		req.Header.Set("X-ExeDev-Email", "nobody@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleListSuggestions(w, req)
+
+		if w.Code != http.StatusForbidden {
+			t.Errorf("expected 403, got %d", w.Code)
+		}
+	})
+
+	t.Run("admin can list all suggestions", func(t *testing.T) {
+		server := testServer(t)
+		addTestSuggestion(t, server, "Test suggestion", "testchannel")
+
+		req := httptest.NewRequest(http.MethodGet, "/suggestions", nil)
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleListSuggestions(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "Test suggestion") {
+			t.Errorf("expected suggestion in response")
+		}
+	})
+
+	t.Run("channel owner can list their channel suggestions", func(t *testing.T) {
+		server := testServer(t)
+		q := dbgen.New(server.DB)
+		_ = q.AddChannelOwner(context.Background(), dbgen.AddChannelOwnerParams{
+			Channel:   "ownedchannel",
+			UserEmail: "owner@test.com",
+			InvitedBy: "admin@test.com",
+		})
+		addTestSuggestion(t, server, "Owned channel suggestion", "ownedchannel")
+
+		req := httptest.NewRequest(http.MethodGet, "/suggestions", nil)
+		req.Header.Set("X-ExeDev-UserID", "owner123")
+		req.Header.Set("X-ExeDev-Email", "owner@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleListSuggestions(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+	})
+}
+
+func TestHandleRejectSuggestion(t *testing.T) {
+	t.Run("returns 401 when not authenticated", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/suggestions/1/reject", nil)
+		req.SetPathValue("id", "1")
+		w := httptest.NewRecorder()
+
+		server.HandleRejectSuggestion(w, req)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("expected 401, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 400 for invalid ID", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/suggestions/abc/reject", nil)
+		req.SetPathValue("id", "abc")
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleRejectSuggestion(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 404 for non-existent suggestion", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/suggestions/99999/reject", nil)
+		req.SetPathValue("id", "99999")
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleRejectSuggestion(w, req)
+
+		if w.Code != http.StatusNotFound {
+			t.Errorf("expected 404, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 403 when user cannot manage channel", func(t *testing.T) {
+		server := testServer(t)
+		id := addTestSuggestion(t, server, "Protected suggestion", "otherchannel")
+
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/suggestions/%d/reject", id), nil)
+		req.SetPathValue("id", fmt.Sprintf("%d", id))
+		req.Header.Set("X-ExeDev-UserID", "user123")
+		req.Header.Set("X-ExeDev-Email", "nobody@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleRejectSuggestion(w, req)
+
+		if w.Code != http.StatusForbidden {
+			t.Errorf("expected 403, got %d", w.Code)
+		}
+	})
+
+	t.Run("admin can reject any suggestion", func(t *testing.T) {
+		server := testServer(t)
+		id := addTestSuggestion(t, server, "To be rejected", "anychannel")
+
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/suggestions/%d/reject", id), nil)
+		req.SetPathValue("id", fmt.Sprintf("%d", id))
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleRejectSuggestion(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303, got %d", w.Code)
+		}
+
+		// Verify suggestion was rejected
+		q := dbgen.New(server.DB)
+		suggestion, _ := q.GetSuggestionByID(context.Background(), id)
+		if suggestion.Status != "rejected" {
+			t.Errorf("expected rejected status, got %s", suggestion.Status)
+		}
+	})
+}
+
+func TestHandleAddChannelOwner(t *testing.T) {
+	t.Run("returns 401 when not authenticated", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/admin/owners", strings.NewReader("channel=test&email=user@test.com"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+
+		server.HandleAddChannelOwner(w, req)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("expected 401, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 403 for non-admin", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/admin/owners", strings.NewReader("channel=test&email=user@test.com"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "user123")
+		req.Header.Set("X-ExeDev-Email", "user@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleAddChannelOwner(w, req)
+
+		if w.Code != http.StatusForbidden {
+			t.Errorf("expected 403, got %d", w.Code)
+		}
+	})
+
+	t.Run("redirects with error when channel or email missing", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/admin/owners", strings.NewReader("channel=test"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleAddChannelOwner(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303, got %d", w.Code)
+		}
+		loc := w.Header().Get("Location")
+		if !strings.Contains(loc, "error=") {
+			t.Errorf("expected error in redirect, got %s", loc)
+		}
+	})
+
+	t.Run("admin can add channel owner", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/admin/owners", strings.NewReader("channel=newchannel&email=newowner@test.com"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleAddChannelOwner(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303, got %d", w.Code)
+		}
+		loc := w.Header().Get("Location")
+		if !strings.Contains(loc, "success=") {
+			t.Errorf("expected success in redirect, got %s", loc)
+		}
+
+		// Verify owner was added
+		q := dbgen.New(server.DB)
+		channels, _ := q.GetChannelsByOwner(context.Background(), "newowner@test.com")
+		if len(channels) != 1 || channels[0] != "newchannel" {
+			t.Errorf("expected newchannel in owned channels, got %v", channels)
+		}
+	})
+}
+
+func TestHandleRemoveChannelOwner(t *testing.T) {
+	t.Run("returns 401 when not authenticated", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/admin/owners/remove", strings.NewReader("channel=test&email=user@test.com"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+
+		server.HandleRemoveChannelOwner(w, req)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("expected 401, got %d", w.Code)
+		}
+	})
+
+	t.Run("returns 403 for non-admin", func(t *testing.T) {
+		server := testServer(t)
+		req := httptest.NewRequest(http.MethodPost, "/admin/owners/remove", strings.NewReader("channel=test&email=user@test.com"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "user123")
+		req.Header.Set("X-ExeDev-Email", "user@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleRemoveChannelOwner(w, req)
+
+		if w.Code != http.StatusForbidden {
+			t.Errorf("expected 403, got %d", w.Code)
+		}
+	})
+
+	t.Run("admin can remove channel owner", func(t *testing.T) {
+		server := testServer(t)
+		q := dbgen.New(server.DB)
+
+		// First add an owner
+		_ = q.AddChannelOwner(context.Background(), dbgen.AddChannelOwnerParams{
+			Channel:   "removechannel",
+			UserEmail: "toremove@test.com",
+			InvitedBy: "admin@test.com",
+		})
+
+		req := httptest.NewRequest(http.MethodPost, "/admin/owners/remove", strings.NewReader("channel=removechannel&email=toremove@test.com"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-ExeDev-UserID", "admin123")
+		req.Header.Set("X-ExeDev-Email", "admin@test.com")
+		w := httptest.NewRecorder()
+
+		server.HandleRemoveChannelOwner(w, req)
+
+		if w.Code != http.StatusSeeOther {
+			t.Errorf("expected 303, got %d", w.Code)
+		}
+
+		// Verify owner was removed
+		channels, _ := q.GetChannelsByOwner(context.Background(), "toremove@test.com")
+		if len(channels) != 0 {
+			t.Errorf("expected no channels, got %v", channels)
+		}
+	})
+}
