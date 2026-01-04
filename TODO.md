@@ -4,7 +4,7 @@
 
 ### Test Coverage Improvements
 
-Current coverage: ~29%. Priority areas to improve:
+Current coverage: ~36%. Priority areas to improve:
 
 - [ ] **Nightbot handlers (0% coverage)** - All nightbot.go handlers are untested
   - HandleNightbotAdmin, HandleNightbotCallback, HandleNightbotExport
@@ -12,12 +12,11 @@ Current coverage: ~29%. Priority areas to improve:
   - HandleNightbotSnapshotCompare, HandleNightbotSnapshotDelete/Undelete
   - Consider mocking Nightbot API for unit tests
 
-- [ ] **Middleware (0% coverage)** - Gzip, RequestLogger, SecurityHeaders, StaticFileServer
-  - These are critical path code that should have tests
+- [x] **Middleware (~98% coverage)** - Gzip, RequestLogger, SecurityHeaders, StaticFileServer
 
-- [ ] **Suggestion handlers** - HandleListSuggestions, HandleRejectSuggestion at 0%
+- [x] **Suggestion handlers** - HandleListSuggestions (84%), HandleRejectSuggestion (80%)
 
-- [ ] **Channel owner management** - HandleAddChannelOwner, HandleRemoveChannelOwner at 0%
+- [x] **Channel owner management** - HandleAddChannelOwner (80%), HandleRemoveChannelOwner (73%)
 
 ### Nightbot Feature Enhancements
 
