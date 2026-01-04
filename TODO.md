@@ -20,7 +20,9 @@ Current coverage: ~36%. Priority areas to improve:
 
 ### Nightbot Feature Enhancements
 
-- [ ] **Track command modifications** - Investigate Nightbot API for `updatedBy` or similar field to show who last modified each command
+- [x] **Track command modifications** - INVESTIGATED: Nightbot API does NOT provide `updatedBy` field.
+  The API only returns `createdAt` and `updatedAt` timestamps, but not who made changes.
+  This is a Nightbot API limitation - cannot be implemented without Nightbot adding this feature.
 - [ ] **Scheduled snapshots** - Option to automatically take daily/weekly snapshots of connected channels
 - [ ] **Snapshot notes editing** - Allow editing the note on existing snapshots
 - [ ] **Bulk snapshot operations** - Delete multiple snapshots at once
