@@ -46,6 +46,31 @@ Current coverage: ~36%. Priority areas to improve:
 - [ ] **Webhook notifications** - Notify on significant command changes
 - [ ] **Command analytics** - Track which commands are most used/modified
 
+## Future Feature Ideas
+
+### Discord Integration
+- [ ] **Discord bot** - Bot for Discord servers to interact with QuoteQT
+- [ ] **Webhook notifications** - Post to Discord when quotes added, snapshots taken, etc.
+- [ ] **Discord slash commands** - `/quote`, `/addquote`, etc.
+
+### FFA Chat Queue System (for AoE4 Streamers)
+Streamers doing Free-For-All games with chat need to track players joining.
+
+- [ ] **Player queue management** - Track users wanting to join FFA games
+  - `!join` command to enter queue
+  - `!leave` command to exit queue
+  - `!queue` to show current queue
+- [ ] **Twitch-to-AoE4 name mapping** - Twitch usernames often don't match in-game names
+  - Let users register their AoE4 name: `!ign MyAoE4Name`
+  - Store mapping: twitch_username → aoe4_ign
+  - Show AoE4 name when displaying queue
+- [ ] **Queue operations for streamers**
+  - `!pick` or `!next` - Select next player(s) from queue
+  - `!clear` - Clear the queue
+  - `!random` - Pick random player(s) from queue
+- [ ] **Integration with Nightbot/StreamElements** - Commands that call QuoteQT API
+- [ ] **Lobby code sharing** - `!lobby CODE` to set/share current game lobby
+
 ## Role-Based Access Control (RBAC) Refactoring
 
 Currently Nightbot features are admin-only. Need to extend to channel owners.
