@@ -81,6 +81,18 @@ Currently Nightbot features are admin-only. Need to extend to channel owners.
 - Could reuse this pattern for Nightbot access
 - Consider: should channel owners be able to OAuth connect, or only view imported snapshots?
 
+### Scheduled Snapshots & Channel Owner Opt-in
+- [ ] **Scheduled snapshot system** - Automatic daily/weekly backups for connected channels
+- [ ] **Channel owner opt-in** - Let channel owners enable/disable scheduled backups for their channels
+  - Per-channel setting: enabled/disabled, frequency (daily/weekly)
+  - Only works for OAuth-connected channels (need valid token)
+  - Admins can configure globally, channel owners for their own channels
+- [ ] **Schema changes needed**:
+  - Add `auto_backup_enabled` boolean to channel config (new table or extend existing)
+  - Add `auto_backup_frequency` (daily/weekly)
+  - Add `last_auto_backup_at` timestamp
+- [ ] **Background job** - Cron-style runner to take snapshots on schedule
+
 ## Completed Features
 
 ### Nightbot Backup System (Jan 2026)
