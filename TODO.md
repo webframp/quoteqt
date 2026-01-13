@@ -6,11 +6,12 @@
 
 Current coverage: ~36%. Priority areas to improve:
 
-- [ ] **Nightbot handlers (0% coverage)** - All nightbot.go handlers are untested
+- [ ] **Nightbot handlers (partial coverage)** - Most nightbot.go handlers still untested
   - HandleNightbotAdmin, HandleNightbotCallback, HandleNightbotExport
   - HandleNightbotImport, HandleNightbotSnapshots, HandleNightbotSnapshotDiff
   - HandleNightbotSnapshotCompare, HandleNightbotSnapshotDelete/Undelete
   - Consider mocking Nightbot API for unit tests
+  - [x] nightbotAPICall retry logic is tested
 
 - [x] **Middleware (~98% coverage)** - Gzip, RequestLogger, SecurityHeaders, StaticFileServer
 
@@ -23,6 +24,8 @@ Current coverage: ~36%. Priority areas to improve:
 - [x] **Track command modifications** - INVESTIGATED: Nightbot API does NOT provide `updatedBy` field.
   The API only returns `createdAt` and `updatedAt` timestamps, but not who made changes.
   This is a Nightbot API limitation - cannot be implemented without Nightbot adding this feature.
+- [x] **API reliability improvements** - Added HTTP timeout (30s), retry logic with exponential backoff,
+  rate limiting between bulk API calls (100ms delay), and context cancellation handling
 - [ ] **Scheduled snapshots** - Option to automatically take daily/weekly snapshots of connected channels
 - [ ] **Snapshot notes editing** - Allow editing the note on existing snapshots
 - [ ] **Bulk snapshot operations** - Delete multiple snapshots at once
