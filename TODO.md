@@ -27,7 +27,8 @@ Current coverage: ~36%. Priority areas to improve:
 - [x] **API reliability improvements** - Added HTTP timeout (30s), retry logic with exponential backoff,
   rate limiting between bulk API calls (100ms delay), and context cancellation handling
 - [ ] **Scheduled snapshots** - Option to automatically take daily/weekly snapshots of connected channels
-- [ ] **Snapshot notes editing** - Allow editing the note on existing snapshots
+- [x] **Snapshot notes editing** - Allow editing the note on existing snapshots (pencil icon, modal popup)
+- [x] **Show last backup time** - Main admin page shows when each channel was last backed up, with stale warnings
 - [ ] **Bulk snapshot operations** - Delete multiple snapshots at once
 
 ## Medium Priority
