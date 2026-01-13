@@ -58,65 +58,40 @@
         .snapshot-diff .diff-removed { color: var(--danger); }
         .snapshot-diff .diff-modified { color: var(--accent); }
         .snapshot-diff .diff-time { color: var(--text-secondary); }
-        .snapshot-note-container {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-top: 0.25rem;
-        }
         .snapshot-note {
             font-style: italic;
             color: var(--text-secondary);
             font-size: 0.9rem;
-        }
-        .btn-edit-note {
-            background: transparent;
-            border: none;
-            padding: 0.2rem;
+            margin-top: 0.25rem;
             cursor: pointer;
+            padding: 0.15rem 0.3rem;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        .snapshot-note:hover {
+            background-color: var(--bg-card-hover);
+        }
+        .snapshot-note.empty {
             color: var(--text-secondary);
             opacity: 0.5;
-            transition: opacity 0.2s;
         }
-        .btn-edit-note:hover {
+        .snapshot-note.empty:hover {
             opacity: 1;
-            color: var(--accent);
         }
-        .btn-edit-note i {
-            width: 14px;
-            height: 14px;
+        .snapshot-note-input {
+            font-size: 0.9rem;
+            font-style: italic;
+            padding: 0.25rem 0.4rem;
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            width: 200px;
+            margin-top: 0.25rem;
         }
-        .note-edit-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        .note-edit-form {
-            background: var(--bg-card);
-            padding: 1.5rem;
-            border-radius: var(--radius);
-            min-width: 300px;
-            max-width: 500px;
-        }
-        .note-edit-form h3 {
-            margin-top: 0;
-        }
-        .note-edit-form textarea {
-            width: 100%;
-            min-height: 80px;
-            margin-bottom: 1rem;
-        }
-        .note-edit-form .btn-group {
-            display: flex;
-            gap: 0.5rem;
-            justify-content: flex-end;
+        .snapshot-note-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--accent-soft);
         }
         .snapshot-actions {
             display: flex;
@@ -218,10 +193,7 @@
                                 <span class="diff-time">({{.LastDiffAt.Format "Jan 2 3:04 PM"}})</span>
                             </span>
                             {{end}}
-                            <span class="snapshot-note-container">
-                                {{if .Note}}<span class="snapshot-note">"{{.Note}}"</span>{{end}}
-                                <button type="button" class="btn-edit-note" data-id="{{.ID}}" data-note="{{if .Note}}{{.Note}}{{end}}" onclick="editNote(this)" title="Edit note"><i data-lucide="pencil"></i></button>
-                            </span>
+                            <span class="snapshot-note{{if not .Note}} empty{{end}}" data-id="{{.ID}}" onclick="editNote(this)">{{if .Note}}"{{.Note}}"{{else}}+ Add note{{end}}</span>
                         </div>
                     </div>
                     <div class="snapshot-actions">
@@ -360,27 +332,77 @@
             window.location.href = `/admin/nightbot/snapshot/compare?from=${fromId}&to=${toId}`;
         }
 
-        function editNote(btn) {
-            const id = btn.dataset.id;
-            const currentNote = btn.dataset.note || '';
-            const modal = document.createElement('div');
-            modal.className = 'note-edit-modal';
-            modal.innerHTML = `
-                <form class="note-edit-form" action="/admin/nightbot/snapshot/note" method="POST">
-                    <h3>Edit Note</h3>
-                    <input type="hidden" name="id" value="${id}">
-                    <textarea name="note" placeholder="Add a note about this snapshot..."></textarea>
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-secondary" onclick="this.closest('.note-edit-modal').remove()">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save</button>
-                    </div>
-                </form>
-            `;
-            modal.querySelector('textarea').value = currentNote;
-            document.body.appendChild(modal);
-            modal.querySelector('textarea').focus();
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) modal.remove();
+        function editNote(span) {
+            if (span.querySelector('input')) return; // Already editing
+            
+            const id = span.dataset.id;
+            // Get current note text, stripping quotes if present
+            let currentNote = span.textContent.trim();
+            if (currentNote === '+ Add note') currentNote = '';
+            else if (currentNote.startsWith('"') && currentNote.endsWith('"')) {
+                currentNote = currentNote.slice(1, -1);
+            }
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'snapshot-note-input';
+            input.value = currentNote;
+            input.placeholder = 'Add a note...';
+            
+            const originalHTML = span.innerHTML;
+            const wasEmpty = span.classList.contains('empty');
+            span.innerHTML = '';
+            span.appendChild(input);
+            span.classList.remove('empty');
+            input.focus();
+            input.select();
+            
+            function saveNote() {
+                const newNote = input.value.trim();
+                
+                // Submit via fetch
+                const formData = new FormData();
+                formData.append('id', id);
+                formData.append('note', newNote);
+                
+                fetch('/admin/nightbot/snapshot/note', {
+                    method: 'POST',
+                    body: formData
+                }).then(response => {
+                    if (response.ok || response.redirected) {
+                        // Update the display
+                        if (newNote) {
+                            span.textContent = '"' + newNote + '"';
+                            span.classList.remove('empty');
+                        } else {
+                            span.textContent = '+ Add note';
+                            span.classList.add('empty');
+                        }
+                    } else {
+                        // Revert on error
+                        span.innerHTML = originalHTML;
+                        if (wasEmpty) span.classList.add('empty');
+                    }
+                }).catch(() => {
+                    span.innerHTML = originalHTML;
+                    if (wasEmpty) span.classList.add('empty');
+                });
+            }
+            
+            function cancelEdit() {
+                span.innerHTML = originalHTML;
+                if (wasEmpty) span.classList.add('empty');
+            }
+            
+            input.addEventListener('blur', saveNote);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    input.blur();
+                } else if (e.key === 'Escape') {
+                    input.removeEventListener('blur', saveNote);
+                    cancelEdit();
+                }
             });
         }
     </script>
