@@ -150,3 +150,91 @@ func TestGetBotChannel(t *testing.T) {
 		})
 	}
 }
+
+func TestGetBotUser(t *testing.T) {
+	tests := []struct {
+		name     string
+		headers  map[string]string
+		expected string
+	}{
+		{
+			name:     "no headers",
+			headers:  nil,
+			expected: "",
+		},
+		{
+			name:     "nightbot user with display name",
+			headers:  map[string]string{"Nightbot-User": "name=viewer&displayName=ViewerDisplay&provider=twitch"},
+			expected: "ViewerDisplay",
+		},
+		{
+			name:     "nightbot user without display name",
+			headers:  map[string]string{"Nightbot-User": "name=viewer&provider=twitch"},
+			expected: "viewer",
+		},
+		{
+			name:     "moobot user name",
+			headers:  map[string]string{"Moobot-user-name": "MoobotViewer"},
+			expected: "MoobotViewer",
+		},
+		{
+			name:     "moobot user name only",
+			headers:  map[string]string{"Moobot-user-name": "moobotviewer"},
+			expected: "moobotviewer",
+		},
+		{
+			name:     "nightbot takes precedence over moobot",
+			headers:  map[string]string{"Nightbot-User": "name=nbuser&displayName=NBUser", "Moobot-user-display-name": "MBUser"},
+			expected: "NBUser",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest("GET", "http://example.com/api/quote", nil)
+			for k, v := range tt.headers {
+				req.Header.Set(k, v)
+			}
+
+			got := GetBotUser(req)
+			if got != tt.expected {
+				t.Errorf("GetBotUser() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestAddBotAttributes(t *testing.T) {
+	// AddBotAttributes requires an active span to do anything.
+	// Without tracing configured, the function should return early without error.
+	// This test just verifies it doesn't panic with various inputs.
+
+	tests := []struct {
+		name    string
+		headers map[string]string
+	}{
+		{"no headers", nil},
+		{"nightbot channel only", map[string]string{"Nightbot-Channel": "name=test&provider=twitch"}},
+		{"nightbot channel and user", map[string]string{
+			"Nightbot-Channel": "name=test&provider=twitch",
+			"Nightbot-User":    "name=viewer&displayName=Viewer&userLevel=moderator",
+		}},
+		{"moobot headers", map[string]string{
+			"Moobot-channel-name": "testchannel",
+			"Moobot-user-name":    "testuser",
+			"Moobot-user-id":      "12345",
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest("GET", "http://example.com/api/quote", nil)
+			for k, v := range tt.headers {
+				req.Header.Set(k, v)
+			}
+
+			// Should not panic
+			AddBotAttributes(req)
+		})
+	}
+}

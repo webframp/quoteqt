@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/webframp/quoteqt/db/dbgen"
 )
@@ -115,5 +116,36 @@ func TestQuotesToViews(t *testing.T) {
 
 	if result[1].Author != "" {
 		t.Errorf("expected empty author, got '%s'", result[1].Author)
+	}
+}
+
+func TestFormatTimeAgo(t *testing.T) {
+	now := time.Now()
+
+	tests := []struct {
+		name     string
+		time     time.Time
+		expected string
+	}{
+		{"just now", now.Add(-30 * time.Second), "just now"},
+		{"1 minute ago", now.Add(-1 * time.Minute), "1 minute ago"},
+		{"5 minutes ago", now.Add(-5 * time.Minute), "5 minutes ago"},
+		{"59 minutes ago", now.Add(-59 * time.Minute), "59 minutes ago"},
+		{"1 hour ago", now.Add(-1 * time.Hour), "1 hour ago"},
+		{"2 hours ago", now.Add(-2 * time.Hour), "2 hours ago"},
+		{"23 hours ago", now.Add(-23 * time.Hour), "23 hours ago"},
+		{"yesterday", now.Add(-25 * time.Hour), "yesterday"},
+		{"2 days ago", now.Add(-50 * time.Hour), "2 days ago"},
+		{"6 days ago", now.Add(-6 * 24 * time.Hour), "6 days ago"},
+		{"old date", now.Add(-30 * 24 * time.Hour), now.Add(-30 * 24 * time.Hour).Format("Jan 2, 2006")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatTimeAgo(tt.time)
+			if result != tt.expected {
+				t.Errorf("formatTimeAgo(%v) = %q, want %q", tt.time, result, tt.expected)
+			}
+		})
 	}
 }
