@@ -1626,7 +1626,6 @@ func (s *Server) HandleNightbotImportSnapshot(w http.ResponseWriter, r *http.Req
 	}
 
 	// Create snapshot with custom timestamp
-	q := dbgen.New(s.DB)
 	_, err = s.DB.ExecContext(ctx,
 		`INSERT INTO nightbot_snapshots (channel_name, snapshot_at, command_count, commands_json, created_by, note)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
@@ -1651,9 +1650,6 @@ func (s *Server) HandleNightbotImportSnapshot(w http.ResponseWriter, r *http.Req
 		"commands": len(backup.Commands),
 		"snapshotAt": snapshotAt.Format(time.RFC3339),
 	})
-
-	// Suppress unused variable warning
-	_ = q
 }
 
 // HandleNightbotSnapshotDelete soft-deletes a snapshot (can be restored within 14 days)
