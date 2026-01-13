@@ -1475,6 +1475,7 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("POST /admin/nightbot/snapshot/import", s.HandleNightbotImportSnapshot)
 	mux.HandleFunc("POST /admin/nightbot/snapshot/delete", s.HandleNightbotSnapshotDelete)
 	mux.HandleFunc("POST /admin/nightbot/snapshot/undelete", s.HandleNightbotSnapshotUndelete)
+	mux.HandleFunc("POST /admin/nightbot/snapshot/note", s.HandleNightbotSnapshotUpdateNote)
 	mux.HandleFunc("GET /admin/nightbot/deleted", s.HandleNightbotDeletedSnapshots)
 	mux.HandleFunc("GET /admin/nightbot/search", s.HandleNightbotSearch)
 	mux.Handle("/static/", http.StripPrefix("/static/", StaticFileServer(s.StaticDir)))

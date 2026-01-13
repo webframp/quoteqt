@@ -1727,6 +1727,55 @@ func (s *Server) HandleNightbotSnapshotDelete(w http.ResponseWriter, r *http.Req
 	http.Redirect(w, r, "/admin/nightbot/snapshots?channel="+url.QueryEscape(snapshot.ChannelName)+"&success="+url.QueryEscape("Snapshot deleted. It can be restored within 14 days."), http.StatusSeeOther)
 }
 
+// HandleNightbotSnapshotUpdateNote updates a snapshot's note
+func (s *Server) HandleNightbotSnapshotUpdateNote(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+
+	if userEmail == "" {
+		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		return
+	}
+
+	if !s.isAdmin(userEmail) {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.FormValue("id")
+	note := r.FormValue("note")
+
+	var id int64
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Invalid snapshot ID"), http.StatusSeeOther)
+		return
+	}
+
+	q := dbgen.New(s.DB)
+	snapshot, err := q.GetNightbotSnapshot(ctx, id)
+	if err != nil {
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Snapshot not found"), http.StatusSeeOther)
+		return
+	}
+
+	if err := q.UpdateSnapshotNote(ctx, dbgen.UpdateSnapshotNoteParams{
+		Note:  &note,
+		ID:    id,
+	}); err != nil {
+		slog.Error("update snapshot note", "id", id, "error", err)
+		http.Redirect(w, r, "/admin/nightbot/snapshots?channel="+url.QueryEscape(snapshot.ChannelName)+"&error="+url.QueryEscape("Failed to update note"), http.StatusSeeOther)
+		return
+	}
+
+	slog.Info("snapshot note updated", "id", id, "channel", snapshot.ChannelName, "by", userEmail)
+	http.Redirect(w, r, "/admin/nightbot/snapshots?channel="+url.QueryEscape(snapshot.ChannelName)+"&success="+url.QueryEscape("Note updated"), http.StatusSeeOther)
+}
+
 // HandleNightbotSnapshotUndelete restores a soft-deleted snapshot
 func (s *Server) HandleNightbotSnapshotUndelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

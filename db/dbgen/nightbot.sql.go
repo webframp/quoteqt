@@ -430,6 +430,20 @@ func (q *Queries) UpdateSnapshotDiffCache(ctx context.Context, arg UpdateSnapsho
 	return err
 }
 
+const updateSnapshotNote = `-- name: UpdateSnapshotNote :exec
+UPDATE nightbot_snapshots SET note = ? WHERE id = ?
+`
+
+type UpdateSnapshotNoteParams struct {
+	Note *string `json:"note"`
+	ID   int64   `json:"id"`
+}
+
+func (q *Queries) UpdateSnapshotNote(ctx context.Context, arg UpdateSnapshotNoteParams) error {
+	_, err := q.db.ExecContext(ctx, updateSnapshotNote, arg.Note, arg.ID)
+	return err
+}
+
 const upsertNightbotToken = `-- name: UpsertNightbotToken :exec
 INSERT INTO nightbot_tokens (user_email, channel_name, channel_display_name, access_token, refresh_token, expires_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)

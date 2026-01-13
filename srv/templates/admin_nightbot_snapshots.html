@@ -58,11 +58,65 @@
         .snapshot-diff .diff-removed { color: var(--danger); }
         .snapshot-diff .diff-modified { color: var(--accent); }
         .snapshot-diff .diff-time { color: var(--text-secondary); }
+        .snapshot-note-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.25rem;
+        }
         .snapshot-note {
             font-style: italic;
             color: var(--text-secondary);
             font-size: 0.9rem;
-            margin-top: 0.25rem;
+        }
+        .btn-edit-note {
+            background: transparent;
+            border: none;
+            padding: 0.2rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        .btn-edit-note:hover {
+            opacity: 1;
+            color: var(--accent);
+        }
+        .btn-edit-note i {
+            width: 14px;
+            height: 14px;
+        }
+        .note-edit-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .note-edit-form {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            min-width: 300px;
+            max-width: 500px;
+        }
+        .note-edit-form h3 {
+            margin-top: 0;
+        }
+        .note-edit-form textarea {
+            width: 100%;
+            min-height: 80px;
+            margin-bottom: 1rem;
+        }
+        .note-edit-form .btn-group {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
         }
         .snapshot-actions {
             display: flex;
@@ -164,7 +218,10 @@
                                 <span class="diff-time">({{.LastDiffAt.Format "Jan 2 3:04 PM"}})</span>
                             </span>
                             {{end}}
-                            {{if .Note}}<span class="snapshot-note">"{{.Note}}"</span>{{end}}
+                            <span class="snapshot-note-container">
+                                {{if .Note}}<span class="snapshot-note">"{{.Note}}"</span>{{end}}
+                                <button type="button" class="btn-edit-note" data-id="{{.ID}}" data-note="{{if .Note}}{{.Note}}{{end}}" onclick="editNote(this)" title="Edit note"><i data-lucide="pencil"></i></button>
+                            </span>
                         </div>
                     </div>
                     <div class="snapshot-actions">
@@ -301,6 +358,30 @@
             const toId = sorted[1].id;
             
             window.location.href = `/admin/nightbot/snapshot/compare?from=${fromId}&to=${toId}`;
+        }
+
+        function editNote(btn) {
+            const id = btn.dataset.id;
+            const currentNote = btn.dataset.note || '';
+            const modal = document.createElement('div');
+            modal.className = 'note-edit-modal';
+            modal.innerHTML = `
+                <form class="note-edit-form" action="/admin/nightbot/snapshot/note" method="POST">
+                    <h3>Edit Note</h3>
+                    <input type="hidden" name="id" value="${id}">
+                    <textarea name="note" placeholder="Add a note about this snapshot..."></textarea>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="this.closest('.note-edit-modal').remove()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            `;
+            modal.querySelector('textarea').value = currentNote;
+            document.body.appendChild(modal);
+            modal.querySelector('textarea').focus();
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
         }
     </script>
     <script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js" integrity="sha384-8nT3SpButyvenpAdKYPJzXdSz3zidMGduMoaMvwjKnAWVv238n6P1mhveiJJQWrV" crossorigin="anonymous"></script>

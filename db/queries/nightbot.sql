@@ -77,3 +77,6 @@ SELECT channel_name,
 FROM nightbot_snapshots s1 
 WHERE deleted_at IS NULL
 GROUP BY channel_name;
+
+-- name: UpdateSnapshotNote :exec
+UPDATE nightbot_snapshots SET note = ? WHERE id = ?;
