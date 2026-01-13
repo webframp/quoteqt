@@ -21,7 +21,57 @@ const (
 	nightbotAuthorizeURL = "https://api.nightbot.tv/oauth2/authorize"
 	nightbotTokenURL     = "https://api.nightbot.tv/oauth2/token"
 	nightbotAPIBase      = "https://api.nightbot.tv/1"
+
+	// Reliability settings for Nightbot API
+	nightbotAPITimeout   = 30 * time.Second // HTTP request timeout
+	nightbotAPIRateDelay = 100 * time.Millisecond // Delay between API calls to avoid rate limits
+	nightbotMaxRetries   = 3 // Max retries for transient failures
 )
+
+// nightbotHTTPClient is used for all Nightbot API requests with appropriate timeout
+var nightbotHTTPClient = &http.Client{
+	Timeout: nightbotAPITimeout,
+}
+
+// nightbotAPICall makes an HTTP request with retry logic for transient failures.
+// It handles rate limiting (429) by waiting and retrying.
+func nightbotAPICall(ctx context.Context, req *http.Request) (*http.Response, error) {
+	var resp *http.Response
+	var err error
+
+	for attempt := 0; attempt < nightbotMaxRetries; attempt++ {
+		if attempt > 0 {
+			// Exponential backoff: 500ms, 1s, 2s
+			backoff := time.Duration(1<<attempt) * 250 * time.Millisecond
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(backoff):
+			}
+		}
+
+		resp, err = nightbotHTTPClient.Do(req)
+		if err != nil {
+			slog.Warn("nightbot API request failed", "attempt", attempt+1, "error", err)
+			continue
+		}
+
+		// Success or permanent error
+		if resp.StatusCode != http.StatusTooManyRequests && resp.StatusCode < 500 {
+			return resp, nil
+		}
+
+		// Rate limited or server error - close response and retry
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		slog.Warn("nightbot API error, will retry", "attempt", attempt+1, "status", resp.StatusCode, "body", string(body))
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("nightbot API failed after %d retries: %w", nightbotMaxRetries, err)
+	}
+	return resp, nil
+}
 
 // NightbotCommand represents a custom command from Nightbot API
 type NightbotCommand struct {
@@ -296,7 +346,7 @@ func (s *Server) exchangeNightbotCode(ctx context.Context, code string) (*nightb
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := nightbotHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +378,7 @@ func (s *Server) refreshNightbotToken(ctx context.Context, refreshToken string) 
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := nightbotHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +404,7 @@ func (s *Server) getNightbotMe(ctx context.Context, accessToken string) (map[str
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := nightbotAPICall(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +430,7 @@ func (s *Server) getNightbotChannel(ctx context.Context, accessToken string) (*n
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := nightbotAPICall(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -511,7 +561,7 @@ func (s *Server) getNightbotCommands(ctx context.Context, accessToken string) ([
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := nightbotAPICall(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -603,14 +653,25 @@ func (s *Server) HandleNightbotImport(w http.ResponseWriter, r *http.Request) {
 		existingNames[strings.ToLower(cmd.Name)] = true
 	}
 
-	// Import commands
+	// Import commands with rate limiting to avoid API limits
 	var created, skipped int
 	var errors []string
+	var aborted bool
 
 	for _, cmd := range backup.Commands {
 		if existingNames[strings.ToLower(cmd.Name)] {
 			skipped++
 			continue
+		}
+
+		// Rate limit between API calls
+		select {
+		case <-ctx.Done():
+			aborted = true
+		case <-time.After(nightbotAPIRateDelay):
+		}
+		if aborted {
+			break
 		}
 
 		if err := s.createNightbotCommand(ctx, accessToken, cmd); err != nil {
@@ -623,6 +684,9 @@ func (s *Server) HandleNightbotImport(w http.ResponseWriter, r *http.Request) {
 	msg := fmt.Sprintf("Imported %d commands, skipped %d existing", created, skipped)
 	if len(errors) > 0 {
 		msg += fmt.Sprintf(", %d errors", len(errors))
+	}
+	if aborted {
+		msg += " (aborted - request cancelled)"
 	}
 
 	http.Redirect(w, r, "/admin/nightbot?success="+url.QueryEscape(msg), http.StatusSeeOther)
@@ -642,7 +706,7 @@ func (s *Server) createNightbotCommand(ctx context.Context, accessToken string, 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := nightbotAPICall(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -669,7 +733,7 @@ func (s *Server) updateNightbotCommand(ctx context.Context, accessToken string, 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := nightbotAPICall(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -690,7 +754,7 @@ func (s *Server) deleteNightbotCommand(ctx context.Context, accessToken string, 
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := nightbotAPICall(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -1421,10 +1485,26 @@ func (s *Server) HandleNightbotSnapshotRestore(w http.ResponseWriter, r *http.Re
 	}
 
 	var created, updated, deleted, errors int
+	var aborted bool
+
+	// rateLimit adds a delay between API calls to avoid hitting Nightbot rate limits.
+	// Returns true if context was cancelled and we should abort.
+	rateLimit := func() bool {
+		select {
+		case <-ctx.Done():
+			return true
+		case <-time.After(nightbotAPIRateDelay):
+			return false
+		}
+	}
 
 	// Delete commands that exist in current but not in snapshot
 	for name, curCmd := range currentMap {
 		if _, exists := snapshotMap[name]; !exists {
+			if rateLimit() {
+				aborted = true
+				break
+			}
 			if err := s.deleteNightbotCommand(ctx, accessToken, curCmd.ID); err != nil {
 				slog.Warn("delete command during restore", "name", name, "error", err)
 				errors++
@@ -1435,24 +1515,34 @@ func (s *Server) HandleNightbotSnapshotRestore(w http.ResponseWriter, r *http.Re
 	}
 
 	// Create or update commands from snapshot
-	for name, snapCmd := range snapshotMap {
-		if curCmd, exists := currentMap[name]; exists {
-			// Update if different
-			if snapCmd.Message != curCmd.Message || snapCmd.CoolDown != curCmd.CoolDown || snapCmd.UserLevel != curCmd.UserLevel {
-				if err := s.updateNightbotCommand(ctx, accessToken, curCmd.ID, snapCmd); err != nil {
-					slog.Warn("update command during restore", "name", name, "error", err)
+	if !aborted {
+		for name, snapCmd := range snapshotMap {
+			if curCmd, exists := currentMap[name]; exists {
+				// Update if different
+				if snapCmd.Message != curCmd.Message || snapCmd.CoolDown != curCmd.CoolDown || snapCmd.UserLevel != curCmd.UserLevel {
+					if rateLimit() {
+						aborted = true
+						break
+					}
+					if err := s.updateNightbotCommand(ctx, accessToken, curCmd.ID, snapCmd); err != nil {
+						slog.Warn("update command during restore", "name", name, "error", err)
+						errors++
+					} else {
+						updated++
+					}
+				}
+			} else {
+				// Create new command
+				if rateLimit() {
+					aborted = true
+					break
+				}
+				if err := s.createNightbotCommand(ctx, accessToken, snapCmd); err != nil {
+					slog.Warn("create command during restore", "name", name, "error", err)
 					errors++
 				} else {
-					updated++
+					created++
 				}
-			}
-		} else {
-			// Create new command
-			if err := s.createNightbotCommand(ctx, accessToken, snapCmd); err != nil {
-				slog.Warn("create command during restore", "name", name, "error", err)
-				errors++
-			} else {
-				created++
 			}
 		}
 	}
@@ -1461,8 +1551,11 @@ func (s *Server) HandleNightbotSnapshotRestore(w http.ResponseWriter, r *http.Re
 	if errors > 0 {
 		msg += fmt.Sprintf(", %d errors", errors)
 	}
+	if aborted {
+		msg += " (aborted - request cancelled)"
+	}
 
-	slog.Info("snapshot restored", "channel", snapshot.ChannelName, "snapshot_id", id, "created", created, "updated", updated, "deleted", deleted, "errors", errors, "user", userEmail)
+	slog.Info("snapshot restored", "channel", snapshot.ChannelName, "snapshot_id", id, "created", created, "updated", updated, "deleted", deleted, "errors", errors, "aborted", aborted, "user", userEmail)
 
 	http.Redirect(w, r, "/admin/nightbot/snapshots?channel="+url.QueryEscape(snapshot.ChannelName)+"&success="+url.QueryEscape(msg), http.StatusSeeOther)
 }
