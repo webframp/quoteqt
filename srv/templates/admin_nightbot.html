@@ -72,6 +72,29 @@
         .channel-actions {
             display: flex;
             gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .channel-info-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .last-backup {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .last-backup i {
+            width: 14px;
+            height: 14px;
+        }
+        .last-backup.stale {
+            color: var(--danger);
+        }
+        .last-backup.never {
+            color: var(--danger);
         }
         .badge {
             font-size: 0.65rem;
@@ -142,10 +165,19 @@
             <ul class="channel-list">
                 {{range .Channels}}
                 <li class="channel-item">
-                    <span class="channel-name">
-                        <i data-lucide="tv"></i> {{.DisplayName}}
-                        {{if not .HasAPI}}<span class="badge badge-imported" title="Imported via Tampermonkey - no API access">imported</span>{{end}}
-                    </span>
+                    <div class="channel-info-left">
+                        <span class="channel-name">
+                            <i data-lucide="tv"></i> {{.DisplayName}}
+                            {{if not .HasAPI}}<span class="badge badge-imported" title="Imported via Tampermonkey - no API access">imported</span>{{end}}
+                        </span>
+                        {{if .LastSnapshotAt}}
+                        <span class="last-backup {{if .IsStale}}stale{{end}}" title="Last backup">
+                            <i data-lucide="clock"></i> {{.LastSnapshotAt}}
+                        </span>
+                        {{else}}
+                        <span class="last-backup never"><i data-lucide="alert-triangle"></i> Never backed up</span>
+                        {{end}}
+                    </div>
                     <div class="channel-actions">
                         {{if .HasAPI}}
                         <form action="/admin/nightbot/snapshot" method="POST" style="display: inline;">

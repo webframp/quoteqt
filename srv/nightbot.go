@@ -170,21 +170,39 @@ func (s *Server) HandleNightbotAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type ChannelInfo struct {
-		Name        string
-		DisplayName string
-		HasAPI      bool // true if OAuth connected, false if imported-only
+		Name           string
+		DisplayName    string
+		HasAPI         bool   // true if OAuth connected, false if imported-only
+		LastSnapshotAt string // formatted time ago, empty if never
+		IsStale        bool   // true if last snapshot > 7 days ago
 	}
+
+	// Get last snapshot times for all channels
+	lastSnapshots, err := q.GetAllChannelsLastSnapshot(ctx)
+	if err != nil {
+		slog.Warn("get last snapshots", "error", err)
+	}
+	lastSnapshotMap := make(map[string]time.Time)
+	for _, ls := range lastSnapshots {
+		lastSnapshotMap[ls.ChannelName] = ls.LastSnapshotAt
+	}
+
 	var channels []ChannelInfo
 	for _, t := range tokens {
 		displayName := t.ChannelName
 		if t.ChannelDisplayName != nil && *t.ChannelDisplayName != "" {
 			displayName = *t.ChannelDisplayName
 		}
-		channels = append(channels, ChannelInfo{
+		info := ChannelInfo{
 			Name:        t.ChannelName,
 			DisplayName: displayName,
 			HasAPI:      true,
-		})
+		}
+		if lastTime, ok := lastSnapshotMap[t.ChannelName]; ok {
+			info.LastSnapshotAt = formatTimeAgo(lastTime)
+			info.IsStale = time.Since(lastTime) > 7*24*time.Hour
+		}
+		channels = append(channels, info)
 	}
 
 	// Get imported-only channels (have snapshots but no OAuth tokens)
@@ -193,11 +211,16 @@ func (s *Server) HandleNightbotAdmin(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("get imported channels", "error", err)
 	} else {
 		for _, name := range importedChannels {
-			channels = append(channels, ChannelInfo{
+			info := ChannelInfo{
 				Name:        name,
 				DisplayName: name,
 				HasAPI:      false,
-			})
+			}
+			if lastTime, ok := lastSnapshotMap[name]; ok {
+				info.LastSnapshotAt = formatTimeAgo(lastTime)
+				info.IsStale = time.Since(lastTime) > 7*24*time.Hour
+			}
+			channels = append(channels, info)
 		}
 	}
 

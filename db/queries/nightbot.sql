@@ -61,3 +61,19 @@ SELECT DISTINCT channel_name FROM nightbot_snapshots
 WHERE channel_name NOT IN (SELECT channel_name FROM nightbot_tokens)
   AND deleted_at IS NULL
 ORDER BY channel_name;
+
+-- name: GetChannelLastSnapshot :one
+-- Returns the most recent snapshot date for a channel
+SELECT snapshot_at FROM nightbot_snapshots 
+WHERE channel_name = ? AND deleted_at IS NULL 
+ORDER BY snapshot_at DESC LIMIT 1;
+
+-- name: GetAllChannelsLastSnapshot :many
+-- Returns the most recent snapshot date for all channels
+SELECT channel_name, 
+       (SELECT snapshot_at FROM nightbot_snapshots s2 
+        WHERE s2.channel_name = s1.channel_name AND s2.deleted_at IS NULL 
+        ORDER BY snapshot_at DESC LIMIT 1) as last_snapshot_at
+FROM nightbot_snapshots s1 
+WHERE deleted_at IS NULL
+GROUP BY channel_name;

@@ -69,6 +69,45 @@ func (q *Queries) DeleteNightbotToken(ctx context.Context, arg DeleteNightbotTok
 	return err
 }
 
+const getAllChannelsLastSnapshot = `-- name: GetAllChannelsLastSnapshot :many
+SELECT channel_name, 
+       (SELECT snapshot_at FROM nightbot_snapshots s2 
+        WHERE s2.channel_name = s1.channel_name AND s2.deleted_at IS NULL 
+        ORDER BY snapshot_at DESC LIMIT 1) as last_snapshot_at
+FROM nightbot_snapshots s1 
+WHERE deleted_at IS NULL
+GROUP BY channel_name
+`
+
+type GetAllChannelsLastSnapshotRow struct {
+	ChannelName    string    `json:"channel_name"`
+	LastSnapshotAt time.Time `json:"last_snapshot_at"`
+}
+
+// Returns the most recent snapshot date for all channels
+func (q *Queries) GetAllChannelsLastSnapshot(ctx context.Context) ([]GetAllChannelsLastSnapshotRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllChannelsLastSnapshot)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAllChannelsLastSnapshotRow{}
+	for rows.Next() {
+		var i GetAllChannelsLastSnapshotRow
+		if err := rows.Scan(&i.ChannelName, &i.LastSnapshotAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAllDeletedSnapshots = `-- name: GetAllDeletedSnapshots :many
 SELECT id, channel_name, snapshot_at, command_count, commands_json, created_by, note, last_diff_added, last_diff_removed, last_diff_modified, last_diff_at, deleted_at, deleted_by FROM nightbot_snapshots WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT ?
 `
@@ -108,6 +147,20 @@ func (q *Queries) GetAllDeletedSnapshots(ctx context.Context, limit int64) ([]Ni
 		return nil, err
 	}
 	return items, nil
+}
+
+const getChannelLastSnapshot = `-- name: GetChannelLastSnapshot :one
+SELECT snapshot_at FROM nightbot_snapshots 
+WHERE channel_name = ? AND deleted_at IS NULL 
+ORDER BY snapshot_at DESC LIMIT 1
+`
+
+// Returns the most recent snapshot date for a channel
+func (q *Queries) GetChannelLastSnapshot(ctx context.Context, channelName string) (time.Time, error) {
+	row := q.db.QueryRowContext(ctx, getChannelLastSnapshot, channelName)
+	var snapshot_at time.Time
+	err := row.Scan(&snapshot_at)
+	return snapshot_at, err
 }
 
 const getDeletedNightbotSnapshots = `-- name: GetDeletedNightbotSnapshots :many
