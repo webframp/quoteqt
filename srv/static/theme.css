@@ -521,9 +521,11 @@ code {
 }
 
 /* Subtitle */
+/* Subtitle - tight grouping with h1 above */
 .subtitle {
     color: var(--text-secondary);
-    margin-bottom: 0.5rem;
+    margin-top: 0.25rem;
+    margin-bottom: 1.5rem;
 }
 
 .feedback-link {

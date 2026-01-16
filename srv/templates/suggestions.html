@@ -14,17 +14,7 @@
         /* Page-specific styles */
         body { padding: 2rem; min-height: 100vh; }
         .container { max-width: 900px; margin: 0 auto; }
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        h1 { margin: 0; }
-        nav { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
-        .user-info { color: var(--text-secondary); font-size: 0.9em; }
+
         .suggestion-card {
             background: var(--bg-card);
             border-radius: var(--radius);
@@ -85,10 +75,10 @@
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1><i data-lucide="inbox"></i> Review Suggestions</h1>
-            {{template "nav" .}}
-        </header>
+        {{template "nav" .}}
+
+        <h1><i data-lucide="inbox"></i> Review Suggestions</h1>
+        <p class="subtitle">Review and approve community-submitted quotes</p>
 
         {{if .Suggestions}}
             {{range .Suggestions}}
