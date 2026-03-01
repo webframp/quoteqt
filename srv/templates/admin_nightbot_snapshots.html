@@ -326,8 +326,10 @@
             
             // Sort by ID to determine older vs newer (lower ID = older)
             const sorted = [...selectedSnapshots].sort((a, b) => parseInt(a.id) - parseInt(b.id));
-            const fromId = sorted[0].id;
-            const toId = sorted[1].id;
+            // Sanitize IDs to integers to prevent injection
+            const fromId = parseInt(sorted[0].id, 10);
+            const toId = parseInt(sorted[1].id, 10);
+            if (isNaN(fromId) || isNaN(toId)) return;
             
             window.location.href = `/admin/nightbot/snapshot/compare?from=${fromId}&to=${toId}`;
         }
