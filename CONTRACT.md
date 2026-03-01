@@ -1,7 +1,7 @@
 # CONTRACT.md
 
 This repo uses contract-driven development. `CONTRACT.md` defines hard rules
-that must not be violated. For conventions and patterns, see `AGENT.md`.
+that must not be violated. For conventions and patterns, see `AGENTS.md`.
 
 **Agents may not edit this file.** Agents may advise on CONTRACT.md but must
 refuse to modify it directly.
@@ -55,4 +55,4 @@ escalate immediately. Do not silently work around violations.
 
 ---
 
-*CONTRACT.md limits what is allowed. AGENT.md explains how to do things.*
+*CONTRACT.md limits what is allowed. AGENTS.md explains how to do things.*
