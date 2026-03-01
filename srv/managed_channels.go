@@ -112,11 +112,11 @@ func (s *Server) syncManagedChannel(ctx context.Context, ch dbgen.NightbotManage
 
 	channelName := ch.ChannelName
 	if channelInfo != nil && channelInfo.DisplayName != "" {
-		channelName = channelInfo.DisplayName
+		channelName = strings.ToLower(channelInfo.DisplayName)
 	}
 
 	_, err = q.CreateNightbotSnapshot(ctx, dbgen.CreateNightbotSnapshotParams{
-		ChannelName:  channelName,
+		ChannelName:  strings.ToLower(channelName),
 		CommandCount: int64(len(commands)),
 		CommandsJson: string(commandJSON),
 		CreatedBy:    "auto-sync",
@@ -330,7 +330,7 @@ func (s *Server) HandleManagedChannelAdd(w http.ResponseWriter, r *http.Request)
 	}
 
 	channelID := strings.TrimSpace(r.FormValue("channel_id"))
-	channelName := strings.TrimSpace(r.FormValue("channel_name"))
+	channelName := strings.ToLower(strings.TrimSpace(r.FormValue("channel_name")))
 	sessionToken := strings.TrimSpace(r.FormValue("session_token"))
 	intervalStr := r.FormValue("sync_interval")
 
