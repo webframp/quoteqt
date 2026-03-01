@@ -204,6 +204,15 @@ Use `.card` class for content containers:
 </div>
 ```
 
+**Important:** When adding new templates with cards containing lists (`<ul>` or `<ol>`), add this style to ensure consistent padding:
+```css
+.card ol, .card ul { padding-left: 1.5rem; }
+.card > *:first-child { margin-top: 0; }
+.card > *:last-child { margin-bottom: 0; }
+```
+
+Always compare new card layouts visually against existing pages (e.g., `/admin/nightbot`) to ensure consistent spacing.
+
 ### Forms
 
 Form elements (`input`, `textarea`, `select`) are styled in theme.css with:
