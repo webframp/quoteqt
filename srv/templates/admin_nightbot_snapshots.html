@@ -349,9 +349,10 @@
             input.value = currentNote;
             input.placeholder = 'Add a note...';
             
-            const originalHTML = span.innerHTML;
+            // Store original text (not HTML) to avoid XSS on restore
+            const originalText = span.textContent;
             const wasEmpty = span.classList.contains('empty');
-            span.innerHTML = '';
+            span.textContent = '';
             span.appendChild(input);
             span.classList.remove('empty');
             input.focus();
@@ -380,17 +381,17 @@
                         }
                     } else {
                         // Revert on error
-                        span.innerHTML = originalHTML;
+                        span.textContent = originalText;
                         if (wasEmpty) span.classList.add('empty');
                     }
                 }).catch(() => {
-                    span.innerHTML = originalHTML;
+                    span.textContent = originalText;
                     if (wasEmpty) span.classList.add('empty');
                 });
             }
             
             function cancelEdit() {
-                span.innerHTML = originalHTML;
+                span.textContent = originalText;
                 if (wasEmpty) span.classList.add('empty');
             }
             

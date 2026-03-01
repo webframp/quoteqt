@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"golang.org/x/crypto/pbkdf2"
 )
 
 var (
@@ -23,14 +25,21 @@ type Encryptor struct {
 	key []byte
 }
 
+// Fixed salt for key derivation. Since we use a strong passphrase (32 bytes
+// from openssl rand), a fixed salt is acceptable. The salt prevents rainbow
+// table attacks and ensures the same passphrase produces different keys in
+// different applications.
+var derivationSalt = []byte("quoteqt-nightbot-session-v1")
+
 // NewEncryptor creates an Encryptor from a passphrase.
-// The passphrase is hashed with SHA-256 to derive a 32-byte key.
+// The passphrase is stretched using PBKDF2-SHA256 to derive a 32-byte key.
 func NewEncryptor(passphrase string) (*Encryptor, error) {
 	if passphrase == "" {
 		return nil, ErrInvalidKey
 	}
-	hash := sha256.Sum256([]byte(passphrase))
-	return &Encryptor{key: hash[:]}, nil
+	// PBKDF2 with 100,000 iterations as recommended by OWASP
+	key := pbkdf2.Key([]byte(passphrase), derivationSalt, 100000, 32, sha256.New)
+	return &Encryptor{key: key}, nil
 }
 
 // Encrypt encrypts plaintext using AES-GCM.
