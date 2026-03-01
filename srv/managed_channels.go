@@ -302,6 +302,7 @@ func (s *Server) HandleManagedChannelsAdmin(w http.ResponseWriter, r *http.Reque
 		Channels:        channelViews,
 	}
 
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates["admin_managed_channels.html"].Execute(w, data); err != nil {
 		slog.Error("render managed channels template", "error", err)
 		http.Error(w, "Failed to render page", http.StatusInternalServerError)
