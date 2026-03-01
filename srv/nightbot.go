@@ -915,14 +915,25 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if !s.isAdmin(userEmail) {
-		http.Error(w, "Admin access required", http.StatusForbidden)
+	channelName := r.URL.Query().Get("channel")
+	if channelName == "" {
+		// For non-admins, redirect to their first viewable channel or show error
+		if !s.isAdmin(userEmail) {
+			channels, _ := s.getViewableNightbotChannels(ctx, userEmail)
+			if len(channels) == 0 {
+				http.Error(w, "No channels available", http.StatusForbidden)
+				return
+			}
+			http.Redirect(w, r, "/admin/nightbot/snapshots?channel="+url.QueryEscape(channels[0]), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Channel parameter required"), http.StatusSeeOther)
 		return
 	}
 
-	channelName := r.URL.Query().Get("channel")
-	if channelName == "" {
-		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Channel parameter required"), http.StatusSeeOther)
+	// Check channel-level access
+	if !s.canViewNightbotChannel(ctx, userEmail, channelName) {
+		http.Error(w, "Access denied for this channel", http.StatusForbidden)
 		return
 	}
 
@@ -960,7 +971,7 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 		Success:         r.URL.Query().Get("success"),
 		Error:           r.URL.Query().Get("error"),
 		IsAuthenticated: true,
-		IsAdmin:         true, // Only admins can access this page
+		IsAdmin:         s.isAdmin(userEmail),
 		IsPublicPage:    false,
 		LogoutURL:       "/__exe.dev/logout",
 	}
@@ -982,11 +993,6 @@ func (s *Server) HandleNightbotSnapshotDownload(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if !s.isAdmin(userEmail) {
-		http.Error(w, "Admin access required", http.StatusForbidden)
-		return
-	}
-
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
 		http.Error(w, "Missing snapshot ID", http.StatusBadRequest)
@@ -1003,6 +1009,12 @@ func (s *Server) HandleNightbotSnapshotDownload(w http.ResponseWriter, r *http.R
 	snapshot, err := q.GetNightbotSnapshot(ctx, id)
 	if err != nil {
 		http.Error(w, "Snapshot not found", http.StatusNotFound)
+		return
+	}
+
+	// Check channel-level access
+	if !s.canViewNightbotChannel(ctx, userEmail, snapshot.ChannelName) {
+		http.Error(w, "Access denied for this channel", http.StatusForbidden)
 		return
 	}
 
@@ -1048,11 +1060,6 @@ func (s *Server) HandleNightbotSnapshotDiff(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if !s.isAdmin(userEmail) {
-		http.Error(w, "Admin access required", http.StatusForbidden)
-		return
-	}
-
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
 		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Missing snapshot ID"), http.StatusSeeOther)
@@ -1069,6 +1076,12 @@ func (s *Server) HandleNightbotSnapshotDiff(w http.ResponseWriter, r *http.Reque
 	snapshot, err := q.GetNightbotSnapshot(ctx, id)
 	if err != nil {
 		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Snapshot not found"), http.StatusSeeOther)
+		return
+	}
+
+	// Check channel-level access
+	if !s.canViewNightbotChannel(ctx, userEmail, snapshot.ChannelName) {
+		http.Error(w, "Access denied for this channel", http.StatusForbidden)
 		return
 	}
 
@@ -1249,11 +1262,6 @@ func (s *Server) HandleNightbotSnapshotCompare(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if !s.isAdmin(userEmail) {
-		http.Error(w, "Admin access required", http.StatusForbidden)
-		return
-	}
-
 	fromIDStr := r.URL.Query().Get("from")
 	toIDStr := r.URL.Query().Get("to")
 	if fromIDStr == "" || toIDStr == "" {
@@ -1287,6 +1295,12 @@ func (s *Server) HandleNightbotSnapshotCompare(w http.ResponseWriter, r *http.Re
 	// Verify both snapshots are for the same channel
 	if fromSnapshot.ChannelName != toSnapshot.ChannelName {
 		http.Redirect(w, r, "/admin/nightbot?error="+url.QueryEscape("Snapshots are from different channels"), http.StatusSeeOther)
+		return
+	}
+
+	// Check channel-level access
+	if !s.canViewNightbotChannel(ctx, userEmail, fromSnapshot.ChannelName) {
+		http.Error(w, "Access denied for this channel", http.StatusForbidden)
 		return
 	}
 

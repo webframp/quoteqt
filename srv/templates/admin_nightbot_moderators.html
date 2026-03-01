@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <title>Nightbot Moderators - Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/theme.css?v=8">
+    <style>
+        body { max-width: 800px; margin: 0 auto; padding: 2rem; }
+        .card { margin-bottom: 1.5rem; }
+        .card > *:first-child { margin-top: 0; }
+        .card > *:last-child { margin-bottom: 0; }
+        .card ol, .card ul { padding-left: 1.5rem; }
+        
+        .moderator-list { list-style: none; padding: 0; margin: 0; }
+        .moderator-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 1rem;
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.5rem;
+            align-items: center;
+        }
+        .moderator-channel { font-weight: 600; color: var(--accent); }
+        .moderator-email { color: var(--text-primary); }
+        .moderator-meta { font-size: 0.8rem; color: var(--text-secondary); }
+        
+        .add-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: end; }
+        .form-group { display: flex; flex-direction: column; gap: 0.25rem; }
+        .form-group label { font-weight: 500; font-size: 0.9rem; }
+        .form-group input, .form-group select { 
+            padding: 0.5rem; 
+            border-radius: var(--radius-sm); 
+            border: 1px solid var(--border); 
+            background: var(--bg-secondary); 
+            color: var(--text-primary); 
+        }
+        
+        .empty-state { text-align: center; padding: 2rem; color: var(--text-secondary); }
+        
+        @media (max-width: 600px) {
+            .add-form { grid-template-columns: 1fr; }
+            .moderator-item { grid-template-columns: 1fr; gap: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    {{template "nav" .}}
+
+    <h1><i data-lucide="users"></i> Nightbot Moderators</h1>
+    <p>Manage who can view Nightbot backup diffs for each channel.</p>
+
+    {{if .Success}}<div class="message success">{{.Success}}</div>{{end}}
+    {{if .Error}}<div class="message error">{{.Error}}</div>{{end}}
+
+    <div class="card">
+        <h2><i data-lucide="user-plus"></i> Add Moderator</h2>
+        <form action="/admin/nightbot/moderators/add" method="POST" class="add-form">
+            <div class="form-group">
+                <label for="channel_name">Channel</label>
+                <select id="channel_name" name="channel_name" required>
+                    <option value="">Select channel...</option>
+                    {{range .Channels}}
+                    <option value="{{.}}">{{.}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="user_email">User Email</label>
+                <input type="email" id="user_email" name="user_email" placeholder="user@example.com" required>
+            </div>
+            <button type="submit" class="btn btn-primary"><i data-lucide="plus"></i> Add</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2><i data-lucide="list"></i> Current Moderators</h2>
+        {{if .Moderators}}
+        <ul class="moderator-list">
+            {{range .Moderators}}
+            <li class="moderator-item">
+                <div>
+                    <span class="moderator-channel">{{.ChannelName}}</span>
+                </div>
+                <div>
+                    <span class="moderator-email">{{.UserEmail}}</span>
+                    <div class="moderator-meta">Added by {{.AddedBy}} · {{.AddedAt}}</div>
+                </div>
+                <form action="/admin/nightbot/moderators/remove" method="POST" style="display:inline;" onsubmit="return confirm('Remove this moderator?');">
+                    <input type="hidden" name="id" value="{{.ID}}">
+                    <button type="submit" class="btn btn-small btn-danger" title="Remove"><i data-lucide="trash-2"></i></button>
+                </form>
+            </li>
+            {{end}}
+        </ul>
+        {{else}}
+        <div class="empty-state">
+            <p>No moderators configured yet.</p>
+            <p>Add moderators above to give them read-only access to channel diffs.</p>
+        </div>
+        {{end}}
+    </div>
+
+    <div class="card">
+        <h2><i data-lucide="info"></i> About Moderators</h2>
+        <p>Moderators can:</p>
+        <ul>
+            <li>View snapshot history for their assigned channels</li>
+            <li>View and download snapshots</li>
+            <li>Compare diffs between snapshots</li>
+        </ul>
+        <p>Moderators <strong>cannot</strong>:</p>
+        <ul>
+            <li>Create new snapshots</li>
+            <li>Restore snapshots to Nightbot</li>
+            <li>Delete snapshots</li>
+            <li>Access other admin features</li>
+        </ul>
+        <p><strong>Note:</strong> Channel owners automatically have moderator access to their own channels.</p>
+    </div>
+
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <span id="theme-icon"><i data-lucide="sun"></i></span>
+    </button>
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const next = current === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateIcon(next);
+        }
+        function updateIcon(theme) {
+            document.getElementById('theme-icon').innerHTML = theme === 'light' 
+                ? '<i data-lucide="moon"></i>'
+                : '<i data-lucide="sun"></i>';
+            lucide.createIcons();
+        }
+        (function() {
+            const saved = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+            updateIcon(saved);
+        })();
+    </script>
+    <script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js" integrity="sha384-8nT3SpButyvenpAdKYPJzXdSz3zidMGduMoaMvwjKnAWVv238n6P1mhveiJJQWrV" crossorigin="anonymous"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

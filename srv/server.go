@@ -34,6 +34,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1490,6 +1491,9 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("POST /admin/nightbot/snapshot/note", s.HandleNightbotSnapshotUpdateNote)
 	mux.HandleFunc("GET /admin/nightbot/deleted", s.HandleNightbotDeletedSnapshots)
 	mux.HandleFunc("GET /admin/nightbot/search", s.HandleNightbotSearch)
+	mux.HandleFunc("GET /admin/nightbot/moderators", s.HandleNightbotModerators)
+	mux.HandleFunc("POST /admin/nightbot/moderators/add", s.HandleNightbotModeratorAdd)
+	mux.HandleFunc("POST /admin/nightbot/moderators/remove", s.HandleNightbotModeratorRemove)
 	// Managed channels (session-based auto-sync)
 	mux.HandleFunc("GET /admin/nightbot/managed", s.HandleManagedChannelsAdmin)
 	mux.HandleFunc("POST /admin/nightbot/managed/add", s.HandleManagedChannelAdd)
@@ -2035,6 +2039,69 @@ func (s *Server) canManageChannel(ctx context.Context, email, channel string) bo
 		}
 	}
 	return false
+}
+
+// canViewNightbotChannel checks if user can view Nightbot snapshots for a channel.
+// Returns true if user is admin, channel owner, or channel moderator.
+func (s *Server) canViewNightbotChannel(ctx context.Context, email, channel string) bool {
+	if s.isAdmin(email) {
+		return true
+	}
+	email = strings.ToLower(strings.TrimSpace(email))
+	channel = strings.ToLower(strings.TrimSpace(channel))
+
+	// Check if channel owner
+	channels, err := s.getOwnedChannels(ctx, email)
+	if err == nil {
+		for _, ch := range channels {
+			if strings.EqualFold(ch, channel) {
+				return true
+			}
+		}
+	}
+
+	// Check if channel moderator
+	q := dbgen.New(s.DB)
+	isMod, err := q.IsChannelModerator(ctx, dbgen.IsChannelModeratorParams{
+		ChannelName: channel,
+		UserEmail:   email,
+	})
+	if err == nil && isMod {
+		return true
+	}
+
+	return false
+}
+
+// getViewableNightbotChannels returns channels user can view (for non-admins).
+func (s *Server) getViewableNightbotChannels(ctx context.Context, email string) ([]string, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+	channelSet := make(map[string]bool)
+
+	// Add owned channels
+	owned, err := s.getOwnedChannels(ctx, email)
+	if err == nil {
+		for _, ch := range owned {
+			channelSet[strings.ToLower(ch)] = true
+		}
+	}
+
+	// Add moderated channels
+	q := dbgen.New(s.DB)
+	moderated, err := q.GetModeratorChannels(ctx, email)
+	if err == nil {
+		for _, ch := range moderated {
+			channelSet[strings.ToLower(ch)] = true
+		}
+	}
+
+	// Convert to slice
+	var channels []string
+	for ch := range channelSet {
+		channels = append(channels, ch)
+	}
+	sort.Strings(channels)
+	return channels, nil
 }
 
 // Admin handlers for channel owner management

@@ -31,6 +31,14 @@ type Migration struct {
 	ExecutedAt      time.Time `json:"executed_at"`
 }
 
+type NightbotChannelModerator struct {
+	ID          int64     `json:"id"`
+	ChannelName string    `json:"channel_name"`
+	UserEmail   string    `json:"user_email"`
+	AddedBy     string    `json:"added_by"`
+	AddedAt     time.Time `json:"added_at"`
+}
+
 type NightbotManagedChannel struct {
 	ID                    int64      `json:"id"`
 	UserEmail             string     `json:"user_email"`
