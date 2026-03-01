@@ -31,6 +31,21 @@ type Migration struct {
 	ExecutedAt      time.Time `json:"executed_at"`
 }
 
+type NightbotManagedChannel struct {
+	ID                    int64      `json:"id"`
+	UserEmail             string     `json:"user_email"`
+	ChannelID             string     `json:"channel_id"`
+	ChannelName           string     `json:"channel_name"`
+	SessionTokenEncrypted string     `json:"session_token_encrypted"`
+	SyncEnabled           int64      `json:"sync_enabled"`
+	SyncIntervalMinutes   int64      `json:"sync_interval_minutes"`
+	LastSyncAt            *time.Time `json:"last_sync_at"`
+	LastSyncStatus        *string    `json:"last_sync_status"`
+	LastError             *string    `json:"last_error"`
+	CreatedAt             time.Time  `json:"created_at"`
+	UpdatedAt             time.Time  `json:"updated_at"`
+}
+
 type NightbotSnapshot struct {
 	ID               int64      `json:"id"`
 	ChannelName      string     `json:"channel_name"`

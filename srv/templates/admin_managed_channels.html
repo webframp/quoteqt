@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <title>Managed Channels - Auto-Sync</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/theme.css?v=8">
+    <style>
+        body { max-width: 900px; margin: 0 auto; padding: 2rem; }
+        .card { margin-bottom: 1.5rem; }
+        .card > *:first-child { margin-top: 0; }
+        .card > *:last-child { margin-bottom: 0; }
+        
+        .channel-list { list-style: none; padding: 0; margin: 0; }
+        .channel-item {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.75rem;
+            align-items: center;
+        }
+        .channel-info h3 { margin: 0 0 0.25rem 0; font-size: 1.1rem; }
+        .channel-meta { font-size: 0.85rem; color: var(--text-secondary); }
+        .channel-meta span { margin-right: 1rem; }
+        .channel-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .badge-success { background: var(--success); color: white; }
+        .badge-danger { background: var(--danger); color: white; }
+        .badge-warning { background: #f59e0b; color: white; }
+        .badge-secondary { background: var(--text-secondary); color: white; }
+        
+        .add-form { display: grid; gap: 1rem; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .form-group { display: flex; flex-direction: column; gap: 0.25rem; }
+        .form-group label { font-weight: 500; font-size: 0.9rem; }
+        .form-group input { padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); }
+        .form-group small { color: var(--text-secondary); font-size: 0.8rem; }
+        .form-group.full-width { grid-column: 1 / -1; }
+        
+        .error-text { color: var(--danger); font-size: 0.85rem; margin-top: 0.25rem; }
+        
+        .empty-state { text-align: center; padding: 2rem; color: var(--text-secondary); }
+        
+        .token-update-form { display: none; margin-top: 0.5rem; }
+        .token-update-form.show { display: flex; gap: 0.5rem; }
+        .token-update-form input { flex: 1; padding: 0.4rem; font-size: 0.85rem; }
+        
+        @media (max-width: 600px) {
+            .form-row { grid-template-columns: 1fr; }
+            .channel-item { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    {{template "nav" .}}
+
+    <h1><i data-lucide="refresh-cw"></i> Managed Channels</h1>
+    <p>Auto-sync Nightbot commands from channels you manage using browser session tokens.</p>
+
+    {{if .Success}}<div class="message success">{{.Success}}</div>{{end}}
+    {{if .Error}}<div class="message error">{{.Error}}</div>{{end}}
+
+    <div class="card">
+        <h2><i data-lucide="plus-circle"></i> Add Managed Channel</h2>
+        <form action="/admin/nightbot/managed/add" method="POST" class="add-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="channel_name">Channel Name</label>
+                    <input type="text" id="channel_name" name="channel_name" placeholder="e.g., StreamerName" required>
+                    <small>Display name for this channel</small>
+                </div>
+                <div class="form-group">
+                    <label for="channel_id">Channel ID</label>
+                    <input type="text" id="channel_id" name="channel_id" placeholder="e.g., 5abc123def456..." required>
+                    <small>From Nightbot-Channel header (see docs)</small>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="session_token">Session Token</label>
+                    <input type="password" id="session_token" name="session_token" placeholder="JWT from browser session" required>
+                    <small>Captured from nightbot.tv requests</small>
+                </div>
+                <div class="form-group">
+                    <label for="sync_interval">Sync Interval (minutes)</label>
+                    <input type="number" id="sync_interval" name="sync_interval" value="60" min="15" max="1440">
+                    <small>Minimum 15 minutes</small>
+                </div>
+            </div>
+            <div>
+                <button type="submit" class="btn btn-primary"><i data-lucide="plus"></i> Add Channel</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2><i data-lucide="list"></i> Configured Channels</h2>
+        {{if .Channels}}
+        <ul class="channel-list">
+            {{range .Channels}}
+            <li class="channel-item">
+                <div class="channel-info">
+                    <h3>{{.ChannelName}}</h3>
+                    <div class="channel-meta">
+                        <span title="Channel ID"><i data-lucide="hash"></i> {{.ChannelID}}</span>
+                        <span><i data-lucide="clock"></i> Every {{.SyncIntervalMinutes}}m</span>
+                        {{if .LastSyncAt}}<span><i data-lucide="calendar"></i> {{.LastSyncAt}}</span>{{end}}
+                        {{if .LastSyncStatus}}<span class="badge {{.StatusClass}}">{{.LastSyncStatus}}</span>{{end}}
+                    </div>
+                    {{if .LastError}}<div class="error-text">{{.LastError}}</div>{{end}}
+                    
+                    <div class="token-update-form" id="token-form-{{.ID}}">
+                        <form action="/admin/nightbot/managed/token" method="POST" style="display:flex;gap:0.5rem;width:100%;">
+                            <input type="hidden" name="id" value="{{.ID}}">
+                            <input type="password" name="session_token" placeholder="New session token" required style="flex:1;">
+                            <button type="submit" class="btn btn-small btn-primary">Update</button>
+                            <button type="button" class="btn btn-small btn-secondary" onclick="document.getElementById('token-form-{{.ID}}').classList.remove('show')">Cancel</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="channel-actions">
+                    <form action="/admin/nightbot/managed/sync" method="POST" style="display:inline;">
+                        <input type="hidden" name="id" value="{{.ID}}">
+                        <button type="submit" class="btn btn-small" title="Sync now"><i data-lucide="refresh-cw"></i></button>
+                    </form>
+                    <button type="button" class="btn btn-small" onclick="document.getElementById('token-form-{{.ID}}').classList.add('show')" title="Update token"><i data-lucide="key"></i></button>
+                    <form action="/admin/nightbot/managed/toggle" method="POST" style="display:inline;">
+                        <input type="hidden" name="id" value="{{.ID}}">
+                        {{if .SyncEnabled}}
+                        <input type="hidden" name="action" value="disable">
+                        <button type="submit" class="btn btn-small btn-secondary" title="Disable sync"><i data-lucide="pause"></i></button>
+                        {{else}}
+                        <input type="hidden" name="action" value="enable">
+                        <button type="submit" class="btn btn-small btn-success" title="Enable sync"><i data-lucide="play"></i></button>
+                        {{end}}
+                    </form>
+                    <form action="/admin/nightbot/managed/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this managed channel?');">
+                        <input type="hidden" name="id" value="{{.ID}}">
+                        <button type="submit" class="btn btn-small btn-danger" title="Delete"><i data-lucide="trash-2"></i></button>
+                    </form>
+                </div>
+            </li>
+            {{end}}
+        </ul>
+        {{else}}
+        <div class="empty-state">
+            <p>No managed channels configured yet.</p>
+            <p>Add a channel above to start automatic backups.</p>
+        </div>
+        {{end}}
+    </div>
+
+    <div class="card">
+        <h2><i data-lucide="help-circle"></i> How to Get Session Token & Channel ID</h2>
+        <ol>
+            <li>Open <a href="https://nightbot.tv" target="_blank">nightbot.tv</a> and log in</li>
+            <li>Open browser DevTools (F12) → Network tab</li>
+            <li>Navigate to a channel you manage</li>
+            <li>Look for requests to <code>api.nightbot.tv</code></li>
+            <li>Find the <strong>Authorization</strong> header: <code>Session &lt;token&gt;</code> - copy just the token part</li>
+            <li>Find the <strong>Nightbot-Channel</strong> header - this is the Channel ID</li>
+        </ol>
+        <p><strong>Note:</strong> Session tokens appear to be long-lived, but if sync fails with auth errors, you'll need to update the token.</p>
+    </div>
+
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <span id="theme-icon"><i data-lucide="sun"></i></span>
+    </button>
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const next = current === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateIcon(next);
+        }
+        function updateIcon(theme) {
+            document.getElementById('theme-icon').innerHTML = theme === 'light' 
+                ? '<i data-lucide="moon"></i>'
+                : '<i data-lucide="sun"></i>';
+            lucide.createIcons();
+        }
+        (function() {
+            const saved = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+            updateIcon(saved);
+        })();
+    </script>
+    <script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js" integrity="sha384-8nT3SpButyvenpAdKYPJzXdSz3zidMGduMoaMvwjKnAWVv238n6P1mhveiJJQWrV" crossorigin="anonymous"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

@@ -41,6 +41,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"github.com/webframp/quoteqt/crypto"
 	"github.com/webframp/quoteqt/db"
 	"github.com/webframp/quoteqt/db/dbgen"
 )
@@ -54,6 +55,7 @@ type Server struct {
 	AdminEmails  map[string]bool
 	Markers      *MarkerClient
 	Config       Config
+	Encryptor    *crypto.Encryptor // for managed channel tokens
 	templates    map[string]*template.Template
 	httpServer   *http.Server
 }
@@ -140,6 +142,16 @@ func NewWithConfig(cfg Config) (*Server, error) {
 		Markers:      NewMarkerClient(),
 		Config:       cfg,
 	}
+
+	// Initialize encryptor for managed channel tokens (optional)
+	if cfg.NightbotSessionKey != "" {
+		enc, err := crypto.NewEncryptor(cfg.NightbotSessionKey)
+		if err != nil {
+			return nil, fmt.Errorf("create encryptor: %w", err)
+		}
+		srv.Encryptor = enc
+	}
+
 	if err := srv.setUpDatabase(cfg.DBPath); err != nil {
 		return nil, err
 	}
@@ -1478,6 +1490,13 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("POST /admin/nightbot/snapshot/note", s.HandleNightbotSnapshotUpdateNote)
 	mux.HandleFunc("GET /admin/nightbot/deleted", s.HandleNightbotDeletedSnapshots)
 	mux.HandleFunc("GET /admin/nightbot/search", s.HandleNightbotSearch)
+	// Managed channels (session-based auto-sync)
+	mux.HandleFunc("GET /admin/nightbot/managed", s.HandleManagedChannelsAdmin)
+	mux.HandleFunc("POST /admin/nightbot/managed/add", s.HandleManagedChannelAdd)
+	mux.HandleFunc("POST /admin/nightbot/managed/toggle", s.HandleManagedChannelToggle)
+	mux.HandleFunc("POST /admin/nightbot/managed/delete", s.HandleManagedChannelDelete)
+	mux.HandleFunc("POST /admin/nightbot/managed/sync", s.HandleManagedChannelSyncNow)
+	mux.HandleFunc("POST /admin/nightbot/managed/token", s.HandleManagedChannelUpdateToken)
 	mux.Handle("/static/", http.StripPrefix("/static/", StaticFileServer(s.StaticDir)))
 
 	// API routes with rate limiting (including docs)
@@ -1499,6 +1518,9 @@ func (s *Server) Serve(addr string) error {
 
 	// Start background cleanup of soft-deleted snapshots
 	s.StartSnapshotCleanup(context.Background())
+
+	// Start managed channel sync (if configured)
+	s.StartManagedChannelSync(context.Background())
 
 	slog.Info("starting server", "addr", addr)
 	return s.httpServer.ListenAndServe()
