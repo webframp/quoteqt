@@ -17,3 +17,6 @@ terraform/*.tfstate
 terraform/*.tfstate.*
 terraform/terraform.tfvars
 terraform/.terraform.lock.hcl
+
+# Test artifacts
+coverage.out
