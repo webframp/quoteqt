@@ -2079,7 +2079,7 @@ func (s *Server) canViewNightbotChannelWithTwitch(ctx context.Context, email, tw
 	if email != "" {
 		isMod, err := q.IsChannelModerator(ctx, dbgen.IsChannelModeratorParams{
 			ChannelName: channel,
-			UserEmail:   email,
+			UserEmail:   &email,
 		})
 		if err == nil && isMod {
 			return true
@@ -2125,7 +2125,7 @@ func (s *Server) getViewableNightbotChannelsWithTwitch(ctx context.Context, emai
 
 	// Add moderated channels (by email)
 	if email != "" {
-		moderated, err := q.GetModeratorChannels(ctx, email)
+		moderated, err := q.GetModeratorChannels(ctx, &email)
 		if err == nil {
 			for _, ch := range moderated {
 				channelSet[strings.ToLower(ch)] = true

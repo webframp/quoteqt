@@ -34,11 +34,11 @@ type Migration struct {
 type NightbotChannelModerator struct {
 	ID             int64     `json:"id"`
 	ChannelName    string    `json:"channel_name"`
-	UserEmail      string    `json:"user_email"`
-	AddedBy        string    `json:"added_by"`
-	AddedAt        time.Time `json:"added_at"`
+	UserEmail      *string   `json:"user_email"`
 	TwitchID       *string   `json:"twitch_id"`
 	TwitchUsername *string   `json:"twitch_username"`
+	AddedBy        string    `json:"added_by"`
+	AddedAt        time.Time `json:"added_at"`
 }
 
 type NightbotManagedChannel struct {

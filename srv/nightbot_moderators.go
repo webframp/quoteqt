@@ -61,10 +61,14 @@ func (s *Server) HandleNightbotModerators(w http.ResponseWriter, r *http.Request
 		if m.TwitchUsername != nil {
 			twitchUsername = *m.TwitchUsername
 		}
+		userEmail := ""
+		if m.UserEmail != nil {
+			userEmail = *m.UserEmail
+		}
 		modViews = append(modViews, ModeratorView{
 			ID:             m.ID,
 			ChannelName:    m.ChannelName,
-			UserEmail:      m.UserEmail,
+			UserEmail:      userEmail,
 			TwitchUsername: twitchUsername,
 			AddedBy:        m.AddedBy,
 			AddedAt:        formatTimeAgo(m.AddedAt),
@@ -152,7 +156,7 @@ func (s *Server) HandleNightbotModeratorAdd(w http.ResponseWriter, r *http.Reque
 		// Add by email
 		err := q.AddChannelModerator(ctx, dbgen.AddChannelModeratorParams{
 			ChannelName: channelName,
-			UserEmail:   modEmail,
+			UserEmail:   &modEmail,
 			AddedBy:     userEmail,
 		})
 		if err != nil {

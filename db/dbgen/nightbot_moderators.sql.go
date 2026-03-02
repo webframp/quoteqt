@@ -17,9 +17,9 @@ ON CONFLICT (channel_name, user_email) DO NOTHING
 `
 
 type AddChannelModeratorParams struct {
-	ChannelName string `json:"channel_name"`
-	UserEmail   string `json:"user_email"`
-	AddedBy     string `json:"added_by"`
+	ChannelName string  `json:"channel_name"`
+	UserEmail   *string `json:"user_email"`
+	AddedBy     string  `json:"added_by"`
 }
 
 // Nightbot channel moderator queries
@@ -30,7 +30,7 @@ func (q *Queries) AddChannelModerator(ctx context.Context, arg AddChannelModerat
 
 const addChannelModeratorByTwitch = `-- name: AddChannelModeratorByTwitch :exec
 INSERT INTO nightbot_channel_moderators (channel_name, user_email, twitch_username, added_by)
-VALUES (?, '', ?, ?)
+VALUES (?, NULL, ?, ?)
 `
 
 type AddChannelModeratorByTwitchParams struct {
@@ -45,7 +45,7 @@ func (q *Queries) AddChannelModeratorByTwitch(ctx context.Context, arg AddChanne
 }
 
 const getAllModerators = `-- name: GetAllModerators :many
-SELECT id, channel_name, user_email, added_by, added_at, twitch_id, twitch_username FROM nightbot_channel_moderators ORDER BY channel_name, user_email
+SELECT id, channel_name, user_email, twitch_id, twitch_username, added_by, added_at FROM nightbot_channel_moderators ORDER BY channel_name, user_email
 `
 
 func (q *Queries) GetAllModerators(ctx context.Context) ([]NightbotChannelModerator, error) {
@@ -61,10 +61,10 @@ func (q *Queries) GetAllModerators(ctx context.Context) ([]NightbotChannelModera
 			&i.ID,
 			&i.ChannelName,
 			&i.UserEmail,
-			&i.AddedBy,
-			&i.AddedAt,
 			&i.TwitchID,
 			&i.TwitchUsername,
+			&i.AddedBy,
+			&i.AddedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -115,7 +115,7 @@ func (q *Queries) GetAllModeratorsByChannel(ctx context.Context) ([]GetAllModera
 }
 
 const getChannelModerators = `-- name: GetChannelModerators :many
-SELECT id, channel_name, user_email, added_by, added_at, twitch_id, twitch_username FROM nightbot_channel_moderators WHERE channel_name = ? ORDER BY added_at
+SELECT id, channel_name, user_email, twitch_id, twitch_username, added_by, added_at FROM nightbot_channel_moderators WHERE channel_name = ? ORDER BY added_at
 `
 
 func (q *Queries) GetChannelModerators(ctx context.Context, channelName string) ([]NightbotChannelModerator, error) {
@@ -131,10 +131,10 @@ func (q *Queries) GetChannelModerators(ctx context.Context, channelName string) 
 			&i.ID,
 			&i.ChannelName,
 			&i.UserEmail,
-			&i.AddedBy,
-			&i.AddedAt,
 			&i.TwitchID,
 			&i.TwitchUsername,
+			&i.AddedBy,
+			&i.AddedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -154,7 +154,7 @@ SELECT DISTINCT channel_name FROM nightbot_channel_moderators WHERE user_email =
 `
 
 // Returns channels a user can moderate
-func (q *Queries) GetModeratorChannels(ctx context.Context, userEmail string) ([]string, error) {
+func (q *Queries) GetModeratorChannels(ctx context.Context, userEmail *string) ([]string, error) {
 	rows, err := q.db.QueryContext(ctx, getModeratorChannels, userEmail)
 	if err != nil {
 		return nil, err
@@ -183,8 +183,8 @@ WHERE channel_name = ? AND user_email = ?
 `
 
 type IsChannelModeratorParams struct {
-	ChannelName string `json:"channel_name"`
-	UserEmail   string `json:"user_email"`
+	ChannelName string  `json:"channel_name"`
+	UserEmail   *string `json:"user_email"`
 }
 
 func (q *Queries) IsChannelModerator(ctx context.Context, arg IsChannelModeratorParams) (bool, error) {
