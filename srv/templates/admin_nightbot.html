@@ -107,6 +107,10 @@
             background: var(--accent-soft);
             color: var(--accent);
         }
+        .badge-managed {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+        }
         .form-group {
             margin-bottom: 1rem;
         }
@@ -168,7 +172,7 @@
                     <div class="channel-info-left">
                         <span class="channel-name">
                             <i data-lucide="tv"></i> {{.DisplayName}}
-                            {{if not .HasAPI}}<span class="badge badge-imported" title="Imported via Tampermonkey - no API access">imported</span>{{end}}
+                            {{if .IsManaged}}<span class="badge badge-managed" title="Auto-sync enabled">auto-sync</span>{{else if not .HasOAuth}}<span class="badge badge-imported" title="Imported via Tampermonkey - no API access">imported</span>{{end}}
                         </span>
                         {{if .LastSnapshotAt}}
                         <span class="last-backup {{if .IsStale}}stale{{end}}" title="Last backup">

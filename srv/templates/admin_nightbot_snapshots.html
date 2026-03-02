@@ -153,10 +153,15 @@
     <h1><i data-lucide="history"></i> Snapshots: {{.ChannelName}}</h1>
     <p class="subtitle">Saved command snapshots for this channel</p>
 
-    {{if not .HasAPI}}
+    {{if .IsManaged}}
+    <div class="message info" style="background: var(--accent-soft); border-left: 4px solid var(--accent);">
+        <i data-lucide="refresh-cw" style="width: 16px; height: 16px; vertical-align: middle;"></i>
+        This channel syncs automatically. You can compare snapshots against each other or against the live Nightbot config.
+    </div>
+    {{else if not .HasOAuth}}
     <div class="message info" style="background: var(--accent-soft); border-left: 4px solid var(--accent);">
         <i data-lucide="info" style="width: 16px; height: 16px; vertical-align: middle;"></i>
-        This channel was imported via Tampermonkey. Select two snapshots below to compare them, or use OAuth to compare against live config.
+        This channel was imported via Tampermonkey. Select two snapshots below to compare them, or connect via OAuth to compare against live config.
     </div>
     {{end}}
 

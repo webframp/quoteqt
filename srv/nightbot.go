@@ -172,7 +172,9 @@ func (s *Server) HandleNightbotAdmin(w http.ResponseWriter, r *http.Request) {
 	type ChannelInfo struct {
 		Name           string
 		DisplayName    string
-		HasAPI         bool   // true if OAuth connected, false if imported-only
+		HasAPI         bool   // true if OAuth connected or managed channel
+		HasOAuth       bool   // true if OAuth connected
+		IsManaged      bool   // true if auto-sync managed channel
 		LastSnapshotAt string // formatted time ago, empty if never
 		IsStale        bool   // true if last snapshot > 7 days ago
 	}
@@ -187,7 +189,17 @@ func (s *Server) HandleNightbotAdmin(w http.ResponseWriter, r *http.Request) {
 		lastSnapshotMap[ls.ChannelName] = ls.LastSnapshotAt
 	}
 
+	// Build a set of managed channel names for quick lookup
+	managedChannels, _ := q.GetAllManagedChannels(ctx)
+	managedSet := make(map[string]bool)
+	for _, mc := range managedChannels {
+		if mc.SyncEnabled == 1 {
+			managedSet[mc.ChannelName] = true
+		}
+	}
+
 	var channels []ChannelInfo
+	seenChannels := make(map[string]bool)
 	for _, t := range tokens {
 		displayName := t.ChannelName
 		if t.ChannelDisplayName != nil && *t.ChannelDisplayName != "" {
@@ -197,12 +209,15 @@ func (s *Server) HandleNightbotAdmin(w http.ResponseWriter, r *http.Request) {
 			Name:        t.ChannelName,
 			DisplayName: displayName,
 			HasAPI:      true,
+			HasOAuth:    true,
+			IsManaged:   managedSet[t.ChannelName],
 		}
 		if lastTime, ok := lastSnapshotMap[t.ChannelName]; ok {
 			info.LastSnapshotAt = formatTimeAgo(lastTime)
 			info.IsStale = time.Since(lastTime) > 7*24*time.Hour
 		}
 		channels = append(channels, info)
+		seenChannels[t.ChannelName] = true
 	}
 
 	// Get imported-only channels (have snapshots but no OAuth tokens)
@@ -211,10 +226,16 @@ func (s *Server) HandleNightbotAdmin(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("get imported channels", "error", err)
 	} else {
 		for _, name := range importedChannels {
+			if seenChannels[name] {
+				continue // Already added via OAuth tokens
+			}
+			isManaged := managedSet[name]
 			info := ChannelInfo{
 				Name:        name,
 				DisplayName: name,
-				HasAPI:      false,
+				HasAPI:      isManaged, // Managed channels have API access via session
+				HasOAuth:    false,
+				IsManaged:   isManaged,
 			}
 			if lastTime, ok := lastSnapshotMap[name]; ok {
 				info.LastSnapshotAt = formatTimeAgo(lastTime)
@@ -952,12 +973,21 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 		UserEmail:   userEmail,
 		ChannelName: channelName,
 	})
-	hasAPI := tokenErr == nil
+	hasOAuth := tokenErr == nil
+
+	// Check if this is a managed channel (auto-sync with session token)
+	managedChannel, managedErr := q.GetManagedChannelByName(ctx, channelName)
+	isManaged := managedErr == nil && managedChannel.SyncEnabled == 1
+
+	// HasAPI means we can compare against live - either OAuth or managed channel
+	hasAPI := hasOAuth || isManaged
 
 	data := struct {
 		ChannelName     string
 		Snapshots       []dbgen.NightbotSnapshot
 		HasAPI          bool
+		HasOAuth        bool
+		IsManaged       bool
 		Success         string
 		Error           string
 		IsAuthenticated bool
@@ -969,6 +999,8 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 		ChannelName:     channelName,
 		Snapshots:       snapshots,
 		HasAPI:          hasAPI,
+		HasOAuth:        hasOAuth,
+		IsManaged:       isManaged,
 		Success:         r.URL.Query().Get("success"),
 		Error:           r.URL.Query().Get("error"),
 		IsAuthenticated: true,

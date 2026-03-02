@@ -13,6 +13,9 @@ SELECT * FROM nightbot_managed_channels WHERE id = ?;
 -- name: GetManagedChannelByChannelID :one
 SELECT * FROM nightbot_managed_channels WHERE channel_id = ?;
 
+-- name: GetManagedChannelByName :one
+SELECT * FROM nightbot_managed_channels WHERE channel_name = ?;
+
 -- name: GetManagedChannelsByUser :many
 SELECT * FROM nightbot_managed_channels WHERE user_email = ? ORDER BY channel_name;
 

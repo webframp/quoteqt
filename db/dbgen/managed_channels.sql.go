@@ -166,6 +166,30 @@ func (q *Queries) GetManagedChannelByChannelID(ctx context.Context, channelID st
 	return i, err
 }
 
+const getManagedChannelByName = `-- name: GetManagedChannelByName :one
+SELECT id, user_email, channel_id, channel_name, session_token_encrypted, sync_enabled, sync_interval_minutes, last_sync_at, last_sync_status, last_error, created_at, updated_at FROM nightbot_managed_channels WHERE channel_name = ?
+`
+
+func (q *Queries) GetManagedChannelByName(ctx context.Context, channelName string) (NightbotManagedChannel, error) {
+	row := q.db.QueryRowContext(ctx, getManagedChannelByName, channelName)
+	var i NightbotManagedChannel
+	err := row.Scan(
+		&i.ID,
+		&i.UserEmail,
+		&i.ChannelID,
+		&i.ChannelName,
+		&i.SessionTokenEncrypted,
+		&i.SyncEnabled,
+		&i.SyncIntervalMinutes,
+		&i.LastSyncAt,
+		&i.LastSyncStatus,
+		&i.LastError,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getManagedChannelsByUser = `-- name: GetManagedChannelsByUser :many
 SELECT id, user_email, channel_id, channel_name, session_token_encrypted, sync_enabled, sync_interval_minutes, last_sync_at, last_sync_status, last_error, created_at, updated_at FROM nightbot_managed_channels WHERE user_email = ? ORDER BY channel_name
 `
