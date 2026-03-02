@@ -248,6 +248,13 @@ The application is instrumented with OpenTelemetry and sends traces to Honeycomb
 | `API_RATE_BURST` | `10` | Max burst capacity for API requests |
 | `SUGGESTION_RATE_LIMIT` | `15` | Suggestions allowed per interval per IP/channel |
 | `SUGGESTION_RATE_INTERVAL` | `1h` | Suggestion rate limit window (Go duration) |
+| `NIGHTBOT_CLIENT_ID` | | Nightbot OAuth client ID (for backup feature) |
+| `NIGHTBOT_CLIENT_SECRET` | | Nightbot OAuth client secret |
+| `NIGHTBOT_IMPORT_TOKEN` | | Token for Tampermonkey snapshot imports |
+| `NIGHTBOT_SESSION_KEY` | | Encryption key for managed channel session tokens |
+| `TWITCH_CLIENT_ID` | | Twitch OAuth client ID (for moderator auth) |
+| `TWITCH_CLIENT_SECRET` | | Twitch OAuth client secret |
+| `SESSION_SECRET` | auto-generated | Secret for signing session cookies |
 
 ### Traced Operations
 
