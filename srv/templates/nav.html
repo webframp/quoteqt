@@ -10,7 +10,7 @@
         <a href="/suggestions">Suggestions</a>
         {{if .IsAdmin}}<a href="/admin/owners">Owners</a>{{end}}
         {{if .IsAdmin}}<a href="/admin/users">Users</a>{{end}}
-        {{if .IsAdmin}}<a href="/admin/nightbot">Nightbot</a>{{end}}
+        {{if .IsAdmin}}<a href="/admin/nightbot">Nightbot</a>{{else}}<a href="/admin/nightbot/snapshots">Snapshots</a>{{end}}
         <a href="/api/">API Docs</a>
     {{end}}
     <a href="/help">Help</a>
