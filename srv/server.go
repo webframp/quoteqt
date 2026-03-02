@@ -1815,26 +1815,26 @@ func (s *Server) HandleBotSuggestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
-	userEmail := getAuthEmail(r)
 	ctx := r.Context()
+	auth := s.getAuthInfo(r)
 
-	if userEmail == "" {
+	if !auth.IsAuthenticated {
 		RecordSecurityEvent(ctx, "auth_required",
 			attribute.String("path", r.URL.Path),
 		)
-		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		http.Redirect(w, r, "/auth/twitch?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 		return
 	}
 
-	isAdmin := s.isAdmin(userEmail)
-	ownedChannels, _ := s.getOwnedChannels(ctx, userEmail)
+	// Get channels this user can manage (owned + moderated)
+	manageableChannels, _ := s.getManageableChannelsWithTwitch(ctx, auth.Email, auth.TwitchUsername)
 
-	// If not admin and not a channel owner, deny access
-	if !isAdmin && len(ownedChannels) == 0 {
+	// If not admin and no manageable channels, deny access
+	if !auth.IsAdmin && len(manageableChannels) == 0 {
 		RecordSecurityEvent(ctx, "permission_denied",
-			attribute.String("user.email", userEmail),
+			attribute.String("user.identity", auth.DisplayIdentity()),
 			attribute.String("path", r.URL.Path),
-			attribute.String("reason", "not_channel_owner"),
+			attribute.String("reason", "no_manageable_channels"),
 		)
 		http.Error(w, "You don't have permission to review suggestions. Contact an admin to get access.", http.StatusForbidden)
 		return
@@ -1844,17 +1844,23 @@ func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 	var suggestions []dbgen.QuoteSuggestion
 	var err error
 
-	if isAdmin {
+	if auth.IsAdmin {
 		// Admins see all suggestions
 		suggestions, err = q.ListPendingSuggestions(ctx)
 	} else {
-		// Channel owners see only their channel's suggestions
-		suggestions, err = q.ListPendingSuggestionsByChannel(ctx, ownedChannels[0])
+		// Channel owners/moderators see only their channel's suggestions
+		suggestions, err = q.ListPendingSuggestionsByChannel(ctx, manageableChannels[0])
 	}
 	if err != nil {
 		slog.Error("list suggestions", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
+	}
+
+	// Determine logout URL based on auth method
+	logoutURL := "/__exe.dev/logout"
+	if auth.AuthMethod == "twitch" {
+		logoutURL = "/auth/logout"
 	}
 
 	data := struct {
@@ -1868,13 +1874,13 @@ func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 		OwnedChannels   []string
 	}{
 		Hostname:        s.Hostname,
-		UserEmail:       userEmail,
-		LogoutURL:       "/__exe.dev/logout",
+		UserEmail:       auth.DisplayIdentity(),
+		LogoutURL:       logoutURL,
 		Suggestions:     suggestions,
-		IsAdmin:         isAdmin,
+		IsAdmin:         auth.IsAdmin,
 		IsAuthenticated: true,
 		IsPublicPage:    false,
-		OwnedChannels:   ownedChannels,
+		OwnedChannels:   manageableChannels,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1884,10 +1890,10 @@ func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request) {
-	userID, userEmail := getAuthUser(r)
 	ctx := r.Context()
+	auth := s.getAuthInfo(r)
 
-	if userEmail == "" {
+	if !auth.IsAuthenticated {
 		RecordSecurityEvent(ctx, "auth_required",
 			attribute.String("path", r.URL.Path),
 		)
@@ -1916,15 +1922,15 @@ func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Check permission: must be admin or own this channel
-	if !s.canManageChannel(ctx, userEmail, suggestion.Channel) {
+	// Check permission: must be admin, owner, or moderator for this channel
+	if !s.canManageChannelWithTwitch(ctx, auth.Email, auth.TwitchUsername, suggestion.Channel) {
 		RecordSecurityEvent(ctx, "permission_denied",
-			attribute.String("user.email", userEmail),
+			attribute.String("user.identity", auth.DisplayIdentity()),
 			attribute.String("path", r.URL.Path),
 			attribute.String("resource", "suggestion"),
 			attribute.Int64("suggestion.id", id),
 			attribute.String("channel", suggestion.Channel),
-			attribute.String("reason", "not_channel_owner"),
+			attribute.String("reason", "not_authorized"),
 		)
 		http.Error(w, "You don't have permission to approve suggestions for this channel", http.StatusForbidden)
 		return
@@ -1932,9 +1938,10 @@ func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request)
 
 	// Create the quote from the suggestion
 	now := time.Now()
+	reviewerIdentity := auth.DisplayIdentity()
 	err = q.CreateQuote(ctx, dbgen.CreateQuoteParams{
-		UserID:         userID,
-		CreatedByEmail: &userEmail,
+		UserID:         auth.UserID,
+		CreatedByEmail: &reviewerIdentity,
 		Text:           suggestion.Text,
 		Author:         suggestion.Author,
 		Civilization:   suggestion.Civilization,
@@ -1951,7 +1958,7 @@ func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request)
 
 	// Mark suggestion as approved
 	err = q.ApproveSuggestion(ctx, dbgen.ApproveSuggestionParams{
-		ReviewedBy: &userEmail,
+		ReviewedBy: &reviewerIdentity,
 		ReviewedAt: &now,
 		ID:         id,
 	})
@@ -1965,10 +1972,10 @@ func (s *Server) HandleApproveSuggestion(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) HandleRejectSuggestion(w http.ResponseWriter, r *http.Request) {
-	userEmail := getAuthEmail(r)
 	ctx := r.Context()
+	auth := s.getAuthInfo(r)
 
-	if userEmail == "" {
+	if !auth.IsAuthenticated {
 		RecordSecurityEvent(ctx, "auth_required",
 			attribute.String("path", r.URL.Path),
 		)
@@ -1997,24 +2004,25 @@ func (s *Server) HandleRejectSuggestion(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Check permission: must be admin or own this channel
-	if !s.canManageChannel(ctx, userEmail, suggestion.Channel) {
+	// Check permission: must be admin, owner, or moderator for this channel
+	if !s.canManageChannelWithTwitch(ctx, auth.Email, auth.TwitchUsername, suggestion.Channel) {
 		RecordSecurityEvent(ctx, "permission_denied",
-			attribute.String("user.email", userEmail),
+			attribute.String("user.identity", auth.DisplayIdentity()),
 			attribute.String("path", r.URL.Path),
 			attribute.String("resource", "suggestion"),
 			attribute.Int64("suggestion.id", id),
 			attribute.String("channel", suggestion.Channel),
-			attribute.String("reason", "not_channel_owner"),
+			attribute.String("reason", "not_authorized"),
 		)
 		http.Error(w, "You don't have permission to reject suggestions for this channel", http.StatusForbidden)
 		return
 	}
 
 	now := time.Now()
+	reviewerIdentity := auth.DisplayIdentity()
 
 	err = q.RejectSuggestion(ctx, dbgen.RejectSuggestionParams{
-		ReviewedBy: &userEmail,
+		ReviewedBy: &reviewerIdentity,
 		ReviewedAt: &now,
 		ID:         id,
 	})

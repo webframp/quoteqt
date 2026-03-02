@@ -31,7 +31,7 @@ Role-Based Access Control implementation for QuoteQT.
 | View/Edit civs | ✓ | ✓ | ✗ | ✗ | ✗ |
 | **Suggestions** |
 | Submit suggestion | ✓ | ✓ | ✓ | ✓ | ✓ |
-| View/Approve/Reject | ✓ | Own channel | ✗ | ✗ | ✗ |
+| View/Approve/Reject | ✓ | Own channel | Assigned channel | ✗ | ✗ |
 | **Nightbot Backup** |
 | Admin page (`/admin/nightbot`) | ✓ | ✗ | ✗ | ✗ | ✗ |
 | View snapshots | ✓ | Own channel | Assigned channel | ✗ | ✗ |
@@ -85,7 +85,7 @@ func (s *Server) getViewableNightbotChannelsWithTwitch(ctx, email, twitchUsernam
 | Capability | Channel Owner | Channel Moderator |
 |------------|---------------|-------------------|
 | Quotes CRUD | ✓ (own channel) | ✓ (assigned channel) |
-| Approve suggestions | ✓ (own channel) | ✗ |
+| Approve suggestions | ✓ (own channel) | ✓ (assigned channel) |
 | View Nightbot snapshots | ✓ | ✓ |
 | Download snapshots | ✓ | ✓ |
 | Compare snapshots | ✓ | ✓ |
