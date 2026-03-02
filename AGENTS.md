@@ -114,6 +114,16 @@ func (s *Server) HandleExample(w http.ResponseWriter, r *http.Request) {
 - Use descriptive test quote text to make cleanup easier if needed
 - Standard table-driven tests; no property-based testing currently
 
+**Manual testing of authenticated pages:**
+- Use curl with exe.dev headers to inspect HTML:
+  ```bash
+  curl -s -H "X-ExeDev-UserID: test" -H "X-ExeDev-Email: user@example.com" \
+    "http://localhost:8000/path" | grep "something"
+  ```
+- Don't save HTML to static files and serve separately - CSS/JS paths won't resolve
+- For visual testing, use the live site through the exe.dev proxy
+- The browser tool requires real authentication which localhost can't provide for protected routes
+
 ### Civilizations
 
 - All 22 AoE4 civilizations are tracked with shortnames for API filtering
