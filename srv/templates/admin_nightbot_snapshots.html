@@ -204,11 +204,11 @@
                         </div>
                     </div>
                     <div class="snapshot-actions">
-                        {{if $.HasAPI}}
+                        {{if $.HasOAuth}}
                         <a href="/admin/nightbot/snapshot/diff?id={{.ID}}" class="btn btn-small btn-secondary"><i data-lucide="git-compare"></i> vs Live</a>
                         {{end}}
                         <a href="/admin/nightbot/snapshot/download?id={{.ID}}" class="btn btn-small btn-secondary"><i data-lucide="download"></i> Download</a>
-                        {{if and $.HasAPI $.IsAdmin}}
+                        {{if and $.HasOAuth $.IsAdmin}}
                         <form action="/admin/nightbot/snapshot/restore" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to restore this snapshot?\n\nThis will make Nightbot match this snapshot exactly:\n• Commands not in the snapshot will be DELETED\n• Modified commands will be reverted\n• Missing commands will be created');">
                             <input type="hidden" name="id" value="{{.ID}}">
                             <button type="submit" class="btn btn-small btn-danger"><i data-lucide="rotate-ccw"></i> Restore</button>
