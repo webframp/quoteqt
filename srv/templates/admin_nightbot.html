@@ -218,7 +218,7 @@
         {{end}}
     </div>
 
-    {{if .Channels}}
+    {{if .HasOAuthChannels}}
     <div class="card">
         <h2><i data-lucide="upload"></i> Import Commands</h2>
         <p>Upload a previously exported backup file to restore commands to a channel.</p>
@@ -226,9 +226,9 @@
             <div class="form-group">
                 <label for="channel">Target Channel</label>
                 <select name="channel" id="channel" required>
-                    {{range .Channels}}
+                    {{range .Channels}}{{if .HasOAuth}}
                     <option value="{{.Name}}">{{.DisplayName}}</option>
-                    {{end}}
+                    {{end}}{{end}}
                 </select>
             </div>
             <div class="file-input-wrapper">

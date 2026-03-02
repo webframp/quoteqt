@@ -255,6 +255,7 @@ func (s *Server) HandleNightbotAdmin(w http.ResponseWriter, r *http.Request) {
 		Success         string
 		Error           string
 		Channels        []ChannelInfo
+		HasOAuthChannels bool
 		ConnectURL      string
 		ImportToken     string
 	}{
@@ -267,6 +268,7 @@ func (s *Server) HandleNightbotAdmin(w http.ResponseWriter, r *http.Request) {
 		Success:         r.URL.Query().Get("success"),
 		Error:           r.URL.Query().Get("error"),
 		Channels:        channels,
+		HasOAuthChannels: len(tokens) > 0,
 		ConnectURL:      s.nightbotAuthURL(),
 		ImportToken:     s.Config.NightbotImportToken,
 	}
