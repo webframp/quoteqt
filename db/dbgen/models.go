@@ -110,6 +110,15 @@ type QuoteSuggestion struct {
 	SubmittedByUser *string    `json:"submitted_by_user"`
 }
 
+type User struct {
+	ID          int64     `json:"id"`
+	UserID      string    `json:"user_id"`
+	Email       string    `json:"email"`
+	FirstSeenAt time.Time `json:"first_seen_at"`
+	LastSeenAt  time.Time `json:"last_seen_at"`
+	VisitCount  int64     `json:"visit_count"`
+}
+
 type Visitor struct {
 	ID        string    `json:"id"`
 	ViewCount int64     `json:"view_count"`

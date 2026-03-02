@@ -404,6 +404,12 @@ label {
     text-decoration: underline;
 }
 
+.nav-user {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-right: 1rem;
+}
+
 /* Badges */
 .badge {
     display: inline-flex;

@@ -9,11 +9,13 @@
         <a href="/civs">Civilizations</a>
         <a href="/suggestions">Suggestions</a>
         {{if .IsAdmin}}<a href="/admin/owners">Owners</a>{{end}}
+        {{if .IsAdmin}}<a href="/admin/users">Users</a>{{end}}
         {{if .IsAdmin}}<a href="/admin/nightbot">Nightbot</a>{{end}}
         <a href="/api/">API Docs</a>
     {{end}}
     <a href="/help">Help</a>
     {{if .IsAuthenticated}}
+        <span class="nav-user"><i data-lucide="user" style="width:14px;height:14px;vertical-align:middle;"></i> {{.UserEmail}}</span>
         <a href="{{.LogoutURL}}">Logout</a>
     {{else if .IsPublicPage}}
         <a href="{{.LoginURL}}">Sign In</a>

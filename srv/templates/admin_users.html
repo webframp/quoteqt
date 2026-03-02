@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <title>Users - Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/theme.css?v=8">
+    <style>
+        body { max-width: 900px; margin: 0 auto; padding: 2rem; }
+        .card { margin-bottom: 1.5rem; }
+        .card > *:first-child { margin-top: 0; }
+        .card > *:last-child { margin-bottom: 0; }
+        .card ol, .card ul { padding-left: 1.5rem; }
+        
+        .user-list { list-style: none; padding: 0; margin: 0; }
+        .user-item {
+            display: grid;
+            grid-template-columns: auto 1fr auto auto;
+            gap: 1rem;
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.5rem;
+            align-items: center;
+        }
+        .user-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+        }
+        .user-status.online {
+            background: var(--success);
+        }
+        .user-email { font-weight: 500; }
+        .user-meta { font-size: 0.8rem; color: var(--text-secondary); }
+        .user-stats { text-align: right; font-size: 0.85rem; color: var(--text-secondary); }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+        .badge-admin { background: var(--accent); color: white; }
+        
+        .stats-bar {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+        }
+        .stat { text-align: center; }
+        .stat-value { font-size: 1.5rem; font-weight: 600; color: var(--accent); }
+        .stat-label { font-size: 0.8rem; color: var(--text-secondary); }
+        
+        @media (max-width: 600px) {
+            .user-item { grid-template-columns: auto 1fr; }
+            .user-stats { grid-column: 2; }
+        }
+    </style>
+</head>
+<body>
+    {{template "nav" .}}
+
+    <h1><i data-lucide="users"></i> Users</h1>
+    <p>All users who have accessed the site.</p>
+
+    <div class="stats-bar">
+        <div class="stat">
+            <div class="stat-value">{{.TotalUsers}}</div>
+            <div class="stat-label">Total Users</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2><i data-lucide="list"></i> User List</h2>
+        {{if .Users}}
+        <ul class="user-list">
+            {{range .Users}}
+            <li class="user-item">
+                <div class="user-status {{if .IsOnline}}online{{end}}" title="{{if .IsOnline}}Online{{else}}Offline{{end}}"></div>
+                <div>
+                    <span class="user-email">{{.Email}}</span>
+                    {{if .IsAdmin}}<span class="badge badge-admin">ADMIN</span>{{end}}
+                    <div class="user-meta">First seen: {{.FirstSeenAt}}</div>
+                </div>
+                <div class="user-stats">
+                    <div>{{.VisitCount}} visits</div>
+                    <div class="user-meta">Last: {{.LastSeenAt}}</div>
+                </div>
+            </li>
+            {{end}}
+        </ul>
+        {{else}}
+        <p style="color: var(--text-secondary); text-align: center; padding: 2rem;">No users recorded yet.</p>
+        {{end}}
+    </div>
+
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <span id="theme-icon"><i data-lucide="sun"></i></span>
+    </button>
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const next = current === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateIcon(next);
+        }
+        function updateIcon(theme) {
+            document.getElementById('theme-icon').innerHTML = theme === 'light' 
+                ? '<i data-lucide="moon"></i>'
+                : '<i data-lucide="sun"></i>';
+            lucide.createIcons();
+        }
+        (function() {
+            const saved = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+            updateIcon(saved);
+        })();
+    </script>
+    <script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js" integrity="sha384-8nT3SpButyvenpAdKYPJzXdSz3zidMGduMoaMvwjKnAWVv238n6P1mhveiJJQWrV" crossorigin="anonymous"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

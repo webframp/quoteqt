@@ -1470,6 +1470,7 @@ func (s *Server) Serve(addr string) error {
 	mux.HandleFunc("POST /suggestions/{id}/approve", s.HandleApproveSuggestion)
 	mux.HandleFunc("POST /suggestions/{id}/reject", s.HandleRejectSuggestion)
 	// Admin routes
+	mux.HandleFunc("GET /admin/users", s.HandleAdminUsers)
 	mux.HandleFunc("GET /admin/owners", s.HandleListChannelOwners)
 	mux.HandleFunc("POST /admin/owners", s.HandleAddChannelOwner)
 	mux.HandleFunc("POST /admin/owners/delete", s.HandleRemoveChannelOwner)
@@ -1517,7 +1518,7 @@ func (s *Server) Serve(addr string) error {
 
 	s.httpServer = &http.Server{
 		Addr:    addr,
-		Handler: otelhttp.NewHandler(SecurityHeaders(RequestLogger(Gzip(LimitRequestBody(mux)))), "quotes"),
+		Handler: otelhttp.NewHandler(SecurityHeaders(RequestLogger(s.UserTracking(Gzip(LimitRequestBody(mux))))), "quotes"),
 	}
 
 	// Start background cleanup of soft-deleted snapshots
