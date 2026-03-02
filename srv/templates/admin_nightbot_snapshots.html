@@ -156,12 +156,12 @@
     {{if .IsManaged}}
     <div class="message info" style="background: var(--accent-soft); border-left: 4px solid var(--accent);">
         <i data-lucide="refresh-cw" style="width: 16px; height: 16px; vertical-align: middle;"></i>
-        This channel syncs automatically. You can compare snapshots against each other or against the live Nightbot config.
+        This channel syncs automatically. Select two snapshots below to compare them against each other.
     </div>
     {{else if not .HasOAuth}}
     <div class="message info" style="background: var(--accent-soft); border-left: 4px solid var(--accent);">
         <i data-lucide="info" style="width: 16px; height: 16px; vertical-align: middle;"></i>
-        This channel was imported via Tampermonkey. Select two snapshots below to compare them, or connect via OAuth to compare against live config.
+        This channel was imported via Tampermonkey. Select two snapshots below to compare them, or have the channel owner connect via OAuth to enable live comparisons.
     </div>
     {{end}}
 
