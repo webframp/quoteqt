@@ -218,7 +218,7 @@
         {{end}}
     </div>
 
-    {{if .HasOAuthChannels}}
+    {{if and .IsAdmin .HasOAuthChannels}}
     <div class="card">
         <h2><i data-lucide="upload"></i> Import Commands</h2>
         <p>Upload a previously exported backup file to restore commands to a channel.</p>
@@ -242,7 +242,7 @@
     </div>
     {{end}}
 
-    {{if .ImportToken}}
+    {{if and .IsAdmin .ImportToken}}
     <div class="card">
         <h2><i data-lucide="key"></i> Tampermonkey Import</h2>
         <p>Use this token with the <a href="https://github.com/webframp/quoteqt/blob/main/docs/tampermonkey-nightbot-exporter.js" target="_blank">Tampermonkey script</a> to import commands from channels you manage (but don't own).</p>
