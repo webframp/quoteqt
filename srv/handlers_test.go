@@ -401,8 +401,9 @@ func TestHandleAddQuote(t *testing.T) {
 			t.Errorf("expected 303 redirect, got %d", w.Code)
 		}
 		loc := w.Header().Get("Location")
-		if !strings.Contains(loc, "login") {
-			t.Errorf("expected redirect to login, got: %s", loc)
+		// Accept either exe.dev login or Twitch auth redirect
+		if !strings.Contains(loc, "login") && !strings.Contains(loc, "/auth/twitch") {
+			t.Errorf("expected redirect to login or auth, got: %s", loc)
 		}
 	})
 
@@ -1136,8 +1137,9 @@ func TestHandleEditQuote(t *testing.T) {
 			t.Errorf("expected 303, got %d", w.Code)
 		}
 		loc := w.Header().Get("Location")
-		if !strings.Contains(loc, "login") {
-			t.Errorf("expected redirect to login, got: %s", loc)
+		// Accept either exe.dev login or Twitch auth redirect
+		if !strings.Contains(loc, "login") && !strings.Contains(loc, "/auth/twitch") {
+			t.Errorf("expected redirect to login or auth, got: %s", loc)
 		}
 	})
 

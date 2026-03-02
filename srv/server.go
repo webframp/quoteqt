@@ -252,26 +252,27 @@ func quotesToViews(quotes []dbgen.Quote) []QuoteView {
 }
 
 func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
-	userID, userEmail := getAuthUser(r)
 	ctx := r.Context()
+	auth := s.getAuthInfo(r)
 
-	if userID == "" {
+	if !auth.IsAuthenticated {
 		RecordSecurityEvent(ctx, "auth_required",
 			attribute.String("path", r.URL.Path),
 		)
-		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		// Redirect to Twitch login for quote management
+		http.Redirect(w, r, "/auth/twitch?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 		return
 	}
 
-	isAdmin := s.isAdmin(userEmail)
-	ownedChannels, _ := s.getOwnedChannels(ctx, userEmail)
+	// Get channels this user can manage (owned + moderated)
+	manageableChannels, _ := s.getManageableChannelsWithTwitch(ctx, auth.Email, auth.TwitchUsername)
 
-	// If not admin and not a channel owner, deny access
-	if !isAdmin && len(ownedChannels) == 0 {
+	// If not admin and no manageable channels, deny access
+	if !auth.IsAdmin && len(manageableChannels) == 0 {
 		RecordSecurityEvent(ctx, "permission_denied",
-			attribute.String("user.email", userEmail),
+			attribute.String("user.identity", auth.DisplayIdentity()),
 			attribute.String("path", r.URL.Path),
-			attribute.String("reason", "not_channel_owner"),
+			attribute.String("reason", "no_manageable_channels"),
 		)
 		http.Error(w, "You don't have permission to manage quotes. Contact an admin to get access.", http.StatusForbidden)
 		return
@@ -281,31 +282,37 @@ func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 	var quotes []dbgen.Quote
 	var err error
 
-	if isAdmin {
+	if auth.IsAdmin {
 		// Admins see all quotes
 		quotes, err = q.ListAllQuotes(ctx)
 	} else {
-		// Channel owners see only their channel's quotes
-		// For now, just use the first owned channel (most users will own one)
-		// TODO: add channel selector if user owns multiple channels
-		quotes, err = q.ListQuotesByChannelOnly(ctx, &ownedChannels[0])
+		// Channel owners/moderators see only their channel's quotes
+		// For now, just use the first manageable channel (most users will have one)
+		// TODO: add channel selector if user manages multiple channels
+		quotes, err = q.ListQuotesByChannelOnly(ctx, &manageableChannels[0])
 	}
 	if err != nil {
 		slog.Error("list quotes", "error", err)
 	}
 
+	// Determine logout URL based on auth method
+	logoutURL := "/__exe.dev/logout"
+	if auth.AuthMethod == "twitch" {
+		logoutURL = "/auth/logout"
+	}
+
 	data := pageData{
 		Hostname:        s.Hostname,
 		Now:             time.Now().Format(time.RFC3339),
-		UserEmail:       userEmail,
-		UserID:          userID,
+		UserEmail:       auth.DisplayIdentity(),
+		UserID:          auth.UserID,
 		LoginURL:        loginURLForRequest(r),
-		LogoutURL:       "/__exe.dev/logout",
+		LogoutURL:       logoutURL,
 		Quotes:          quotesToViews(quotes),
 		Success:         r.URL.Query().Get("success"),
-		IsAdmin:         isAdmin,
+		IsAdmin:         auth.IsAdmin,
 		IsAuthenticated: true,
-		OwnedChannels:   ownedChannels,
+		OwnedChannels:   manageableChannels,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -315,14 +322,14 @@ func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
-	userID, userEmail := getAuthUser(r)
 	ctx := r.Context()
+	auth := s.getAuthInfo(r)
 
-	if userID == "" {
+	if !auth.IsAuthenticated {
 		RecordSecurityEvent(ctx, "auth_required",
 			attribute.String("path", r.URL.Path),
 		)
-		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		http.Redirect(w, r, "/auth/twitch?redirect="+url.QueryEscape("/quotes"), http.StatusSeeOther)
 		return
 	}
 
@@ -337,14 +344,14 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 	opponentCiv := strings.TrimSpace(r.FormValue("opponent_civ"))
 	channel := strings.TrimSpace(r.FormValue("channel"))
 
-	// Check permission: must be admin or own this channel
-	if !s.canManageChannel(ctx, userEmail, channel) {
+	// Check permission: must be admin, owner, or moderator for this channel
+	if !s.canManageChannelWithTwitch(ctx, auth.Email, auth.TwitchUsername, channel) {
 		RecordSecurityEvent(ctx, "permission_denied",
-			attribute.String("user.email", userEmail),
+			attribute.String("user.identity", auth.DisplayIdentity()),
 			attribute.String("path", r.URL.Path),
 			attribute.String("resource", "quote"),
 			attribute.String("channel", channel),
-			attribute.String("reason", "not_channel_owner"),
+			attribute.String("reason", "not_authorized"),
 		)
 		http.Error(w, "You don't have permission to add quotes to this channel", http.StatusForbidden)
 		return
@@ -376,12 +383,13 @@ func (s *Server) HandleAddQuote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var emailPtr *string
-	if userEmail != "" {
-		emailPtr = &userEmail
+	creatorIdentity := auth.DisplayIdentity()
+	if creatorIdentity != "" {
+		emailPtr = &creatorIdentity
 	}
 
 	err := q.CreateQuote(r.Context(), dbgen.CreateQuoteParams{
-		UserID:         userID,
+		UserID:         auth.UserID,
 		CreatedByEmail: emailPtr,
 		Text:           text,
 		Author:         authorPtr,
@@ -644,14 +652,14 @@ func (s *Server) HandleDeleteCiv(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
-	userID, userEmail := getAuthUser(r)
 	ctx := r.Context()
+	auth := s.getAuthInfo(r)
 
-	if userID == "" {
+	if !auth.IsAuthenticated {
 		RecordSecurityEvent(ctx, "auth_required",
 			attribute.String("path", r.URL.Path),
 		)
-		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+		http.Redirect(w, r, "/auth/twitch?redirect="+url.QueryEscape("/quotes"), http.StatusSeeOther)
 		return
 	}
 
@@ -676,19 +684,19 @@ func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check permission: must be admin or own this channel
+	// Check permission: must be admin, owner, or moderator for this channel
 	existingChannel := ""
 	if quote.Channel != nil {
 		existingChannel = *quote.Channel
 	}
-	if !s.canManageChannel(ctx, userEmail, existingChannel) {
+	if !s.canManageChannelWithTwitch(ctx, auth.Email, auth.TwitchUsername, existingChannel) {
 		RecordSecurityEvent(ctx, "permission_denied",
-			attribute.String("user.email", userEmail),
+			attribute.String("user.identity", auth.DisplayIdentity()),
 			attribute.String("path", r.URL.Path),
 			attribute.String("resource", "quote"),
 			attribute.Int64("quote.id", id),
 			attribute.String("channel", existingChannel),
-			attribute.String("reason", "not_channel_owner"),
+			attribute.String("reason", "not_authorized"),
 		)
 		http.Error(w, "You don't have permission to edit this quote", http.StatusForbidden)
 		return
@@ -747,10 +755,10 @@ func (s *Server) HandleEditQuote(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
-	userID, userEmail := getAuthUser(r)
 	ctx := r.Context()
+	auth := s.getAuthInfo(r)
 
-	if userID == "" {
+	if !auth.IsAuthenticated {
 		RecordSecurityEvent(ctx, "auth_required",
 			attribute.String("path", r.URL.Path),
 		)
@@ -779,19 +787,19 @@ func (s *Server) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check permission: must be admin or own this channel
+	// Check permission: must be admin, owner, or moderator for this channel
 	channel := ""
 	if quote.Channel != nil {
 		channel = *quote.Channel
 	}
-	if !s.canManageChannel(ctx, userEmail, channel) {
+	if !s.canManageChannelWithTwitch(ctx, auth.Email, auth.TwitchUsername, channel) {
 		RecordSecurityEvent(ctx, "permission_denied",
-			attribute.String("user.email", userEmail),
+			attribute.String("user.identity", auth.DisplayIdentity()),
 			attribute.String("path", r.URL.Path),
 			attribute.String("resource", "quote"),
 			attribute.Int64("quote.id", id),
 			attribute.String("channel", channel),
-			attribute.String("reason", "not_channel_owner"),
+			attribute.String("reason", "not_authorized"),
 		)
 		http.Error(w, "You don't have permission to delete this quote", http.StatusForbidden)
 		return
@@ -2031,19 +2039,44 @@ func (s *Server) getOwnedChannels(ctx context.Context, email string) ([]string, 
 }
 
 func (s *Server) canManageChannel(ctx context.Context, email, channel string) bool {
+	return s.canManageChannelWithTwitch(ctx, email, "", channel)
+}
+
+// canManageChannelWithTwitch checks if user can manage quotes for a channel.
+// Returns true if user is admin, channel owner, or channel moderator.
+func (s *Server) canManageChannelWithTwitch(ctx context.Context, email, twitchUsername, channel string) bool {
 	if s.isAdmin(email) {
 		return true
 	}
-	channels, err := s.getOwnedChannels(ctx, email)
-	if err != nil {
-		return false
-	}
-	for _, ch := range channels {
-		if strings.EqualFold(ch, channel) {
-			return true
+	email = strings.ToLower(strings.TrimSpace(email))
+	twitchUsername = strings.ToLower(strings.TrimSpace(twitchUsername))
+	channel = strings.ToLower(strings.TrimSpace(channel))
+
+	// Check if channel owner (by email)
+	if email != "" {
+		channels, err := s.getOwnedChannels(ctx, email)
+		if err == nil {
+			for _, ch := range channels {
+				if strings.EqualFold(ch, channel) {
+					return true
+				}
+			}
 		}
 	}
-	return false
+
+	// Check if channel moderator (by email or Twitch username)
+	return s.canViewNightbotChannelWithTwitch(ctx, email, twitchUsername, channel)
+}
+
+// getManageableChannels returns channels user can manage quotes for (owned + moderated).
+func (s *Server) getManageableChannels(ctx context.Context, email string) ([]string, error) {
+	return s.getManageableChannelsWithTwitch(ctx, email, "")
+}
+
+// getManageableChannelsWithTwitch returns manageable channels including Twitch username lookup.
+func (s *Server) getManageableChannelsWithTwitch(ctx context.Context, email, twitchUsername string) ([]string, error) {
+	// Reuse the viewable channels logic since moderators can now manage quotes too
+	return s.getViewableNightbotChannelsWithTwitch(ctx, email, twitchUsername)
 }
 
 // canViewNightbotChannel checks if user can view Nightbot snapshots for a channel.

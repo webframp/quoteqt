@@ -24,8 +24,8 @@ Role-Based Access Control implementation for QuoteQT.
 | Resource/Action | Admin | Channel Owner | Channel Moderator | Authenticated | Anonymous |
 |-----------------|-------|---------------|-------------------|---------------|----------|
 | **Quotes** |
-| View all quotes | ✓ | Own channel | ✗ | ✗ | ✗ |
-| Add/Edit/Delete quotes | ✓ | Own channel | ✗ | ✗ | ✗ |
+| View all quotes | ✓ | Own channel | Assigned channel | ✗ | ✗ |
+| Add/Edit/Delete quotes | ✓ | Own channel | Assigned channel | ✗ | ✗ |
 | Browse quotes (public) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | **Civilizations** |
 | View/Edit civs | ✓ | ✓ | ✗ | ✗ | ✗ |
@@ -62,11 +62,16 @@ func (s *Server) isAdmin(email string) bool
 // Get channels user owns
 func (s *Server) getOwnedChannels(ctx, email) ([]string, error)
 
-// Check if user can manage a channel (admin OR owner)
+// Check if user can manage a channel (admin OR owner OR moderator)
+// Use canManageChannelWithTwitch for Twitch-authenticated users
 func (s *Server) canManageChannel(ctx, email, channel) bool
+func (s *Server) canManageChannelWithTwitch(ctx, email, twitchUsername, channel) bool
+
+// Get channels user can manage (owned + moderated)
+func (s *Server) getManageableChannels(ctx, email) ([]string, error)
+func (s *Server) getManageableChannelsWithTwitch(ctx, email, twitchUsername) ([]string, error)
 
 // Check if user can view Nightbot snapshots (admin OR owner OR moderator)
-// Use canViewNightbotChannelWithTwitch for Twitch-authenticated users
 func (s *Server) canViewNightbotChannel(ctx, email, channel) bool
 func (s *Server) canViewNightbotChannelWithTwitch(ctx, email, twitchUsername, channel) bool
 
@@ -79,7 +84,7 @@ func (s *Server) getViewableNightbotChannelsWithTwitch(ctx, email, twitchUsernam
 
 | Capability | Channel Owner | Channel Moderator |
 |------------|---------------|-------------------|
-| Quotes CRUD | ✓ (own channel) | ✗ |
+| Quotes CRUD | ✓ (own channel) | ✓ (assigned channel) |
 | Approve suggestions | ✓ (own channel) | ✗ |
 | View Nightbot snapshots | ✓ | ✓ |
 | Download snapshots | ✓ | ✓ |
