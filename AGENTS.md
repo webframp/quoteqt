@@ -36,10 +36,12 @@ All endpoints under `/api/*` are intended for programmatic access:
 
 All other routes serve HTML pages for browser-based interaction.
 
-### Authentication
+### Authentication & Authorization
 
 - Public routes: `/`, `/browse`, `/api/*`
 - Authenticated routes: `/quotes`, `/civs`, `/suggestions` (require exe.dev login)
+
+**See [RBAC.md](RBAC.md) for the complete role-based access control model.**
 
 #### exe.dev Auth Headers
 
