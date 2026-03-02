@@ -144,7 +144,11 @@
     {{template "nav" .}}
 
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+        {{if or .IsAdmin .IsOwner}}
         <a href="/admin/nightbot" class="back-link" style="margin-bottom: 0;"><i data-lucide="arrow-left"></i> Back to Nightbot</a>
+        {{else}}
+        <a href="/" class="back-link" style="margin-bottom: 0;"><i data-lucide="arrow-left"></i> Home</a>
+        {{end}}
         {{if .IsAdmin}}
         <a href="/admin/nightbot/deleted?channel={{.ChannelName}}" class="btn btn-small btn-secondary"><i data-lucide="trash-2"></i> View Deleted</a>
         {{end}}
