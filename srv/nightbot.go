@@ -964,6 +964,7 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 		IsAdmin         bool
 		IsPublicPage    bool
 		LogoutURL       string
+		UserEmail       string
 	}{
 		ChannelName:     channelName,
 		Snapshots:       snapshots,
@@ -974,6 +975,7 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 		IsAdmin:         s.isAdmin(userEmail),
 		IsPublicPage:    false,
 		LogoutURL:       "/__exe.dev/logout",
+		UserEmail:       userEmail,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1425,6 +1427,7 @@ func (s *Server) HandleNightbotSnapshotCompare(w http.ResponseWriter, r *http.Re
 		IsAdmin         bool
 		IsPublicPage    bool
 		LogoutURL       string
+		UserEmail       string
 	}{
 		ChannelName:     fromSnapshot.ChannelName,
 		FromSnapshot:    fromSnapshot,
@@ -1441,6 +1444,7 @@ func (s *Server) HandleNightbotSnapshotCompare(w http.ResponseWriter, r *http.Re
 		IsAdmin:         true,
 		IsPublicPage:    false,
 		LogoutURL:       "/__exe.dev/logout",
+		UserEmail:       userEmail,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1884,6 +1888,7 @@ func (s *Server) HandleNightbotDeletedSnapshots(w http.ResponseWriter, r *http.R
 		IsAdmin         bool
 		IsPublicPage    bool
 		LogoutURL       string
+		UserEmail       string
 	}{
 		Snapshots:       snapshots,
 		ChannelName:     channelName,
@@ -1893,6 +1898,7 @@ func (s *Server) HandleNightbotDeletedSnapshots(w http.ResponseWriter, r *http.R
 		IsAdmin:         true,
 		IsPublicPage:    false,
 		LogoutURL:       "/__exe.dev/logout",
+		UserEmail:       userEmail,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -2000,6 +2006,7 @@ func (s *Server) HandleNightbotSearch(w http.ResponseWriter, r *http.Request) {
 		IsAdmin         bool
 		IsPublicPage    bool
 		LogoutURL       string
+		UserEmail       string
 	}{
 		Query:           query,
 		ChannelName:     channelName,
@@ -2009,6 +2016,7 @@ func (s *Server) HandleNightbotSearch(w http.ResponseWriter, r *http.Request) {
 		IsAdmin:         true,
 		IsPublicPage:    false,
 		LogoutURL:       "/__exe.dev/logout",
+		UserEmail:       userEmail,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

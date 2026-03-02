@@ -2283,6 +2283,7 @@ func (s *Server) HandleHelp(w http.ResponseWriter, r *http.Request) {
 		IsAdmin         bool
 		LoginURL        string
 		LogoutURL       string
+		UserEmail       string
 	}{
 		Hostname:        "quoteqt.webframp.com",
 		IsPublicPage:    true,
@@ -2290,6 +2291,7 @@ func (s *Server) HandleHelp(w http.ResponseWriter, r *http.Request) {
 		IsAdmin:         false,
 		LoginURL:        loginURLForRequest(r),
 		LogoutURL:       "/__exe.dev/logout",
+		UserEmail:       "",
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -2308,6 +2310,7 @@ func (s *Server) HandleChangelog(w http.ResponseWriter, r *http.Request) {
 		IsAdmin         bool
 		LoginURL        string
 		LogoutURL       string
+		UserEmail       string
 	}{
 		Hostname:        s.Hostname,
 		Changelog:       Changelog,
@@ -2316,6 +2319,7 @@ func (s *Server) HandleChangelog(w http.ResponseWriter, r *http.Request) {
 		IsAdmin:         false,
 		LoginURL:        loginURLForRequest(r),
 		LogoutURL:       "/__exe.dev/logout",
+		UserEmail:       "",
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
