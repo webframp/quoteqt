@@ -43,6 +43,9 @@ All other routes serve HTML pages for browser-based interaction.
 
 **See [RBAC.md](RBAC.md) for the complete role-based access control model.**
 
+> **Keep RBAC.md updated!** When adding new roles, permissions, authorization
+> functions, or access-controlled resources, update RBAC.md in the same commit.
+
 #### exe.dev Auth Headers
 
 When a user is logged in via exe.dev, the proxy sets these headers:
