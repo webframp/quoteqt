@@ -931,18 +931,21 @@ func (s *Server) HandleNightbotSaveSnapshot(w http.ResponseWriter, r *http.Reque
 // HandleNightbotSnapshots shows saved snapshots for a channel
 func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	auth := s.getAuthInfo(r)
 
-	if userEmail == "" {
-		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+	if !auth.IsAuthenticated {
+		// Redirect to Twitch login for moderators, exe.dev for others
+		http.Redirect(w, r, "/auth/twitch?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 		return
 	}
+
+	userEmail := auth.Email // For compatibility with existing code
 
 	channelName := r.URL.Query().Get("channel")
 	if channelName == "" {
 		// For non-admins, redirect to their first viewable channel or show error
-		if !s.isAdmin(userEmail) {
-			channels, _ := s.getViewableNightbotChannels(ctx, userEmail)
+		if !auth.IsAdmin {
+			channels, _ := s.getViewableNightbotChannelsWithTwitch(ctx, auth.Email, auth.TwitchUsername)
 			if len(channels) == 0 {
 				http.Error(w, "No channels available", http.StatusForbidden)
 				return
@@ -955,7 +958,7 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Check channel-level access
-	if !s.canViewNightbotChannel(ctx, userEmail, channelName) {
+	if !s.canViewNightbotChannelWithTwitch(ctx, auth.Email, auth.TwitchUsername, channelName) {
 		http.Error(w, "Access denied for this channel", http.StatusForbidden)
 		return
 	}
@@ -1022,10 +1025,10 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 // HandleNightbotSnapshotDownload downloads a snapshot as JSON
 func (s *Server) HandleNightbotSnapshotDownload(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	auth := s.getAuthInfo(r)
 
-	if userEmail == "" {
-		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+	if !auth.IsAuthenticated {
+		http.Redirect(w, r, "/auth/twitch?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 		return
 	}
 
@@ -1049,7 +1052,7 @@ func (s *Server) HandleNightbotSnapshotDownload(w http.ResponseWriter, r *http.R
 	}
 
 	// Check channel-level access
-	if !s.canViewNightbotChannel(ctx, userEmail, snapshot.ChannelName) {
+	if !s.canViewNightbotChannelWithTwitch(ctx, auth.Email, auth.TwitchUsername, snapshot.ChannelName) {
 		http.Error(w, "Access denied for this channel", http.StatusForbidden)
 		return
 	}
@@ -1293,12 +1296,14 @@ func (s *Server) HandleNightbotSnapshotDiff(w http.ResponseWriter, r *http.Reque
 // HandleNightbotSnapshotCompare compares two snapshots against each other
 func (s *Server) HandleNightbotSnapshotCompare(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	userEmail := strings.TrimSpace(r.Header.Get("X-ExeDev-Email"))
+	auth := s.getAuthInfo(r)
 
-	if userEmail == "" {
-		http.Redirect(w, r, loginURLForRequest(r), http.StatusSeeOther)
+	if !auth.IsAuthenticated {
+		http.Redirect(w, r, "/auth/twitch?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 		return
 	}
+
+	userEmail := auth.Email // For template compatibility
 
 	fromIDStr := r.URL.Query().Get("from")
 	toIDStr := r.URL.Query().Get("to")
@@ -1337,7 +1342,7 @@ func (s *Server) HandleNightbotSnapshotCompare(w http.ResponseWriter, r *http.Re
 	}
 
 	// Check channel-level access
-	if !s.canViewNightbotChannel(ctx, userEmail, fromSnapshot.ChannelName) {
+	if !s.canViewNightbotChannelWithTwitch(ctx, auth.Email, auth.TwitchUsername, fromSnapshot.ChannelName) {
 		http.Error(w, "Access denied for this channel", http.StatusForbidden)
 		return
 	}

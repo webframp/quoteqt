@@ -5,6 +5,10 @@ INSERT INTO nightbot_channel_moderators (channel_name, user_email, added_by)
 VALUES (?, ?, ?)
 ON CONFLICT (channel_name, user_email) DO NOTHING;
 
+-- name: AddChannelModeratorByTwitch :exec
+INSERT INTO nightbot_channel_moderators (channel_name, user_email, twitch_username, added_by)
+VALUES (?, '', ?, ?);
+
 -- name: RemoveChannelModerator :exec
 DELETE FROM nightbot_channel_moderators WHERE id = ?;
 

@@ -32,11 +32,13 @@ type Migration struct {
 }
 
 type NightbotChannelModerator struct {
-	ID          int64     `json:"id"`
-	ChannelName string    `json:"channel_name"`
-	UserEmail   string    `json:"user_email"`
-	AddedBy     string    `json:"added_by"`
-	AddedAt     time.Time `json:"added_at"`
+	ID             int64     `json:"id"`
+	ChannelName    string    `json:"channel_name"`
+	UserEmail      string    `json:"user_email"`
+	AddedBy        string    `json:"added_by"`
+	AddedAt        time.Time `json:"added_at"`
+	TwitchID       *string   `json:"twitch_id"`
+	TwitchUsername *string   `json:"twitch_username"`
 }
 
 type NightbotManagedChannel struct {
@@ -108,6 +110,15 @@ type QuoteSuggestion struct {
 	ReviewedBy      *string    `json:"reviewed_by"`
 	ReviewedAt      *time.Time `json:"reviewed_at"`
 	SubmittedByUser *string    `json:"submitted_by_user"`
+}
+
+type TwitchSession struct {
+	ID             string    `json:"id"`
+	TwitchID       string    `json:"twitch_id"`
+	TwitchUsername string    `json:"twitch_username"`
+	DisplayName    *string   `json:"display_name"`
+	CreatedAt      time.Time `json:"created_at"`
+	ExpiresAt      time.Time `json:"expires_at"`
 }
 
 type User struct {

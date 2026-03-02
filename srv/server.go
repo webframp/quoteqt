@@ -1453,6 +1453,10 @@ func (s *Server) Serve(addr string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.HandleRoot)
 	mux.HandleFunc("GET /health", s.HandleHealth)
+	// Twitch OAuth
+	mux.HandleFunc("GET /auth/twitch", s.HandleTwitchAuth)
+	mux.HandleFunc("GET /auth/twitch/callback", s.HandleTwitchCallback)
+	mux.HandleFunc("GET /auth/logout", s.HandleTwitchLogout)
 	mux.HandleFunc("GET /help", s.HandleHelp)
 	mux.HandleFunc("GET /changelog", s.HandleChangelog)
 	mux.HandleFunc("GET /browse", s.HandleQuotesPublic)
@@ -2045,30 +2049,52 @@ func (s *Server) canManageChannel(ctx context.Context, email, channel string) bo
 // canViewNightbotChannel checks if user can view Nightbot snapshots for a channel.
 // Returns true if user is admin, channel owner, or channel moderator.
 func (s *Server) canViewNightbotChannel(ctx context.Context, email, channel string) bool {
+	return s.canViewNightbotChannelWithTwitch(ctx, email, "", channel)
+}
+
+// canViewNightbotChannelWithTwitch checks access including Twitch username.
+func (s *Server) canViewNightbotChannelWithTwitch(ctx context.Context, email, twitchUsername, channel string) bool {
 	if s.isAdmin(email) {
 		return true
 	}
 	email = strings.ToLower(strings.TrimSpace(email))
+	twitchUsername = strings.ToLower(strings.TrimSpace(twitchUsername))
 	channel = strings.ToLower(strings.TrimSpace(channel))
 
-	// Check if channel owner
-	channels, err := s.getOwnedChannels(ctx, email)
-	if err == nil {
-		for _, ch := range channels {
-			if strings.EqualFold(ch, channel) {
-				return true
+	// Check if channel owner (by email)
+	if email != "" {
+		channels, err := s.getOwnedChannels(ctx, email)
+		if err == nil {
+			for _, ch := range channels {
+				if strings.EqualFold(ch, channel) {
+					return true
+				}
 			}
 		}
 	}
 
-	// Check if channel moderator
 	q := dbgen.New(s.DB)
-	isMod, err := q.IsChannelModerator(ctx, dbgen.IsChannelModeratorParams{
-		ChannelName: channel,
-		UserEmail:   email,
-	})
-	if err == nil && isMod {
-		return true
+
+	// Check if channel moderator by email
+	if email != "" {
+		isMod, err := q.IsChannelModerator(ctx, dbgen.IsChannelModeratorParams{
+			ChannelName: channel,
+			UserEmail:   email,
+		})
+		if err == nil && isMod {
+			return true
+		}
+	}
+
+	// Check if channel moderator by Twitch username
+	if twitchUsername != "" {
+		isMod, err := q.IsChannelModeratorByTwitch(ctx, dbgen.IsChannelModeratorByTwitchParams{
+			ChannelName:    channel,
+			TwitchUsername: &twitchUsername,
+		})
+		if err == nil && isMod == 1 {
+			return true
+		}
 	}
 
 	return false
@@ -2076,23 +2102,44 @@ func (s *Server) canViewNightbotChannel(ctx context.Context, email, channel stri
 
 // getViewableNightbotChannels returns channels user can view (for non-admins).
 func (s *Server) getViewableNightbotChannels(ctx context.Context, email string) ([]string, error) {
+	return s.getViewableNightbotChannelsWithTwitch(ctx, email, "")
+}
+
+// getViewableNightbotChannelsWithTwitch returns viewable channels including Twitch username lookup.
+func (s *Server) getViewableNightbotChannelsWithTwitch(ctx context.Context, email, twitchUsername string) ([]string, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
+	twitchUsername = strings.ToLower(strings.TrimSpace(twitchUsername))
 	channelSet := make(map[string]bool)
 
-	// Add owned channels
-	owned, err := s.getOwnedChannels(ctx, email)
-	if err == nil {
-		for _, ch := range owned {
-			channelSet[strings.ToLower(ch)] = true
+	// Add owned channels (by email)
+	if email != "" {
+		owned, err := s.getOwnedChannels(ctx, email)
+		if err == nil {
+			for _, ch := range owned {
+				channelSet[strings.ToLower(ch)] = true
+			}
 		}
 	}
 
-	// Add moderated channels
 	q := dbgen.New(s.DB)
-	moderated, err := q.GetModeratorChannels(ctx, email)
-	if err == nil {
-		for _, ch := range moderated {
-			channelSet[strings.ToLower(ch)] = true
+
+	// Add moderated channels (by email)
+	if email != "" {
+		moderated, err := q.GetModeratorChannels(ctx, email)
+		if err == nil {
+			for _, ch := range moderated {
+				channelSet[strings.ToLower(ch)] = true
+			}
+		}
+	}
+
+	// Add moderated channels (by Twitch username)
+	if twitchUsername != "" {
+		moderated, err := q.GetModeratorChannelsByTwitch(ctx, &twitchUsername)
+		if err == nil {
+			for _, ch := range moderated {
+				channelSet[strings.ToLower(ch)] = true
+			}
 		}
 	}
 

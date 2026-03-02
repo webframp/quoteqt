@@ -47,21 +47,27 @@ func (s *Server) HandleNightbotModerators(w http.ResponseWriter, r *http.Request
 	}
 
 	type ModeratorView struct {
-		ID          int64
-		ChannelName string
-		UserEmail   string
-		AddedBy     string
-		AddedAt     string
+		ID             int64
+		ChannelName    string
+		UserEmail      string
+		TwitchUsername string
+		AddedBy        string
+		AddedAt        string
 	}
 
 	var modViews []ModeratorView
 	for _, m := range moderators {
+		twitchUsername := ""
+		if m.TwitchUsername != nil {
+			twitchUsername = *m.TwitchUsername
+		}
 		modViews = append(modViews, ModeratorView{
-			ID:          m.ID,
-			ChannelName: m.ChannelName,
-			UserEmail:   m.UserEmail,
-			AddedBy:     m.AddedBy,
-			AddedAt:     formatTimeAgo(m.AddedAt),
+			ID:             m.ID,
+			ChannelName:    m.ChannelName,
+			UserEmail:      m.UserEmail,
+			TwitchUsername: twitchUsername,
+			AddedBy:        m.AddedBy,
+			AddedAt:        formatTimeAgo(m.AddedAt),
 		})
 	}
 
@@ -117,31 +123,55 @@ func (s *Server) HandleNightbotModeratorAdd(w http.ResponseWriter, r *http.Reque
 	}
 
 	channelName := strings.ToLower(strings.TrimSpace(r.FormValue("channel_name")))
+	authType := r.FormValue("auth_type")
 	modEmail := strings.ToLower(strings.TrimSpace(r.FormValue("user_email")))
+	twitchUsername := strings.ToLower(strings.TrimSpace(r.FormValue("twitch_username")))
 
-	if channelName == "" || modEmail == "" {
-		http.Redirect(w, r, "/admin/nightbot/moderators?error="+url.QueryEscape("Channel and email are required"), http.StatusSeeOther)
+	if channelName == "" {
+		http.Redirect(w, r, "/admin/nightbot/moderators?error="+url.QueryEscape("Channel is required"), http.StatusSeeOther)
 		return
 	}
 
 	q := dbgen.New(s.DB)
-	err := q.AddChannelModerator(ctx, dbgen.AddChannelModeratorParams{
-		ChannelName: channelName,
-		UserEmail:   modEmail,
-		AddedBy:     userEmail,
-	})
-	if err != nil {
-		slog.Error("add moderator", "error", err)
-		http.Redirect(w, r, "/admin/nightbot/moderators?error="+url.QueryEscape("Failed to add moderator"), http.StatusSeeOther)
+	var identifier string
+
+	if authType == "twitch" && twitchUsername != "" {
+		// Add by Twitch username
+		err := q.AddChannelModeratorByTwitch(ctx, dbgen.AddChannelModeratorByTwitchParams{
+			ChannelName:    channelName,
+			TwitchUsername: &twitchUsername,
+			AddedBy:        userEmail,
+		})
+		if err != nil {
+			slog.Error("add moderator by twitch", "error", err)
+			http.Redirect(w, r, "/admin/nightbot/moderators?error="+url.QueryEscape("Failed to add moderator"), http.StatusSeeOther)
+			return
+		}
+		identifier = "@" + twitchUsername
+	} else if modEmail != "" {
+		// Add by email
+		err := q.AddChannelModerator(ctx, dbgen.AddChannelModeratorParams{
+			ChannelName: channelName,
+			UserEmail:   modEmail,
+			AddedBy:     userEmail,
+		})
+		if err != nil {
+			slog.Error("add moderator", "error", err)
+			http.Redirect(w, r, "/admin/nightbot/moderators?error="+url.QueryEscape("Failed to add moderator"), http.StatusSeeOther)
+			return
+		}
+		identifier = modEmail
+	} else {
+		http.Redirect(w, r, "/admin/nightbot/moderators?error="+url.QueryEscape("Email or Twitch username is required"), http.StatusSeeOther)
 		return
 	}
 
 	slog.Info("moderator added",
 		"channel", channelName,
-		"moderator", modEmail,
+		"moderator", identifier,
 		"by", userEmail)
 
-	http.Redirect(w, r, "/admin/nightbot/moderators?success="+url.QueryEscape("Added "+modEmail+" as moderator for "+channelName), http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/nightbot/moderators?success="+url.QueryEscape("Added "+identifier+" as moderator for "+channelName), http.StatusSeeOther)
 }
 
 // HandleNightbotModeratorRemove removes a moderator

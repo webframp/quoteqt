@@ -73,11 +73,46 @@
                 </select>
             </div>
             <div class="form-group">
+                <label for="auth_type">Auth Type</label>
+                <select id="auth_type" name="auth_type" onchange="toggleAuthFields()">
+                    <option value="twitch">Twitch Username</option>
+                    <option value="email">Email (exe.dev)</option>
+                </select>
+            </div>
+            <div class="form-group" id="twitch-field">
+                <label for="twitch_username">Twitch Username</label>
+                <input type="text" id="twitch_username" name="twitch_username" placeholder="username" pattern="[a-zA-Z0-9_]+">
+            </div>
+            <div class="form-group" id="email-field" style="display:none;">
                 <label for="user_email">User Email</label>
-                <input type="email" id="user_email" name="user_email" placeholder="user@example.com" required>
+                <input type="email" id="user_email" name="user_email" placeholder="user@example.com">
             </div>
             <button type="submit" class="btn btn-primary"><i data-lucide="plus"></i> Add</button>
         </form>
+        <script>
+        function toggleAuthFields() {
+            const authType = document.getElementById('auth_type').value;
+            const twitchField = document.getElementById('twitch-field');
+            const emailField = document.getElementById('email-field');
+            const twitchInput = document.getElementById('twitch_username');
+            const emailInput = document.getElementById('user_email');
+            
+            if (authType === 'twitch') {
+                twitchField.style.display = '';
+                emailField.style.display = 'none';
+                twitchInput.required = true;
+                emailInput.required = false;
+                emailInput.value = '';
+            } else {
+                twitchField.style.display = 'none';
+                emailField.style.display = '';
+                twitchInput.required = false;
+                emailInput.required = true;
+                twitchInput.value = '';
+            }
+        }
+        toggleAuthFields(); // Initialize on page load
+        </script>
     </div>
 
     <div class="card">
@@ -90,7 +125,11 @@
                     <span class="moderator-channel">{{.ChannelName}}</span>
                 </div>
                 <div>
-                    <span class="moderator-email">{{.UserEmail}}</span>
+                    {{if .TwitchUsername}}
+                    <span class="moderator-email"><i data-lucide="twitch" style="width:14px;height:14px;vertical-align:middle;"></i> {{.TwitchUsername}}</span>
+                    {{else}}
+                    <span class="moderator-email"><i data-lucide="mail" style="width:14px;height:14px;vertical-align:middle;"></i> {{.UserEmail}}</span>
+                    {{end}}
                     <div class="moderator-meta">Added by {{.AddedBy}} · {{.AddedAt}}</div>
                 </div>
                 <form action="/admin/nightbot/moderators/remove" method="POST" style="display:inline;" onsubmit="return confirm('Remove this moderator?');">
@@ -112,6 +151,7 @@
         <h2><i data-lucide="info"></i> About Moderators</h2>
         <p>Moderators can:</p>
         <ul>
+            <li>Sign in via Twitch (no exe.dev account needed)</li>
             <li>View snapshot history for their assigned channels</li>
             <li>View and download snapshots</li>
             <li>Compare diffs between snapshots</li>
@@ -121,6 +161,7 @@
             <li>Create new snapshots</li>
             <li>Restore snapshots to Nightbot</li>
             <li>Delete snapshots</li>
+            <li>Diff against live Nightbot config</li>
             <li>Access other admin features</li>
         </ul>
         <p><strong>Note:</strong> Channel owners automatically have moderator access to their own channels.</p>

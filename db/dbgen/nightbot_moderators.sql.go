@@ -28,8 +28,24 @@ func (q *Queries) AddChannelModerator(ctx context.Context, arg AddChannelModerat
 	return err
 }
 
+const addChannelModeratorByTwitch = `-- name: AddChannelModeratorByTwitch :exec
+INSERT INTO nightbot_channel_moderators (channel_name, user_email, twitch_username, added_by)
+VALUES (?, '', ?, ?)
+`
+
+type AddChannelModeratorByTwitchParams struct {
+	ChannelName    string  `json:"channel_name"`
+	TwitchUsername *string `json:"twitch_username"`
+	AddedBy        string  `json:"added_by"`
+}
+
+func (q *Queries) AddChannelModeratorByTwitch(ctx context.Context, arg AddChannelModeratorByTwitchParams) error {
+	_, err := q.db.ExecContext(ctx, addChannelModeratorByTwitch, arg.ChannelName, arg.TwitchUsername, arg.AddedBy)
+	return err
+}
+
 const getAllModerators = `-- name: GetAllModerators :many
-SELECT id, channel_name, user_email, added_by, added_at FROM nightbot_channel_moderators ORDER BY channel_name, user_email
+SELECT id, channel_name, user_email, added_by, added_at, twitch_id, twitch_username FROM nightbot_channel_moderators ORDER BY channel_name, user_email
 `
 
 func (q *Queries) GetAllModerators(ctx context.Context) ([]NightbotChannelModerator, error) {
@@ -47,6 +63,8 @@ func (q *Queries) GetAllModerators(ctx context.Context) ([]NightbotChannelModera
 			&i.UserEmail,
 			&i.AddedBy,
 			&i.AddedAt,
+			&i.TwitchID,
+			&i.TwitchUsername,
 		); err != nil {
 			return nil, err
 		}
@@ -97,7 +115,7 @@ func (q *Queries) GetAllModeratorsByChannel(ctx context.Context) ([]GetAllModera
 }
 
 const getChannelModerators = `-- name: GetChannelModerators :many
-SELECT id, channel_name, user_email, added_by, added_at FROM nightbot_channel_moderators WHERE channel_name = ? ORDER BY added_at
+SELECT id, channel_name, user_email, added_by, added_at, twitch_id, twitch_username FROM nightbot_channel_moderators WHERE channel_name = ? ORDER BY added_at
 `
 
 func (q *Queries) GetChannelModerators(ctx context.Context, channelName string) ([]NightbotChannelModerator, error) {
@@ -115,6 +133,8 @@ func (q *Queries) GetChannelModerators(ctx context.Context, channelName string) 
 			&i.UserEmail,
 			&i.AddedBy,
 			&i.AddedAt,
+			&i.TwitchID,
+			&i.TwitchUsername,
 		); err != nil {
 			return nil, err
 		}

@@ -1,6 +1,8 @@
 package srv
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"os"
 	"strconv"
 	"time"
@@ -29,6 +31,11 @@ type Config struct {
 	NightbotClientSecret string
 	NightbotImportToken  string // API token for Tampermonkey imports
 	NightbotSessionKey   string // Encryption key for managed channel session tokens
+
+	// Twitch OAuth (for moderator authentication)
+	TwitchClientID     string
+	TwitchClientSecret string
+	SessionSecret      string // Secret for signing session cookies
 }
 
 // DefaultConfig returns a Config with sensible defaults.
@@ -95,6 +102,18 @@ func ConfigFromEnv() Config {
 	cfg.NightbotClientSecret = os.Getenv("NIGHTBOT_CLIENT_SECRET")
 	cfg.NightbotImportToken = os.Getenv("NIGHTBOT_IMPORT_TOKEN")
 	cfg.NightbotSessionKey = os.Getenv("NIGHTBOT_SESSION_KEY")
+
+	cfg.TwitchClientID = os.Getenv("TWITCH_CLIENT_ID")
+	cfg.TwitchClientSecret = os.Getenv("TWITCH_CLIENT_SECRET")
+	cfg.SessionSecret = os.Getenv("SESSION_SECRET")
+	if cfg.SessionSecret == "" {
+		// Generate a random session secret if not provided
+		// In production, this should be set explicitly for persistence across restarts
+		b := make([]byte, 32)
+		if _, err := rand.Read(b); err == nil {
+			cfg.SessionSecret = base64.StdEncoding.EncodeToString(b)
+		}
+	}
 
 	return cfg
 }
