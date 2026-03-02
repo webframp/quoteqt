@@ -138,6 +138,66 @@
         .compare-bar .selection-info strong {
             color: var(--text-primary);
         }
+        /* Zero-diff snapshot collapsing */
+        .snapshot-item.no-changes {
+            opacity: 0.6;
+        }
+        .snapshot-item.no-changes:hover {
+            opacity: 1;
+        }
+        .collapsed-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.15s;
+        }
+        .collapsed-group:hover {
+            background: var(--bg-card-hover);
+        }
+        .collapsed-group-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        .collapsed-group-info i {
+            width: 16px;
+            height: 16px;
+        }
+        .collapsed-group-expand {
+            color: var(--accent);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .collapsed-group-expand i {
+            width: 14px;
+            height: 14px;
+            transition: transform 0.2s;
+        }
+        .collapsed-group.expanded .collapsed-group-expand i {
+            transform: rotate(180deg);
+        }
+        .snapshot-item.grouped {
+            display: none;
+            margin-left: 1rem;
+            opacity: 0.75;
+            border-left: 3px solid var(--accent);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        }
+        .snapshot-item.grouped:hover {
+            opacity: 1;
+        }
+        .snapshot-item.grouped.visible {
+            display: flex;
+        }
     </style>
 </head>
 <body>
@@ -185,9 +245,9 @@
 
     <div class="card">
         {{if .Snapshots}}
-            <ul class="snapshot-list">
+            <ul class="snapshot-list" id="snapshot-list">
                 {{range .Snapshots}}
-                <li class="snapshot-item" data-id="{{.ID}}" data-date="{{.SnapshotAt.Format "Jan 2, 2006 3:04 PM"}}">
+                <li class="snapshot-item" data-id="{{.ID}}" data-date="{{.SnapshotAt.Format "Jan 2, 2006 3:04 PM"}}" data-added="{{if .LastDiffAdded}}{{.LastDiffAdded}}{{else}}0{{end}}" data-removed="{{if .LastDiffRemoved}}{{.LastDiffRemoved}}{{else}}0{{end}}" data-modified="{{if .LastDiffModified}}{{.LastDiffModified}}{{else}}0{{end}}" data-has-diff="{{if .LastDiffAt}}true{{else}}false{{end}}" data-cmd-count="{{.CommandCount}}">
                     <div class="snapshot-left">
                         {{if gt (len $.Snapshots) 1}}
                         <input type="checkbox" class="snapshot-checkbox" value="{{.ID}}" onchange="updateSelection()">
@@ -264,13 +324,95 @@
             document.getElementById('theme-icon').innerHTML = theme === 'light' 
                 ? '<i data-lucide="moon"></i>'
                 : '<i data-lucide="sun"></i>';
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
         (function() {
             const saved = localStorage.getItem('theme') || 'dark';
             document.documentElement.setAttribute('data-theme', saved);
             updateIcon(saved);
         })();
+
+        // Auto-collapse consecutive unchanged snapshots
+        (function() {
+            const list = document.getElementById('snapshot-list');
+            if (!list) return;
+
+            const items = Array.from(list.querySelectorAll('.snapshot-item'));
+            if (items.length < 3) return; // Not enough to collapse
+            
+            // Detect unchanged snapshots:
+            // 1. Those with diff data showing 0 changes
+            // 2. Those with same command count as next (consecutive duplicates)
+            items.forEach((item, i) => {
+                const hasDiff = item.dataset.hasDiff === 'true';
+                if (hasDiff) {
+                    const added = parseInt(item.dataset.added) || 0;
+                    const removed = parseInt(item.dataset.removed) || 0;
+                    const modified = parseInt(item.dataset.modified) || 0;
+                    if (added === 0 && removed === 0 && modified === 0) {
+                        item.classList.add('no-changes');
+                        return;
+                    }
+                }
+                // For snapshots without diff data, check if command count matches next snapshot
+                if (!hasDiff && i < items.length - 1) {
+                    const thisCount = parseInt(item.dataset.cmdCount) || 0;
+                    const nextCount = parseInt(items[i + 1].dataset.cmdCount) || 0;
+                    if (thisCount === nextCount && thisCount > 0) {
+                        item.classList.add('no-changes');
+                    }
+                }
+            });
+
+            // Group consecutive unchanged snapshots (minimum 2 to form a group)
+            let currentGroup = [];
+
+            function createCollapsedGroup(groupItems) {
+                if (groupItems.length < 2) return;
+                
+                const group = document.createElement('li');
+                group.className = 'collapsed-group';
+                const newestDate = groupItems[0].dataset.date;
+                const oldestDate = groupItems[groupItems.length - 1].dataset.date;
+                
+                group.innerHTML = `
+                    <div class="collapsed-group-info">
+                        <i data-lucide="layers"></i>
+                        <span>${groupItems.length} snapshots with no changes</span>
+                        <span style="opacity: 0.7">(${oldestDate} → ${newestDate})</span>
+                    </div>
+                    <div class="collapsed-group-expand">
+                        <span>show</span>
+                        <i data-lucide="chevron-down"></i>
+                    </div>
+                `;
+                
+                group.onclick = function() {
+                    const expanded = this.classList.toggle('expanded');
+                    this.querySelector('.collapsed-group-expand span').textContent = expanded ? 'hide' : 'show';
+                    // Toggle grouped items
+                    groupItems.forEach(item => item.classList.toggle('visible', expanded));
+                };
+
+                // Insert before first item in group and hide the grouped items
+                groupItems[0].parentNode.insertBefore(group, groupItems[0]);
+                groupItems.forEach(item => item.classList.add('grouped'));
+            }
+
+            items.forEach((item, i) => {
+                if (item.classList.contains('no-changes')) {
+                    currentGroup.push(item);
+                } else {
+                    createCollapsedGroup(currentGroup);
+                    currentGroup = [];
+                }
+            });
+            createCollapsedGroup(currentGroup); // Handle trailing group
+
+            // Re-init lucide icons for the new elements
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        })();
+
 
         // Comparison selection logic
         var selectedSnapshots = [];
