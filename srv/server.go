@@ -2347,6 +2347,7 @@ func (s *Server) HandleSuggestForm(w http.ResponseWriter, r *http.Request) {
 		IsAdmin         bool
 		LoginURL        string
 		LogoutURL       string
+		UserEmail       string
 	}{
 		Hostname:        s.Hostname,
 		Civs:            civs,
@@ -2355,6 +2356,7 @@ func (s *Server) HandleSuggestForm(w http.ResponseWriter, r *http.Request) {
 		IsAdmin:         false,
 		LoginURL:        loginURLForRequest(r),
 		LogoutURL:       "/__exe.dev/logout",
+		UserEmail:       "",
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

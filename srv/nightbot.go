@@ -1261,6 +1261,7 @@ func (s *Server) HandleNightbotSnapshotDiff(w http.ResponseWriter, r *http.Reque
 		IsAdmin          bool
 		IsPublicPage     bool
 		LogoutURL        string
+		UserEmail        string
 	}{
 		ChannelName:      snapshot.ChannelName,
 		SnapshotAt:       snapshot.SnapshotAt.Format("Jan 2, 2006 3:04 PM"),
@@ -1277,6 +1278,7 @@ func (s *Server) HandleNightbotSnapshotDiff(w http.ResponseWriter, r *http.Reque
 		IsAdmin:          true,
 		IsPublicPage:     false,
 		LogoutURL:        "/__exe.dev/logout",
+		UserEmail:        userEmail,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
