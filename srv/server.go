@@ -82,6 +82,7 @@ type pageData struct {
 	HasNext    bool
 	// Authorization
 	IsAdmin         bool
+	IsOwner         bool // true if user owns at least one channel
 	IsAuthenticated bool
 	IsPublicPage    bool
 	OwnedChannels   []string
@@ -264,6 +265,10 @@ func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get owned channels (for IsOwner flag in nav)
+	ownedChannels, _ := s.getOwnedChannels(ctx, auth.Email)
+	isOwner := len(ownedChannels) > 0
+
 	// Get channels this user can manage (owned + moderated)
 	manageableChannels, _ := s.getManageableChannelsWithTwitch(ctx, auth.Email, auth.TwitchUsername)
 
@@ -311,6 +316,7 @@ func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 		Quotes:          quotesToViews(quotes),
 		Success:         r.URL.Query().Get("success"),
 		IsAdmin:         auth.IsAdmin,
+		IsOwner:         isOwner,
 		IsAuthenticated: true,
 		OwnedChannels:   manageableChannels,
 	}
@@ -1826,6 +1832,10 @@ func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get owned channels (for IsOwner flag in nav)
+	ownedChannels, _ := s.getOwnedChannels(ctx, auth.Email)
+	isOwner := len(ownedChannels) > 0
+
 	// Get channels this user can manage (owned + moderated)
 	manageableChannels, _ := s.getManageableChannelsWithTwitch(ctx, auth.Email, auth.TwitchUsername)
 
@@ -1869,6 +1879,7 @@ func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 		LogoutURL       string
 		Suggestions     []dbgen.QuoteSuggestion
 		IsAdmin         bool
+		IsOwner         bool
 		IsAuthenticated bool
 		IsPublicPage    bool
 		OwnedChannels   []string
@@ -1878,6 +1889,7 @@ func (s *Server) HandleListSuggestions(w http.ResponseWriter, r *http.Request) {
 		LogoutURL:       logoutURL,
 		Suggestions:     suggestions,
 		IsAdmin:         auth.IsAdmin,
+		IsOwner:         isOwner,
 		IsAuthenticated: true,
 		IsPublicPage:    false,
 		OwnedChannels:   manageableChannels,

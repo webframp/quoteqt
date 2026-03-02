@@ -6,7 +6,7 @@
     {{end}}
     {{if .IsAuthenticated}}
         <a href="/quotes">Quotes</a>
-        <a href="/civs">Civilizations</a>
+        {{if or .IsAdmin .IsOwner}}<a href="/civs">Civilizations</a>{{end}}
         <a href="/suggestions">Suggestions</a>
         {{if .IsAdmin}}<a href="/admin/owners">Owners</a>{{end}}
         {{if .IsAdmin}}<a href="/admin/users">Users</a>{{end}}

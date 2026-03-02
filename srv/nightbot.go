@@ -987,6 +987,16 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 	// HasAPI means we can compare against live - either OAuth or managed channel
 	hasAPI := hasOAuth || isManaged
 
+	// Get owned channels (for IsOwner flag in nav)
+	ownedChannels, _ := s.getOwnedChannels(ctx, auth.Email)
+	isOwner := len(ownedChannels) > 0
+
+	// Determine logout URL based on auth method
+	logoutURL := "/__exe.dev/logout"
+	if auth.AuthMethod == "twitch" {
+		logoutURL = "/auth/logout"
+	}
+
 	data := struct {
 		ChannelName     string
 		Snapshots       []dbgen.NightbotSnapshot
@@ -997,6 +1007,7 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 		Error           string
 		IsAuthenticated bool
 		IsAdmin         bool
+		IsOwner         bool
 		IsPublicPage    bool
 		LogoutURL       string
 		UserEmail       string
@@ -1009,10 +1020,11 @@ func (s *Server) HandleNightbotSnapshots(w http.ResponseWriter, r *http.Request)
 		Success:         r.URL.Query().Get("success"),
 		Error:           r.URL.Query().Get("error"),
 		IsAuthenticated: true,
-		IsAdmin:         s.isAdmin(userEmail),
+		IsAdmin:         auth.IsAdmin,
+		IsOwner:         isOwner,
 		IsPublicPage:    false,
-		LogoutURL:       "/__exe.dev/logout",
-		UserEmail:       userEmail,
+		LogoutURL:       logoutURL,
+		UserEmail:       auth.DisplayIdentity(),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1303,8 +1315,6 @@ func (s *Server) HandleNightbotSnapshotCompare(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	userEmail := auth.Email // For template compatibility
-
 	fromIDStr := r.URL.Query().Get("from")
 	toIDStr := r.URL.Query().Get("to")
 	if fromIDStr == "" || toIDStr == "" {
@@ -1452,6 +1462,16 @@ func (s *Server) HandleNightbotSnapshotCompare(w http.ResponseWriter, r *http.Re
 		return diffs[i].Name < diffs[j].Name
 	})
 
+	// Get owned channels (for IsOwner flag in nav)
+	ownedChannels, _ := s.getOwnedChannels(ctx, auth.Email)
+	isOwner := len(ownedChannels) > 0
+
+	// Determine logout URL based on auth method
+	logoutURL := "/__exe.dev/logout"
+	if auth.AuthMethod == "twitch" {
+		logoutURL = "/auth/logout"
+	}
+
 	data := struct {
 		ChannelName     string
 		FromSnapshot    dbgen.NightbotSnapshot
@@ -1466,6 +1486,7 @@ func (s *Server) HandleNightbotSnapshotCompare(w http.ResponseWriter, r *http.Re
 		HasChanges      bool
 		IsAuthenticated bool
 		IsAdmin         bool
+		IsOwner         bool
 		IsPublicPage    bool
 		LogoutURL       string
 		UserEmail       string
@@ -1482,10 +1503,11 @@ func (s *Server) HandleNightbotSnapshotCompare(w http.ResponseWriter, r *http.Re
 		Unchanged:       unchanged,
 		HasChanges:      added > 0 || removed > 0 || modified > 0,
 		IsAuthenticated: true,
-		IsAdmin:         true,
+		IsAdmin:         auth.IsAdmin,
+		IsOwner:         isOwner,
 		IsPublicPage:    false,
-		LogoutURL:       "/__exe.dev/logout",
-		UserEmail:       userEmail,
+		LogoutURL:       logoutURL,
+		UserEmail:       auth.DisplayIdentity(),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
