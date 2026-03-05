@@ -14,6 +14,31 @@ See README.md for full documentation.
 **Read CONTRACT.md first.** It defines inviolable rules around database safety,
 API stability, and security. Violations must be escalated, not worked around.
 
+## Development Workflow
+
+**Always use Makefile targets** instead of raw CLI commands:
+
+| Task | Command | Notes |
+|------|---------|-------|
+| Build | `make build` | Builds to `bin/srv` with version info |
+| Build + Restart | `make restart` | Rebuilds and restarts systemd service |
+| Run tests | `make test-unit` | Unit tests only |
+| Integration tests | `make test-integration` | Requires server running |
+| Regenerate swagger | `make swagger` | After modifying API handlers |
+| Quick load test | `make load-quick` | 100 requests, 5 concurrent |
+
+**Why?** The Makefile embeds version/commit info via ldflags. Running `go build` directly skips this, leading to missing version info and potential confusion about which code is deployed.
+
+```bash
+# ✅ Correct
+make build
+make restart
+
+# ❌ Avoid
+go build ./...
+go build -o bin/srv ./cmd/srv
+```
+
 ## Tech Stack
 
 - **Go 1.25+** - Backend server
