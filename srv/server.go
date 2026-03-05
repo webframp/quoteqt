@@ -220,13 +220,39 @@ func (s *Server) HandleRoot(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func quotesToViews(quotes []dbgen.Quote) []QuoteView {
+// maskEmail masks an email address for privacy, e.g. "sean.escriva@gmail.com" -> "s***a@gmail.com"
+func maskEmail(email string) string {
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return email // not a valid email format, return as-is
+	}
+	local := parts[0]
+	domain := parts[1]
+
+	if len(local) <= 2 {
+		return local[:1] + "***@" + domain
+	}
+	return local[:1] + "***" + local[len(local)-1:] + "@" + domain
+}
+
+func quotesToViews(quotes []dbgen.Quote, currentUserEmail string) []QuoteView {
 	views := make([]QuoteView, len(quotes))
 	for i, q := range quotes {
-		createdBy := q.UserID
+		var createdBy string
+		quoteEmail := ""
 		if q.CreatedByEmail != nil && *q.CreatedByEmail != "" {
-			createdBy = *q.CreatedByEmail
+			quoteEmail = *q.CreatedByEmail
 		}
+
+		// Show "you" if this is the current user's quote
+		if currentUserEmail != "" && strings.EqualFold(quoteEmail, currentUserEmail) {
+			createdBy = "you"
+		} else if quoteEmail != "" {
+			createdBy = maskEmail(quoteEmail)
+		} else {
+			createdBy = q.UserID // fallback to user ID
+		}
+
 		views[i] = QuoteView{
 			ID:        q.ID,
 			Text:      q.Text,
@@ -313,7 +339,7 @@ func (s *Server) HandleQuotes(w http.ResponseWriter, r *http.Request) {
 		UserID:          auth.UserID,
 		LoginURL:        loginURLForRequest(r),
 		LogoutURL:       logoutURL,
-		Quotes:          quotesToViews(quotes),
+		Quotes:          quotesToViews(quotes, auth.Email),
 		Success:         r.URL.Query().Get("success"),
 		IsAdmin:         auth.IsAdmin,
 		IsOwner:         isOwner,
@@ -997,7 +1023,7 @@ func (s *Server) HandleQuotesPublic(w http.ResponseWriter, r *http.Request) {
 		UserID:          userID,
 		LoginURL:        loginURLForRequest(r),
 		LogoutURL:       "/__exe.dev/logout",
-		Quotes:          quotesToViews(quotes),
+		Quotes:          quotesToViews(quotes, userEmail),
 		QuoteCount:      count,
 		Page:            page,
 		PageSize:        defaultPageSize,

@@ -98,7 +98,7 @@ func TestQuotesToViews(t *testing.T) {
 		{ID: 2, Text: "No author", Author: nil, Civilization: nil, OpponentCiv: nil},
 	}
 
-	result := quotesToViews(input)
+	result := quotesToViews(input, "")
 
 	if len(result) != 2 {
 		t.Fatalf("expected 2 views, got %d", len(result))
@@ -145,6 +145,29 @@ func TestFormatTimeAgo(t *testing.T) {
 			result := formatTimeAgo(tt.time)
 			if result != tt.expected {
 				t.Errorf("formatTimeAgo(%v) = %q, want %q", tt.time, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestMaskEmail(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"sean.escriva@gmail.com", "s***a@gmail.com"},
+		{"ab@example.com", "a***@example.com"}, // 2-char local part shows first char only
+		{"a@example.com", "a***@example.com"},
+		{"test@domain.org", "t***t@domain.org"},
+		{"notanemail", "notanemail"},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := maskEmail(tt.input)
+			if result != tt.expected {
+				t.Errorf("maskEmail(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
 	}
